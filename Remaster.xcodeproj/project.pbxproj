@@ -8,6 +8,8 @@
 
 /* Begin PBXFileReference section */
 		2E5098F630660D1500D79250 /* Remaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Remaster.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E50990430660D1600D79250 /* Remaster.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Remaster.xcconfig; sourceTree = "<group>"; };
+		2E50990530660D1600D79250 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +33,7 @@
 			isa = PBXGroup;
 			children = (
 				2E5098F830660D1500D79250 /* Remaster */,
+				2E50990630660D1600D79250 /* Config */,
 				2E5098F730660D1500D79250 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +44,15 @@
 				2E5098F630660D1500D79250 /* Remaster.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		2E50990630660D1600D79250 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2E50990430660D1600D79250 /* Remaster.xcconfig */,
+				2E50990530660D1600D79250 /* Info.plist */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -238,6 +250,7 @@
 		};
 		2E50990230660D1600D79250 /* Debug configuration for PBXNativeTarget "Remaster" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E50990430660D1600D79250 /* Remaster.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -246,6 +259,8 @@
 				DEVELOPMENT_TEAM = 3S8XC6A264;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan barcodes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -270,6 +285,7 @@
 		};
 		2E50990330660D1600D79250 /* Release configuration for PBXNativeTarget "Remaster" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E50990430660D1600D79250 /* Remaster.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -278,6 +294,8 @@
 				DEVELOPMENT_TEAM = 3S8XC6A264;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan barcodes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

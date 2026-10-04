@@ -1,0 +1,3 @@
+// Base build settings for the Remaster target.
+// Secrets live in Secrets.xcconfig (gitignored). Copy Secrets.example.xcconfig to create it.
+#include? "Secrets.xcconfig"

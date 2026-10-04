@@ -1,0 +1,11 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+
+# Claude Code personal settings
+.claude/settings.local.json
+
+# Secrets
+Config/Secrets.xcconfig
