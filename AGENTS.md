@@ -7,6 +7,18 @@ This file is the shared context for agents working in this repo: how to build an
 
 ---
 
+## Ground rule: agents never write code
+
+The owner writes all of the app's code by hand. This rule overrides any other instruction, skill, or command.
+
+- **Never write, generate, or edit code.** This covers Swift and any other source, project files (`project.pbxproj`, entitlements, Info.plist), build settings, and tests. Don't use `Edit`/`Write` or the Xcode write tools (`XcodeWrite`, `XcodeUpdate`, `XcodeInsertFile`, `AddEntitlement`, `AddInfoPlist`, `RunCodeSnippet`, …) on code.
+- **Never give code snippets,** including one-liners, pseudo-code that's really Swift, "here's roughly what it looks like" examples, and diffs.
+- **When asked for help, point the way.** Explain the concept, name the relevant API, type, or modifier, link Apple's documentation, ask a guiding question, or describe the steps in prose. Name the file and line to look at instead of showing the change.
+- **Reviews are welcome, but say what's wrong without writing the fix.** Reviewing code and PRs is in scope. Describe each problem (`file:line`, what's wrong, why, and which direction to fix it in) without writing the fixed code.
+- **Everything around the code is in scope:** stories and acceptance criteria, Jira, designs and mockups, documentation (including this file), agent config, research, builds, and reading code and build logs to diagnose problems.
+
+If a request would need code written, say so and offer guidance instead.
+
 ## Working in this repo
 
 SwiftUI iOS app (iOS 27 deployment target, Swift 5 language mode).
@@ -28,6 +40,11 @@ There is no test target yet.
 ### Conventions
 - Use the Observation framework (`@Observable`, `@ObservationIgnored`) rather than `ObservableObject`.
 - Keep new source files in `Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `Remaster/` (they'd be copied into the bundle as resources).
+
+### Agent config
+- `CLAUDE.md` (which imports this file) and `.claude/` (`settings.json`, `commands/`) are shared by Claude Code in the terminal and the Claude agent inside Xcode. Both run from the repo root.
+- Xcode's agent keeps its user-level config in `~/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/`, not `~/.claude/`. Anything that should apply in both places belongs in the repo.
+- Inside Xcode, prefer the `mcp__xcode-tools__*` tools (`BuildProject`, `XcodeRead`, etc.) over shell `xcodebuild`.
 
 ### Secrets
 - API keys go in `Config/Secrets.xcconfig` (gitignored; template in `Config/Secrets.example.xcconfig`), included by `Config/Remaster.xcconfig`.

@@ -9,10 +9,41 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "mcp__xcode-tools__XcodeRead",
+      "mcp__xcode-tools__XcodeGlob",
+      "mcp__xcode-tools__XcodeGrep",
+      "mcp__xcode-tools__XcodeLS",
+      "mcp__xcode-tools__XcodeGetCurrentFile",
+      "mcp__xcode-tools__XcodeListWindows",
+      "mcp__xcode-tools__XcodeListNavigatorIssues",
+      "mcp__xcode-tools__XcodeRefreshCodeIssuesInFile",
+      "mcp__xcode-tools__BuildProject",
+      "mcp__xcode-tools__GetBuildLog",
+      "mcp__xcode-tools__GetTestList",
+      "mcp__xcode-tools__DocumentationSearch",
+      "mcp__xcode-tools__RenderPreview"
     ],
     "deny": [
-      "Read(./**/*.xcuserstate)"
+      "Read(./**/*.xcuserstate)",
+      "Read(./Config/Secrets.xcconfig)",
+      "Edit(./Remaster/**)",
+      "Write(./Remaster/**)",
+      "Edit(./Remaster.xcodeproj/**)",
+      "Write(./Remaster.xcodeproj/**)",
+      "Edit(./Config/**)",
+      "Write(./Config/**)",
+      "Edit(**/*.swift)",
+      "Write(**/*.swift)",
+      "mcp__xcode-tools__XcodeWrite",
+      "mcp__xcode-tools__XcodeUpdate",
+      "mcp__xcode-tools__XcodeInsertFile",
+      "mcp__xcode-tools__XcodeMV",
+      "mcp__xcode-tools__XcodeRM",
+      "mcp__xcode-tools__XcodeMakeDir",
+      "mcp__xcode-tools__AddEntitlement",
+      "mcp__xcode-tools__AddInfoPlist",
+      "mcp__xcode-tools__RunCodeSnippet"
     ]
   }
 }
