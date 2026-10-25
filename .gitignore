@@ -8,7 +8,15 @@ build/
 .claude/settings.local.json
 
 # Secrets
-Config/Secrets.xcconfig
+ios/Config/Secrets.xcconfig
 
 # macOS
 .DS_Store
+
+# Node / NestJS
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example

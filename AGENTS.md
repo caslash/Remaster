@@ -11,7 +11,7 @@ This file is the shared context for agents working in this repo: how to build an
 
 The owner writes all of the app's code by hand. This rule overrides any other instruction, skill, or command.
 
-- **Never write, generate, or edit code.** This covers Swift and any other source, project files (`project.pbxproj`, entitlements, Info.plist), build settings, and tests. Don't use `Edit`/`Write` or the Xcode write tools (`XcodeWrite`, `XcodeUpdate`, `XcodeInsertFile`, `AddEntitlement`, `AddInfoPlist`, `RunCodeSnippet`, …) on code.
+- **Never write, generate, or edit code.** This covers Swift, TypeScript, and any other source, project files (`project.pbxproj`, entitlements, Info.plist, `package.json`, `tsconfig.json`, `nest-cli.json`), build settings, and tests. Don't run code generators either (`nest new`, `nest generate`, …). Don't use `Edit`/`Write` or the Xcode write tools (`XcodeWrite`, `XcodeUpdate`, `XcodeInsertFile`, `AddEntitlement`, `AddInfoPlist`, `RunCodeSnippet`, …) on code.
 - **Never give code snippets,** including one-liners, pseudo-code that's really Swift, "here's roughly what it looks like" examples, and diffs.
 - **When asked for help, point the way.** Explain the concept, name the relevant API, type, or modifier, link Apple's documentation, ask a guiding question, or describe the steps in prose. Name the file and line to look at instead of showing the change.
 - **Reviews are welcome, but say what's wrong without writing the fix.** Reviewing code and PRs is in scope. Describe each problem (`file:line`, what's wrong, why, and which direction to fix it in) without writing the fixed code.
@@ -21,25 +21,36 @@ If a request would need code written, say so and offer guidance instead.
 
 ## Working in this repo
 
-SwiftUI iOS app (iOS 27 deployment target, Swift 5 language mode).
+Monorepo with two projects:
 
-### Layout
-- `Remaster/RemasterApp.swift` — app entry point
-- `Remaster/ContentView.swift` — main screen
-- `Remaster/ContentViewModel.swift` — `@Observable` view model; barcode lookup over `URLSession` + Combine
-- `Remaster/BarcodeScanner.swift` — camera barcode scanner
-- `Config/` — xcconfig files and the partial Info.plist (see Secrets)
-- Single target / scheme: `Remaster`
+- `ios/` — SwiftUI iOS app (iOS 27 deployment target, Swift 5 language mode)
+- `backend/` — NestJS v12 API, hosted on Railway (not scaffolded yet)
 
-### Build
+Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore` live at the repo root.
+
+### iOS layout
+- `ios/Remaster.xcodeproj` — Xcode project; single target / scheme: `Remaster`
+- `ios/Remaster/RemasterApp.swift` — app entry point
+- `ios/Remaster/ContentView.swift` — main screen
+- `ios/Remaster/ContentViewModel.swift` — `@Observable` view model; barcode lookup over `URLSession` + Combine
+- `ios/Remaster/BarcodeScanner.swift` — camera barcode scanner
+- `ios/Config/` — xcconfig files and the partial Info.plist (see Secrets)
+
+### iOS build
+From the repo root:
 ```sh
-xcodebuild -scheme Remaster -destination 'generic/platform=iOS Simulator' build
+xcodebuild -project ios/Remaster.xcodeproj -scheme Remaster -destination 'generic/platform=iOS Simulator' build
 ```
 There is no test target yet.
 
-### Conventions
+### iOS conventions
 - Use the Observation framework (`@Observable`, `@ObservationIgnored`) rather than `ObservableObject`.
-- Keep new source files in `Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `Remaster/` (they'd be copied into the bundle as resources).
+- Keep new source files in `ios/Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
+
+### Backend
+- NestJS v12 in `backend/`; the owner scaffolds it with the Nest CLI. See `backend/README.md` and section 3.
+- Railway deploys it with the service root directory set to `backend/`.
+- Third-party keys live in Railway service variables; locally in `backend/.env` (gitignored). Never commit them.
 
 ### Agent config
 - `CLAUDE.md` (which imports this file) and `.claude/` (`settings.json`, `commands/`) are shared by Claude Code in the terminal and the Claude agent inside Xcode. Both run from the repo root.
@@ -47,8 +58,8 @@ There is no test target yet.
 - Inside Xcode, prefer the `mcp__xcode-tools__*` tools (`BuildProject`, `XcodeRead`, etc.) over shell `xcodebuild`.
 
 ### Secrets
-- API keys go in `Config/Secrets.xcconfig` (gitignored; template in `Config/Secrets.example.xcconfig`), included by `Config/Remaster.xcconfig`.
-- They reach code via `Config/Info.plist` (merged with the generated Info.plist) and `Bundle.main.object(forInfoDictionaryKey:)`. Never hardcode keys in Swift.
+- iOS API keys go in `ios/Config/Secrets.xcconfig` (gitignored; template in `ios/Config/Secrets.example.xcconfig`), included by `ios/Config/Remaster.xcconfig`.
+- They reach code via `ios/Config/Info.plist` (merged with the generated Info.plist) and `Bundle.main.object(forInfoDictionaryKey:)`. Never hardcode keys in Swift.
 - **Known PoC gap:** the app currently calls UPCMDB directly, so the UPCMDB key ships inside the app binary. The target architecture (section 3) routes lookups through the backend, which holds third-party keys; App Attest protects the backend.
 
 ---
