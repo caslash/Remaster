@@ -88,7 +88,7 @@ Existing apps (CLZ Movies, iCollect Movies, Disc Bin, Slipcover, Libib) are inve
 - The server drops client IP addresses and does not read or log them.
 
 **Proposed**
-- Ensure the whole hosting stack (load balancer, CDN, host) also has IP/path logging disabled, so the no-logging promise holds end to end.
+- Ensure the whole hosting stack (load balancer, CDN, host) also has IP/path logging disabled, so the no-logging promise holds end to end. On Railway this means confirming what its built-in HTTP request logs record and whether they can be turned off (RMSTR-10).
 - Privacy policy wording: "We don't collect or store what you look up." (A trust-based guarantee; the server could in principle see lookups but is built not to.)
 - Optional future upgrade to a structural guarantee: clients download a shared "changes since version X" catalog feed and match locally, so recurring checks never send title IDs.
 - Use Apple App Attest (and Play Integrity on Android, if built) so the server can verify requests come from a genuine app without identifying the user, and to prevent scraping of the edition database through the API.
@@ -115,6 +115,7 @@ Any story that sends data off the device must state what is sent and confirm it 
 - **Proposed:** All personal matching (library vs. available editions, alert rules) happens on device. Notifications are local notifications, triggered after the app pulls new data.
 
 ### Backend
+- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is not chosen yet.
 - **Decided:** A hosted service that queries TMDB, a UPC lookup service (UPCMDB), and possibly scrapes Blu-ray.com. The edition database is filled **on demand** over time rather than enumerated up front; it will later be crowdsourced. The server runs in the background filling in upgrade data, and clients receive it as it comes in.
 - **Proposed:**
   - **Normalization on the server.** Raw source responses are mapped into the app's own edition schema once, server-side. Clients only ever see the normalized schema. Keep the raw JSON alongside each normalized record so it can be reprocessed when mapping improves.
