@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UpcController } from './upc.controller';
+import { UpcController } from '@/upc/upc.controller';
 
 describe('UpcController', () => {
   let controller: UpcController;

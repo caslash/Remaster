@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import validbarcode = require('barcode-validator');
-import { Edition } from './types/edition';
+import { Edition } from '@/upc/types/edition';
 
 @Injectable()
 export class UpcService {
@@ -29,7 +29,7 @@ export class UpcService {
     }
   }
 
-  private async fetchUPC(upc: string): Promise<Record<any, any>> {
+  private async fetchUPC(upc: string): Promise<unknown> {
     if (!validbarcode(upc)) throw new BadRequestException('Invalid Barcode');
 
     const upcmdbURL = this.configService.get<string>('UPCMDB_LOOKUP_URL') ?? '';
@@ -57,7 +57,7 @@ export class UpcService {
     return response.json();
   }
 
-  private normalizeResponse(title: Record<any, any>): Edition {
+  private normalizeResponse(title: unknown): Edition {
     return {
       id: '',
       barcodes: {

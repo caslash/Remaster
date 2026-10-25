@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { UpcService } from './upc.service';
-import { Edition } from './types/edition';
+import { UpcService } from '@/upc/upc.service';
+import { Edition } from '@/upc/types/edition';
 
 @Controller('upc')
 export class UpcController {

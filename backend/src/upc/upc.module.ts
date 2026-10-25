@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { UpcController } from './upc.controller';
-import { UpcService } from './upc.service';
+import { UpcController } from '@/upc/upc.controller';
+import { UpcService } from '@/upc/upc.service';
 
 @Module({
   controllers: [UpcController],
