@@ -150,20 +150,22 @@ Any story that sends data off the device must state what is sent and confirm it 
 | **TheDiscDB** | Cross-reference only | Open, community-run, ripper-oriented (disc hashes, track layouts), not retail editions. Treat as a possible partner, not an automated source. |
 | **Crowdsourcing** (later) | Filling gaps, corrections | See section 6. |
 
-### Observed UPCMDB quirks (from the PoC)
+### Observed UPCMDB quirks
 
-Raw UPCMDB records do not share a consistent schema; fields vary record by record (it appears to merge different upstream sources). Seen so far:
+Raw UPCMDB records do not share a consistent schema; fields vary record by record (it appears to merge different upstream sources). Recorded responses live in `backend/src/upc/mock/`. Seen so far:
 
-- Booleans arrive as both real booleans (`"steelbook": true`) and strings (`"collectors_edition": "true"`, `"limited_edition": "null"`).
-- Format values are inconsistent (`"UHD4K"` vs. `"4KUHD"`).
+- **Two record families.** Rich records (Blu-ray.com style) have real booleans, `hdr`, `discs`, `playback`, `packaging`, `releaseDate`, `resolution`. Thin records (OMDb style) have `"null"` strings, `type`, `altYear`, and no disc, HDR or packaging details.
+- Booleans arrive as both real booleans (`"steelbook": true`) and strings (`"collectors_edition": "true"`, `"limited_edition": "null"`). `slipcover` can also be descriptive text ("Slipcover in original pressing").
+- Format values are inconsistent (`"4KUHD"`, `"UHD4K"`, `"BLURAY"`, `"DVD"`).
 - Some records have no `hdr` field at all; others have `"hdr": "Dolby Vision, HDR10"` as a comma-separated string.
-- Numbers and dates are strings (`"runtime": "279"`, `"releaseDate": "Dec 03, 2024"`).
-- Misspelled keys exist (`metacriciUrl`).
-- Some records are rich (audio, discs, packaging, region, codec); others are thin retail listings.
+- Numbers and dates are strings, in more than one format (`"runtime": "297"` vs. `"90 min"`, `"releaseDate": "Dec 03, 2024"`). Thin TV records give the runtime of one episode, rich ones the total.
+- The `discs` format labels don't reliably show combo packs ("4K Ultra HD | Blu-ray Disc" can mean two 4K discs); the per-disc regions in `playback` do.
+- Movie vs. TV comes from `type`, `omdbType` or `seriesInfo`, and some records have none of them. `imdbID` is also missing on some records.
+- Misspelled keys exist (`metacricitUrl`, alongside the correct `metacriticUrl` on other records).
 
-Example records scanned in the PoC: *WandaVision: The Complete Series* 4K collector's edition (thin record, no HDR field), *Hawkeye: The Complete First Season* 4K steelbook (rich record with Dolby Vision, HDR10, packaging, region free).
+Example records: *WandaVision: The Complete Series* 4K collector's edition (rich: HDR10, steelbook, two 4K discs), *Loki: The Complete Second Season* 4K steelbook (rich: Dolby Vision, HDR10, region free, but no `imdbID` or type), *Barnyard* Blu-ray (thin). When first scanned in the PoC, WandaVision came back thin with no `hdr` field, so UPCMDB records can gain fields over time.
 
-Decode defensively, key decoding off real responses rather than docs, and log any response that fails to decode.
+Decode defensively, key decoding off real responses rather than docs, and log any response that fails to decode. The normalized schema and the full mapping rules are in `backend/docs/edition-schema.md`.
 
 ---
 
