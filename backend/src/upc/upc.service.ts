@@ -1,37 +1,46 @@
 import {
-  BadRequestException,
+  BadGatewayException,
+  GatewayTimeoutException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
-  RequestTimeoutException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import validbarcode = require('barcode-validator');
 import { Edition } from '@/upc/types/edition';
+import { BarcodeShape } from '@/upc/types/barcode-shape';
+import { isRecord, normalizeUPC } from '@/upc/utils/upc.utils';
 
 @Injectable()
 export class UpcService {
   private readonly logger = new Logger(UpcService.name);
   constructor(private configService: ConfigService) {}
 
-  public async getTitle(upc: string): Promise<Edition | undefined> {
+  public async getTitle(
+    upc: string,
+    shape: BarcodeShape | undefined,
+  ): Promise<Edition> {
+    const normalUPC = normalizeUPC(upc, shape);
     try {
-      return this.normalizeResponse(await this.fetchUPC(upc));
+      return this.normalizeResponse(normalUPC, await this.fetchUPC(normalUPC));
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(error.message);
+      if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {
-          throw new RequestTimeoutException();
+          this.logger.error(error.message);
+          throw new GatewayTimeoutException();
         }
+        this.logger.error(error.message);
         throw error;
       }
+      if (error instanceof Error) {
+        if (error instanceof NotFoundException) throw error;
+        this.logger.error(error.message);
+      }
+      throw error;
     }
   }
 
   private async fetchUPC(upc: string): Promise<unknown> {
-    if (!validbarcode(upc)) throw new BadRequestException('Invalid Barcode');
-
     const upcmdbURL = this.configService.get<string>('UPCMDB_LOOKUP_URL') ?? '';
     const upcmdbKey = this.configService.get<string>('UPCMDB_API_KEY') ?? '';
 
@@ -46,20 +55,39 @@ export class UpcService {
         case 404:
           throw new NotFoundException(response.statusText);
         case 500:
-          throw new InternalServerErrorException(response.statusText);
+          throw new BadGatewayException(response.statusText);
         default:
-          throw new Error(
+          throw new BadGatewayException(
             `UPCMDB responded with status ${response.status} - ${response.statusText}`,
           );
       }
     }
 
-    return response.json();
+    try {
+      return response.json();
+    } catch {
+      this.logger.warn(
+        `UPCMDB response is not an object:\n${JSON.stringify(response)}`,
+      );
+      throw new NotFoundException();
+    }
   }
 
-  private normalizeResponse(title: unknown): Edition {
+  private normalizeResponse(upc: string, response: unknown): Edition {
+    if (!isRecord(response)) {
+      this.logger.warn(
+        `UPCMDB response is not an object:\n${JSON.stringify(response)}`,
+      );
+      throw new NotFoundException();
+    }
+
+    if (typeof response.ean === 'string' && response.ean !== upc)
+      this.logger.warn(
+        `EAN ${response.ean} does not match the normalized UPC ${upc}`,
+      );
+
     return {
-      id: '',
+      id: upc,
       barcodes: {
         upc: undefined,
         ean: undefined,
@@ -93,7 +121,7 @@ export class UpcService {
       runtime: undefined,
       audio: undefined,
       subtitles: undefined,
-      digital: undefined,
+      hasDigital: undefined,
     };
   }
 }

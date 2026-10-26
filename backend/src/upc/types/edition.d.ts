@@ -38,7 +38,7 @@ export type Edition = {
   runtime: number | undefined; //minutes
   audio: string | undefined;
   subtitles: string[] | undefined;
-  digital: boolean | undefined;
+  hasDigital: boolean | undefined;
 };
 
 export type DiscFormat = 'DVD' | 'Blu-ray' | '4K UHD';
