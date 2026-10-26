@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UpcService } from '@/upc/upc.service';
 import { ConfigService } from '@nestjs/config';
 import {
+  BadGatewayException,
   BadRequestException,
   GatewayTimeoutException,
   InternalServerErrorException,
@@ -71,7 +72,7 @@ describe('UpcService', () => {
     });
 
     await expect(service.getTitle(upc, undefined)).rejects.toThrow(
-      InternalServerErrorException,
+      BadGatewayException,
     );
   });
 
