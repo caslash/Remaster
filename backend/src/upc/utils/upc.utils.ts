@@ -31,6 +31,16 @@ export function normalizeUPC(
   }
 }
 
+export function isNotRetailProductReason(
+  upc: string,
+): StoreRangeReason | undefined {
+  const prefix = Number(upc.slice(0, 3));
+
+  return storeRangeTable.find(
+    (range) => prefix >= range.start && prefix <= range.end,
+  )?.reason;
+}
+
 function isValidUPCE(upc: string): boolean {
   return (
     upc.length === 8 &&
@@ -42,3 +52,28 @@ function isValidUPCE(upc: string): boolean {
 export function isRecord(obj: unknown): obj is Record<string, unknown> {
   return typeof obj === 'object' && obj !== null && !Array.isArray(obj);
 }
+
+export const StoreRangeReason = {
+  RESTRICTED: 'Restricted circulation',
+  COUPON: 'Coupon',
+  REFUND: 'Refund receipt',
+} as const;
+
+export type StoreRangeReason =
+  (typeof StoreRangeReason)[keyof typeof StoreRangeReason];
+
+interface StoreRange {
+  start: number;
+  end: number;
+  reason: StoreRangeReason;
+}
+
+const storeRangeTable: Readonly<StoreRange[]> = [
+  { start: 20, end: 29, reason: StoreRangeReason.RESTRICTED },
+  { start: 40, end: 49, reason: StoreRangeReason.RESTRICTED },
+  { start: 200, end: 299, reason: StoreRangeReason.RESTRICTED },
+  { start: 50, end: 59, reason: StoreRangeReason.COUPON },
+  { start: 981, end: 984, reason: StoreRangeReason.COUPON },
+  { start: 990, end: 999, reason: StoreRangeReason.COUPON },
+  { start: 980, end: 980, reason: StoreRangeReason.REFUND },
+];

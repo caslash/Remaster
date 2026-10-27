@@ -1,15 +1,19 @@
 import {
   BadGatewayException,
+  BadRequestException,
   GatewayTimeoutException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Edition } from '@/upc/types/edition';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
-import { isRecord, normalizeUPC } from '@/upc/utils/upc.utils';
+import {
+  isNotRetailProductReason,
+  isRecord,
+  normalizeUPC,
+} from '@/upc/utils/upc.utils';
 
 @Injectable()
 export class UpcService {
@@ -21,6 +25,11 @@ export class UpcService {
     shape: BarcodeShape | undefined,
   ): Promise<Edition> {
     const normalUPC = normalizeUPC(upc, shape);
+    const notRetailReason = isNotRetailProductReason(normalUPC);
+    if (notRetailReason)
+      throw new BadRequestException(
+        `Invalid scanned barcode - ${notRetailReason}`,
+      );
     try {
       return this.normalizeResponse(normalUPC, await this.fetchUPC(normalUPC));
     } catch (error) {

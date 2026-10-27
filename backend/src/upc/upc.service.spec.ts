@@ -5,10 +5,10 @@ import {
   BadGatewayException,
   BadRequestException,
   GatewayTimeoutException,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import zootopia from './mock/movie4kdv.json';
+import { StoreRangeReason } from './utils/upc.utils';
 
 describe('UpcService', () => {
   let service: UpcService;
@@ -28,7 +28,7 @@ describe('UpcService', () => {
 
     service = module.get<UpcService>(UpcService);
 
-    mockConfigServiceGet.mockResolvedValue('Test');
+    mockConfigServiceGet.mockReturnValue('Test');
   });
 
   afterEach(() => {
@@ -50,6 +50,18 @@ describe('UpcService', () => {
     );
   });
 
+  it('should deny coupon UPCs', async () => {
+    const upc = '9811234567891';
+
+    global.fetch = jest.fn();
+
+    const result = service.getTitle(upc, undefined);
+
+    await expect(result).rejects.toThrow(BadRequestException);
+    await expect(result).rejects.toThrow(StoreRangeReason.COUPON);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('should throw NotFound when UPC is not found', async () => {
     const upc = '043396647640';
 
@@ -63,7 +75,7 @@ describe('UpcService', () => {
     );
   });
 
-  it('should throw InternalServer when UPCMDB responds with 500', async () => {
+  it('should throw BadGateway when UPCMDB responds with 500', async () => {
     const upc = '043396647640';
 
     global.fetch = jest.fn().mockResolvedValueOnce({
@@ -90,7 +102,7 @@ describe('UpcService', () => {
     );
   });
 
-  it('should RequestTimeout when UPCMDB request times out', async () => {
+  it('should GatewayTimeout when UPCMDB request times out', async () => {
     const upc = '043396647640';
 
     global.fetch = jest
