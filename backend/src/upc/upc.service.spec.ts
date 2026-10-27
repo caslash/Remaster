@@ -1,6 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { UpcService } from '@/upc/upc.service';
-import { ConfigService } from '@nestjs/config';
 import {
   BadGatewayException,
   BadRequestException,
@@ -8,8 +6,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import zootopia from './mock/movie4kdv.json';
+import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Edition } from './types/edition';
 import { StoreRangeReason } from './utils/upc.utils';
+
+import zootopia from './mock/movie4kdv.json';
+import wandavision from './mock/tv4khdr.json';
 
 describe('UpcService', () => {
   let service: UpcService;
@@ -17,6 +20,19 @@ describe('UpcService', () => {
   const mockConfigServiceGet = jest.fn();
   const mockConfigService = {
     get: mockConfigServiceGet,
+  };
+
+  const fetchFixture = async (
+    upc: string,
+    fixture: Record<string, unknown>,
+  ): Promise<Edition> => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(JSON.stringify(fixture)),
+    });
+
+    return await service.getTitle(upc, undefined);
   };
 
   beforeEach(async () => {
@@ -136,41 +152,193 @@ describe('UpcService', () => {
   });
 
   it('should normalize edition id', async () => {
-    const upc = '043396647640';
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve(JSON.stringify(zootopia)),
-    });
-
-    const zootopiaEdition = await service.getTitle(upc, undefined);
-
-    expect(zootopiaEdition).toBeTruthy();
     expect(zootopiaEdition.id).not.toBe(zootopia.upc);
     expect(zootopiaEdition.id).not.toBe('');
     expect(zootopiaEdition.id).toBe(zootopia.ean);
   });
 
-  it.todo('should normalize edition barcodes');
-  it.todo('should normalize edition asin');
-  it.todo('should normalize edition imdbId');
-  it.todo('should normalize edition title');
-  it.todo('should normalize edition enrichedTitle');
-  it.todo('should normalize edition kind');
-  it.todo('should normalize edition year');
-  it.todo('should normalize edition format');
-  it.todo('should normalize edition discContents');
-  it.todo('should normalize edition hdr');
-  it.todo('should normalize edition packaging');
-  it.todo('should normalize edition editionFlags');
-  it.todo('should normalize edition masterResolution');
-  it.todo('should normalize edition releaseDate');
-  it.todo('should normalize edition distributor');
-  it.todo('should normalize edition country');
-  it.todo('should normalize edition coverImageURL');
-  it.todo('should normalize edition runtime');
-  it.todo('should normalize edition audio');
-  it.todo('should normalize edition subtitles');
-  it.todo('should normalize edition hasDigital');
+  it('should normalize edition barcodes', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.barcodes).toStrictEqual({
+      upc: '043396647640',
+      ean: '0043396647640',
+    });
+  });
+
+  it('should normalize edition asin', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.asin).toBe('B0GKTVSN8N');
+  });
+
+  it('should normalize edition imdbId', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.imdbId).toBe('tt26443597');
+  });
+
+  it('should normalize edition title', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.title).toBe('Zootopia 2');
+  });
+
+  it('should normalize edition enrichedTitle', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.enrichedTitle).toBe('Zootopia 2');
+  });
+
+  it('should normalize edition kind', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.kind).toBe('movie');
+  });
+
+  it('should normalize edition year', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+    const omdbYearEdition = await fetchFixture('043396647640', {
+      title: 'omdbYear',
+      year: 'N/A',
+      omdbYear: '2021',
+    });
+    const altYearEdition = await fetchFixture('043396647640', {
+      title: 'altYear',
+      year: 'N/A',
+      omdbYear: 'N/A',
+      altYear: '2013–',
+    });
+    const junkYearEdition = await fetchFixture('043396647640', {
+      title: 'junkYear',
+      year: 2025.5,
+      omdbYear: 'N/A',
+      altYear: 'N/A',
+    });
+
+    expect(zootopiaEdition.year).toBe(2025);
+    expect(omdbYearEdition.year).toBe(2021);
+    expect(altYearEdition.year).toBe(2013);
+    expect(junkYearEdition.year).toBe(undefined);
+  });
+
+  it('should normalize edition format', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.format).toBe('4K UHD');
+  });
+
+  // it('should normalize edition discContents', async () => {
+  //   const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+  //   expect(zootopiaEdition.discContents).toStrictEqual([]);
+  // });
+
+  it('should normalize edition hdr', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.hdr).toStrictEqual(
+      expect.arrayContaining(['Dolby Vision', 'HDR10']),
+    );
+  });
+
+  it('should normalize edition packaging', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.packaging).toStrictEqual({
+      steelbook: true,
+      slipcover: false,
+      memorabilia: false,
+    });
+  });
+
+  it('should normalize edition editionFlags', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+    const wandaVisionEdition = await fetchFixture(wandavision.upc, wandavision);
+
+    expect(zootopiaEdition.editionFlags).toStrictEqual({
+      limited: undefined,
+      collector: undefined,
+      special: undefined,
+      anniversary: undefined,
+      boxset: undefined,
+    });
+    expect(wandaVisionEdition.editionFlags).toStrictEqual({
+      limited: false,
+      collector: true,
+      special: false,
+      anniversary: false,
+      boxset: false,
+    });
+  });
+
+  it('should normalize edition masterResolution', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.masterResolution).toBe('upscaled');
+  });
+
+  it('should normalize edition releaseDate', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+    const junkDateEdition = await fetchFixture('043396647640', {
+      title: 'junk',
+      releaseDate: '2026/03/03 junk',
+    });
+
+    expect(zootopiaEdition.releaseDate).toBe('2026-03-03');
+    expect(junkDateEdition.releaseDate).toBe(undefined);
+  });
+
+  it('should normalize edition distributor', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.distributor).toBe('Disney / Buena Vista');
+  });
+
+  it('should normalize edition country', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.country).toBe('United States');
+  });
+
+  it('should normalize edition coverImageURL', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.coverImageURL).toBe(
+      'https://imagestorage.org/043396647640.jpg',
+    );
+  });
+
+  it('should normalize edition runtime', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.runtime).toBe(108);
+  });
+
+  it('should normalize edition audio', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.audio).toBe(
+      'English: Dolby Atmos English: Dolby TrueHD 7.1 (48kHz, 24-bit) French: Dolby Digital Plus 7.1 Spanish: Dolby Digital Plus 7.1 Japanese: Dolby Digital Plus 7.1 | Audio descriptive',
+    );
+  });
+
+  it('should normalize edition subtitles', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.subtitles).toStrictEqual([
+      'English SDH',
+      'French',
+      'Japanese',
+      'Spanish',
+    ]);
+  });
+
+  it('should normalize edition hasDigital', async () => {
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition.hasDigital).toBe(true);
+  });
 });

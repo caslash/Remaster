@@ -42,4 +42,14 @@ export type Edition = {
 };
 
 export type DiscFormat = 'DVD' | 'Blu-ray' | '4K UHD';
-export type HDRFormat = 'HDR10' | 'HDR10+' | 'Dolby Vision';
+export type HDRFormat = (typeof HDR_FORMATS)[number];
+
+export const HDR_FORMATS = ['HDR10', 'HDR10+', 'Dolby Vision'] as const;
+
+export function isHDRFormat(format: unknown): format is HDRFormat {
+  return (
+    typeof format === 'string' &&
+    format !== null &&
+    !!HDR_FORMATS.find((hdr) => hdr === format)
+  );
+}

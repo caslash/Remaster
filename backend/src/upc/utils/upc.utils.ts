@@ -1,6 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
-import { upcE, isValid } from 'gtin';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
+import { BadRequestException } from '@nestjs/common';
+import { isValid, upcE } from 'gtin';
 
 export function normalizeUPC(
   upc: string,
@@ -77,3 +77,24 @@ const storeRangeTable: Readonly<StoreRange[]> = [
   { start: 990, end: 999, reason: StoreRangeReason.COUPON },
   { start: 980, end: 980, reason: StoreRangeReason.REFUND },
 ];
+
+export function isValidString(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.toLowerCase() !== 'null' &&
+    value.trim().length > 0
+  );
+}
+
+export function getBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (!isValidString(value)) return;
+
+  const valueString = value.toLowerCase();
+
+  return valueString === 'true'
+    ? true
+    : valueString === 'false'
+      ? false
+      : undefined;
+}

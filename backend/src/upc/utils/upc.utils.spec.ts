@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  getBoolean,
   isNotRetailProductReason,
   normalizeUPC,
   StoreRangeReason,
@@ -337,6 +338,40 @@ describe('UPCUtils', () => {
       expect(isNotRetailProductReason(upperLimit)).toBe(
         StoreRangeReason.COUPON,
       );
+    });
+  });
+
+  describe('getBoolean', () => {
+    it('should derive true from true', () => {
+      expect(getBoolean(true)).toBe(true);
+    });
+
+    it('should derive true from "true"', () => {
+      expect(getBoolean('true')).toBe(true);
+    });
+
+    it('should derive true from "True"', () => {
+      expect(getBoolean('True')).toBe(true);
+    });
+
+    it('should derive false from false', () => {
+      expect(getBoolean(false)).toBe(false);
+    });
+
+    it('should derive false from "false"', () => {
+      expect(getBoolean('false')).toBe(false);
+    });
+
+    it('should derive false from "False"', () => {
+      expect(getBoolean('False')).toBe(false);
+    });
+
+    it('should reject invalid values', () => {
+      expect(getBoolean('yes')).toBe(undefined);
+      expect(getBoolean('null')).toBe(undefined);
+      expect(getBoolean('')).toBe(undefined);
+      expect(getBoolean(1)).toBe(undefined);
+      expect(getBoolean(undefined)).toBe(undefined);
     });
   });
 });
