@@ -5,6 +5,7 @@ import {
   BadGatewayException,
   BadRequestException,
   GatewayTimeoutException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import zootopia from './mock/movie4kdv.json';
@@ -44,10 +45,10 @@ describe('UpcService', () => {
 
     global.fetch = jest.fn();
 
-    expect(global.fetch).not.toHaveBeenCalled();
     await expect(service.getTitle(upc, undefined)).rejects.toThrow(
       BadRequestException,
     );
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('should deny coupon UPCs', async () => {
@@ -88,7 +89,7 @@ describe('UpcService', () => {
     );
   });
 
-  it('should throw error when UPCMDB responds with error', async () => {
+  it('should throw BadGateway when UPCMDB responds with other error', async () => {
     const upc = '043396647640';
 
     global.fetch = jest.fn().mockResolvedValueOnce({
@@ -97,8 +98,11 @@ describe('UpcService', () => {
       statusText: 'Generic Text',
     });
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
-      new Error('UPCMDB responded with status 403 - Generic Text'),
+    const result = service.getTitle(upc, undefined);
+
+    await expect(result).rejects.toThrow(BadGatewayException);
+    await expect(result).rejects.toThrow(
+      'UPCMDB responded with status 403 - Generic Text',
     );
   });
 
@@ -114,12 +118,31 @@ describe('UpcService', () => {
     );
   });
 
+  it('should throw NotFound and log the body when UPCMDB responds with non-JSON', async () => {
+    const upc = '043396647640';
+    const body = '<html><body><h1>503 Service Unavailable</h1></body></html>';
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(body),
+    });
+
+    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(body));
+  });
+
   it('should normalize edition id', async () => {
     const upc = '043396647640';
 
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({ ok: true, status: 200, json: () => zootopia });
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(JSON.stringify(zootopia)),
+    });
 
     const zootopiaEdition = await service.getTitle(upc, undefined);
 
@@ -129,25 +152,25 @@ describe('UpcService', () => {
     expect(zootopiaEdition.id).toBe(zootopia.ean);
   });
 
-  it('should normalize edition barcodes', async () => {});
-  it('should normalize edition asin', async () => {});
-  it('should normalize edition imdbId', async () => {});
-  it('should normalize edition title', async () => {});
-  it('should normalize edition enrichedTitle', async () => {});
-  it('should normalize edition kind', async () => {});
-  it('should normalize edition year', async () => {});
-  it('should normalize edition format', async () => {});
-  it('should normalize edition discContents', async () => {});
-  it('should normalize edition hdr', async () => {});
-  it('should normalize edition packaging', async () => {});
-  it('should normalize edition editionFlags', async () => {});
-  it('should normalize edition masterResolution', async () => {});
-  it('should normalize edition releaseDate', async () => {});
-  it('should normalize edition distributor', async () => {});
-  it('should normalize edition country', async () => {});
-  it('should normalize edition coverImageURL', async () => {});
-  it('should normalize edition runtime', async () => {});
-  it('should normalize edition audio', async () => {});
-  it('should normalize edition subtitles', async () => {});
-  it('should normalize edition hasDigital', async () => {});
+  it.todo('should normalize edition barcodes');
+  it.todo('should normalize edition asin');
+  it.todo('should normalize edition imdbId');
+  it.todo('should normalize edition title');
+  it.todo('should normalize edition enrichedTitle');
+  it.todo('should normalize edition kind');
+  it.todo('should normalize edition year');
+  it.todo('should normalize edition format');
+  it.todo('should normalize edition discContents');
+  it.todo('should normalize edition hdr');
+  it.todo('should normalize edition packaging');
+  it.todo('should normalize edition editionFlags');
+  it.todo('should normalize edition masterResolution');
+  it.todo('should normalize edition releaseDate');
+  it.todo('should normalize edition distributor');
+  it.todo('should normalize edition country');
+  it.todo('should normalize edition coverImageURL');
+  it.todo('should normalize edition runtime');
+  it.todo('should normalize edition audio');
+  it.todo('should normalize edition subtitles');
+  it.todo('should normalize edition hasDigital');
 });

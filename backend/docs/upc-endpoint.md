@@ -56,22 +56,35 @@ Error bodies use Nest's default shape: a JSON object with `statusCode` (number),
 
 | Status                        | When                                                                                                                                                                                                                                                       | Calls UPCMDB? |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| **400 Bad Request**           | `code` contains anything other than digits, or is empty. Its length isn't 8, 12 or 13, or doesn't match `shape` (e.g. 13 digits with `UPC-E`). The check digit is wrong. A `UPC-E` code's first digit isn't `0` or `1`. `shape` isn't one of the four values. | no            |
-| **404 Not Found**             | UPCMDB has no record for the code, or its response isn't a JSON object.                                                                                                                                                                                   | yes           |
-| **500 Internal Server Error** | UPCMDB returned an error status other than 404, or a body that isn't JSON, or the request failed in some other way.                                                                                                                                       | yes           |
+| **400 Bad Request**           | `code` contains anything other than digits, or is empty. Its length isn't 8, 12 or 13, or doesn't match `shape` (e.g. 13 digits with `UPC-E`). The check digit is wrong. A `UPC-E` code's first digit isn't `0` or `1`. `shape` isn't one of the four values. The code is valid but isn't a retail product (see [Codes that aren't products](#codes-that-arent-products)). | no            |
+| **404 Not Found**             | UPCMDB has no record for the code, or its response isn't JSON or isn't a JSON object (the raw body is logged).                                                                                                                                            | yes           |
+| **500 Internal Server Error** | The request to UPCMDB failed in some other way (e.g. a network error).                                                                                                                                                                                    | yes           |
+| **502 Bad Gateway**           | UPCMDB returned an error status other than 404.                                                                                                                                                                                                           | yes           |
 | **504 Gateway Timeout**       | UPCMDB didn't respond within 5 seconds.                                                                                                                                                                                                                    | yes           |
+
+#### Codes that aren't products
+
+After normalization, the server checks the first three digits of the GTIN-13 against GS1 prefixes that are never used on retail products. A match is rejected with a 400 before UPCMDB is called. The message names the reason (currently `Invalid scanned barcode - <reason>`; don't parse it).
+
+| Prefix                    | Reason                                                 |
+| ------------------------- | ------------------------------------------------------ |
+| 020–029, 040–049, 200–299 | `Restricted circulation` (store labels, in-house codes) |
+| 050–059, 981–984, 990–999 | `Coupon`                                               |
+| 980                       | `Refund receipt`                                       |
+
+Books (978, 979) and ISSN (977) are allowed. They won't match a disc, but they're real products and get a normal 404.
+
+Known gap: EAN-8 codes are padded to `00000…`, so this check doesn't see their own prefix. Restricted-circulation EAN-8s (GS1 RCN-8, first digit `0` or `2`; verify against the GS1 General Specifications) currently pass through to UPCMDB.
 
 What the client should do:
 
-- **400:** the scan was bad. Ask the user to scan again; don't retry the same code.
+- **400:** the scan was bad, or the barcode isn't the product's (a store label or coupon). Ask the user to scan the original barcode again; don't retry the same code.
 - **404:** the disc isn't known. Fall back to manual search (MVP: Keep my data right › Handle a failed scan).
-- **500, 504:** a temporary failure. Offer a retry.
+- **500, 502, 504:** a temporary failure. Offer a retry.
 
 ### Planned
 
-- **502 Bad Gateway** for UPCMDB error statuses other than 404, replacing today's 500, so clients can tell an upstream failure from a fault in this service.
-- **404 for a body that isn't JSON**, matching the "can't decode → not found" rule in RMSTR-8. Today it's a 500.
-- **400 for codes that aren't products:** store labels and in-house codes (GS1 restricted-circulation prefixes), coupons and refund receipts. These have valid check digits but will never match a disc. They'll get their own message so the app can say "this looks like a store label, scan the original barcode".
+- **RCN-8:** reject restricted-circulation EAN-8 codes, which needs `normalizeUPC` to report which reading it chose.
 - **Error codes:** a stable, machine-readable code per 400 reason (bad characters, wrong length, length doesn't match `shape`, bad check digit, store label), so clients can show specific messages without matching on text.
 - **Response wrapper** with a schema version (see open items in [`edition-schema.md`](edition-schema.md)).
 

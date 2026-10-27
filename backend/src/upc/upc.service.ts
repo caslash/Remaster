@@ -72,12 +72,11 @@ export class UpcService {
       }
     }
 
+    const body = await response.text();
     try {
-      return response.json();
+      return JSON.parse(body);
     } catch {
-      this.logger.warn(
-        `UPCMDB response is not an object:\n${JSON.stringify(response)}`,
-      );
+      this.logger.warn(`UPCMDB response is not JSON:\n${body}`);
       throw new NotFoundException();
     }
   }
