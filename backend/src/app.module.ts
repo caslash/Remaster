@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   UPCMDB_LOOKUP_URL: z.string(),
-  UPCMDB_API_KEY: z.string().default(''),
+  UPCMDB_API_KEY: z.string(),
 });
 export type Env = z.infer<typeof envSchema>;
 
