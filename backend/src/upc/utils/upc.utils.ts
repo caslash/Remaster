@@ -1,4 +1,5 @@
 import { BarcodeShape } from '@/upc/types/barcode-shape';
+import { DiscContent, DiscFormat } from '@/upc/types/edition';
 import { BadRequestException } from '@nestjs/common';
 import { isValid, upcE } from 'gtin';
 
@@ -97,4 +98,81 @@ export function getBoolean(value: unknown): boolean | undefined {
     : valueString === 'false'
       ? false
       : undefined;
+}
+
+export interface DiscCount {
+  count: number;
+  capacity: string;
+}
+
+export function parseDiscCounts(discs: string): DiscCount[] | undefined {
+  const breakdown = Array.from(discs.matchAll(/\(([^()]*)\)/g)).pop()?.[1];
+  if (breakdown === undefined) return;
+
+  const counts: DiscCount[] = [];
+  for (const item of breakdown.split(',')) {
+    const match = item.trim().match(/^(\d+)\s*(.*)$/);
+    if (!match) return;
+    counts.push({ count: Number(match[1]), capacity: match[2] });
+  }
+
+  return counts;
+}
+
+export function parseRegion(text: string): DiscContent['region'] {
+  if (text.toLowerCase() === 'region free') return 'Region free';
+  const codes = text.match(/^Region\s+(.+)$/)?.[1];
+  if (!codes) return;
+
+  return codes
+    .split(',')
+    .map((code) => code.trim())
+    .filter((code) => code);
+}
+
+export type PlaybackResult =
+  | { ok: true; discTypes: DiscContent[]; unknownRegions: string[] }
+  | {
+      ok: false;
+      reason: 'unknown-format' | 'unlabelled-without-format';
+      segment: string;
+    };
+
+export function parsePlayback(
+  playback: string,
+  discFormat: DiscFormat | undefined,
+): PlaybackResult {
+  const discTypes: DiscContent[] = [];
+  const unknownRegions: string[] = [];
+
+  const regionFor = (text: string): DiscContent['region'] => {
+    const region = parseRegion(text);
+    if (!region) unknownRegions.push(text);
+    return region;
+  };
+
+  const segments = playback.split('|').map((segment) => segment.trim());
+  for (const segment of segments) {
+    if (!segment || /^\(.*\)$/.test(segment)) continue;
+
+    const colonIndex = segment.indexOf(':');
+    if (colonIndex === -1) {
+      if (!discFormat)
+        return { ok: false, reason: 'unlabelled-without-format', segment };
+      discTypes.push({ format: discFormat, region: regionFor(segment) });
+      continue;
+    }
+
+    const label = segment.slice(0, colonIndex).trim();
+    const region = regionFor(segment.slice(colonIndex + 1).trim());
+    if (label === '4K Blu-ray') {
+      discTypes.push({ format: '4K UHD', region });
+    } else if (label === '2K Blu-ray') {
+      discTypes.push({ format: 'Blu-ray', region });
+    } else {
+      return { ok: false, reason: 'unknown-format', segment: label };
+    }
+  }
+
+  return { ok: true, discTypes, unknownRegions };
 }

@@ -92,5 +92,5 @@ What the client should do:
 
 - **Sent by the client:** the barcode and optionally its type. Nothing else: no user or device identifier, no library contents.
 - **Sent to UPCMDB:** the canonical GTIN-13 and the server's API key. Nothing from the client.
-- **Logged:** upstream failures and responses that can't be decoded (the raw UPCMDB body), plus a warning when UPCMDB's EAN doesn't match the requested code. The client's IP and request details are never logged by the application. Hosting-level request logging is RMSTR-10.
+- **Logged:** upstream failures and responses that can't be decoded (the raw UPCMDB body), plus warnings about the UPCMDB record itself: its EAN doesn't match the requested code, a value can't be mapped (unknown format, HDR token or date format), or its packaging fields contradict each other. Warnings include the UPC and the raw UPCMDB values, never anything about the client. The client's IP and request details are never logged by the application. Hosting-level request logging is RMSTR-10.
 - Invalid codes (400) and not-found lookups (404) are normal outcomes and aren't logged.

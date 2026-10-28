@@ -39,7 +39,7 @@ Source of truth for the type: [`src/upc/types/edition.d.ts`](../src/upc/types/ed
 | Field                                                                       | Type                                                     | Notes                                                                                                                                                                                                                                        |
 | --------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format`                                                                    | `DVD` \| `Blu-ray` \| `4K UHD`, or absent                | Primary format. For a combo pack, the highest format in the set.                                                                                                                                                                             |
-| `discContents`                                                              | list of discs, or absent                                 | One entry per physical disc (so the list length is the disc count). Each entry has a `format` (always present) and a `region`. Absent when the source has no disc breakdown. A disc whose format can't be identified is left out and logged. |
+| `discContents`                                                              | list of discs, or absent                                 | One entry per physical disc (so the list length is the disc count). Each entry has a `format` (always present) and a `region`. Absent when the source has no disc breakdown, or when any disc can't be identified (see [Building the list](#building-the-list)).         |
 | `discContents[].region`                                                     | `Region free`, a list of region codes, or absent         | Codes are `A`/`B`/`C` for Blu-ray and `1`–`8` for DVD. Notes like "(C untested)" are dropped.                                                                                                                                                |
 | `hdr`                                                                       | list of `HDR10` \| `HDR10+` \| `Dolby Vision`, or absent | No duplicates. Empty list = SDR. DVD and Blu-ray editions always get an empty list (those formats can't carry HDR). Absent only for a 4K edition with no HDR information.                                                                    |
 | `packaging.steelbook`                                                       | true / false / absent                                    |                                                                                                                                                                                                                                              |
@@ -101,6 +101,25 @@ The format labels at the start are **not** a reliable combo-pack signal. Loki S2
 - "Region 1 | (2,3,4,5,6,7,8 locked)" → DVD region 1.
 
 Disc capacities (BD-66, BD-100 = 4K; BD-25 = Blu-ray) can back this up, but BD-50 is used for both 4K and Blu-ray discs, so capacity alone can't decide.
+
+#### Building the list
+
+1. **Guard.** If `discs` or `playback` is missing, `discContents` is absent.
+2. **Count.** Take the last parenthesised group in `discs` ("1 BD-66, 1 BD-50"), split it on commas, and read the leading integer and capacity of each item. The total is the sum. If there's no group, or **any** item doesn't start with a number, log it and leave `discContents` absent. A partial count would make the list length wrong.
+3. **Disc types.** Split `playback` on `|`. Skip segments wrapped in parentheses (notes such as "(C untested)" or "(2,3,4,5,6,7,8 locked)").
+   - Labelled segments: "4K Blu-ray" → 4K UHD, "2K Blu-ray" → Blu-ray.
+   - Unlabelled segments ("Region 1") belong to the edition's own `format`. If that format is unknown, log it and leave `discContents` absent.
+   - Any other label (e.g. "3D Blu-ray"): log it and leave `discContents` **absent**. There's no way to tell how many discs the unknown type covers, so the rest can't be counted correctly either.
+4. **Regions.** "Region free" (case-insensitive) → `Region free`. "Region A, B" → `["A", "B"]`; "Region 1" → `["1"]`. Anything else: log it and leave that type's region absent (the disc is kept).
+5. **Splitting the count.**
+   - One disc type: every disc is that type.
+   - 4K + Blu-ray: the 4K count is the number of BD-66 and BD-100 discs, with a minimum of 1 (BD-50 can be either). The Blu-ray count is the rest, also with a minimum of 1. If the two don't add up to the total, log it and leave `discContents` absent.
+   - Anything else (no types, or more than two): log it and leave `discContents` absent.
+6. **Order.** 4K discs first, then Blu-ray.
+
+Examples: "(1 BD-66, 1 BD-50)" with 4K + 2K playback → one 4K disc and one Blu-ray. "(1 BD-66, 2 BD-50)" → one 4K disc and two Blu-ray discs. "(2 BD-50)" → one of each.
+
+A wrong list is worse than none: every rule that can't be applied leaves `discContents` absent, and logs the UPC with the raw `discs` and `playback` strings.
 
 ### TV runtime caveat
 

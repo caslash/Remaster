@@ -11,6 +11,8 @@ import {
   isRecord,
   isValidString,
   normalizeUPC,
+  parseDiscCounts,
+  parsePlayback,
 } from '@/upc/utils/upc.utils';
 import {
   BadGatewayException,
@@ -121,9 +123,9 @@ export class UpcService {
       kind: this.normalizeKind(response),
       year: this.normalizeYear(response),
       format: discFormat,
-      discContents: undefined,
+      discContents: this.normalizeDiscContents(upc, response, discFormat),
       hdr: this.normalizeHDR(response, discFormat),
-      packaging: this.normalizePackaging(response),
+      packaging: this.normalizePackaging(upc, response),
       editionFlags: {
         limited: getBoolean(response.limited_edition),
         collector: getBoolean(response.collectors_edition),
@@ -229,6 +231,76 @@ export class UpcService {
     }
   }
 
+  private normalizeDiscContents(
+    upc: string,
+    response: Record<string, unknown>,
+    discFormat: DiscFormat | undefined,
+  ): Edition['discContents'] {
+    if (!isValidString(response.discs) || !isValidString(response.playback))
+      return;
+
+    const discCounts = parseDiscCounts(response.discs);
+    if (!discCounts) {
+      this.logger.warn(`Unknown disc count for UPC ${upc} - ${response.discs}`);
+      return;
+    }
+    const totalDiscs = discCounts.reduce((acc, curr) => acc + curr.count, 0);
+
+    const playback = parsePlayback(response.playback, discFormat);
+    if (!playback.ok) {
+      this.logger.warn(
+        playback.reason === 'unknown-format'
+          ? `Unknown disc format for UPC ${upc} - ${playback.segment}`
+          : `Unlabelled playback segment with unknown edition format for UPC ${upc} - ${playback.segment}`,
+      );
+      return;
+    }
+    for (const region of playback.unknownRegions)
+      this.logger.warn(`Unknown disc region for UPC ${upc} - ${region}`);
+    const { discTypes } = playback;
+
+    if (discTypes.length === 0) {
+      this.logger.warn(
+        `No disc types in playback for UPC ${upc} - ${response.playback}`,
+      );
+      return;
+    }
+
+    discTypes.sort(
+      (a, b) => Number(b.format === '4K UHD') - Number(a.format === '4K UHD'),
+    );
+
+    if (discTypes.length === 1)
+      return Array.from({ length: totalDiscs }, () => ({ ...discTypes[0] }));
+
+    const [fourKType, bluRayType] = discTypes;
+    if (
+      discTypes.length === 2 &&
+      fourKType.format === '4K UHD' &&
+      bluRayType.format === 'Blu-ray'
+    ) {
+      const fourKDiscs = Math.max(
+        discCounts
+          .filter(
+            (item) => item.capacity === 'BD-66' || item.capacity === 'BD-100',
+          )
+          .reduce((acc, curr) => acc + curr.count, 0),
+        1,
+      );
+      const bluRayDiscs = Math.max(totalDiscs - fourKDiscs, 1);
+
+      if (fourKDiscs + bluRayDiscs === totalDiscs)
+        return [
+          ...Array.from({ length: fourKDiscs }, () => ({ ...fourKType })),
+          ...Array.from({ length: bluRayDiscs }, () => ({ ...bluRayType })),
+        ];
+    }
+
+    this.logger.warn(
+      `Unable to split discs between types for UPC ${upc} - discs: ${response.discs}, playback: ${response.playback}`,
+    );
+  }
+
   private normalizeHDR(
     response: Record<string, unknown>,
     discFormat: DiscFormat | undefined,
@@ -253,7 +325,10 @@ export class UpcService {
     return formats.length > 0 ? formats : undefined;
   }
 
-  private normalizePackaging(response: Record<string, unknown>): {
+  private normalizePackaging(
+    upc: string,
+    response: Record<string, unknown>,
+  ): {
     steelbook: boolean | undefined;
     slipcover: boolean | undefined;
     memorabilia: boolean | undefined;
@@ -261,16 +336,51 @@ export class UpcService {
     const packagingText = isValidString(response.packaging)
       ? response.packaging.toLowerCase()
       : undefined;
+    const specialFeaturesText = isValidString(response.special_features)
+      ? response.special_features.toLowerCase()
+      : undefined;
+
+    const getSteelbook = (): boolean | undefined => {
+      const bool = getBoolean(response.steelbook);
+      const textMatch =
+        !!packagingText?.includes('steelbook') ||
+        !!specialFeaturesText?.includes('steelbook');
+
+      if (!textMatch) return bool;
+      if (bool === false) {
+        this.logger.warn(
+          `UPCMDB steelbook flag is false but text says steelbook for UPC ${upc} - packaging: ${String(response.packaging)}, special_features: ${String(response.special_features)}`,
+        );
+      }
+      return true;
+    };
+
+    const getSlipcover = (): boolean | undefined => {
+      const bool = getBoolean(response.slipcover);
+      const textMatch =
+        !!packagingText?.includes('slipcover') ||
+        (isValidString(response.slipcover) &&
+          response.slipcover.toLowerCase().includes('slipcover'));
+
+      if (!textMatch) return bool;
+      if (bool === false) {
+        this.logger.warn(
+          `UPCMDB slipcover flag is false but text says slipcover for UPC ${upc} - packaging: ${String(response.packaging)}, slipcover: ${String(response.slipcover)}`,
+        );
+      }
+      return true;
+    };
+
+    const extrasText: string[] = ['figure', 'replica', 'props', 'memorabilia'];
 
     return {
-      steelbook:
-        getBoolean(response.steelbook) ??
-        (!!packagingText && packagingText.includes('steelbook')),
-      slipcover:
-        getBoolean(response.slipcover) || isValidString(response.slipcover),
-      memorabilia: packagingText
-        ? packagingText.includes('figure/replica/props/memorabilia included')
-        : undefined,
+      steelbook: getSteelbook(),
+      slipcover: getSlipcover(),
+      memorabilia:
+        packagingText &&
+        extrasText.some((extra) => packagingText.includes(extra))
+          ? true
+          : undefined,
     };
   }
 

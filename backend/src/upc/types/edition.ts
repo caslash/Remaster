@@ -53,3 +53,5 @@ export function isHDRFormat(format: unknown): format is HDRFormat {
     !!HDR_FORMATS.find((hdr) => hdr === format)
   );
 }
+
+export type DiscContent = NonNullable<Edition['discContents']>[number];

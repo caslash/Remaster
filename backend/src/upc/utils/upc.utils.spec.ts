@@ -3,6 +3,9 @@ import {
   getBoolean,
   isNotRetailProductReason,
   normalizeUPC,
+  parseDiscCounts,
+  parsePlayback,
+  parseRegion,
   StoreRangeReason,
 } from './upc.utils';
 
@@ -372,6 +375,118 @@ describe('UPCUtils', () => {
       expect(getBoolean('')).toBe(undefined);
       expect(getBoolean(1)).toBe(undefined);
       expect(getBoolean(undefined)).toBe(undefined);
+    });
+  });
+
+  describe('parseDiscCounts', () => {
+    it('should parse each count and capacity from the last parentheses', () => {
+      expect(
+        parseDiscCounts(
+          '4K Ultra HD | Blu-ray Disc | Two-disc set (1 BD-66, 1 BD-50)',
+        ),
+      ).toStrictEqual([
+        { count: 1, capacity: 'BD-66' },
+        { count: 1, capacity: 'BD-50' },
+      ]);
+      expect(
+        parseDiscCounts('DVD | Fourteen-disc set (1 DVD-5, 13 DVD-9)'),
+      ).toStrictEqual([
+        { count: 1, capacity: 'DVD-5' },
+        { count: 13, capacity: 'DVD-9' },
+      ]);
+    });
+
+    it('should reject a missing breakdown', () => {
+      expect(parseDiscCounts('4K Ultra HD | Blu-ray Disc | Two-disc set')).toBe(
+        undefined,
+      );
+      expect(parseDiscCounts('Two-disc set ()')).toBe(undefined);
+    });
+
+    it('should reject a partially parsed breakdown', () => {
+      expect(parseDiscCounts('Two-disc set (1 BD-66, BD-50)')).toBe(undefined);
+    });
+  });
+
+  describe('parseRegion', () => {
+    it('should derive Region free ignoring case', () => {
+      expect(parseRegion('Region free')).toBe('Region free');
+      expect(parseRegion('Region Free')).toBe('Region free');
+    });
+
+    it('should split region codes', () => {
+      expect(parseRegion('Region A, B')).toStrictEqual(['A', 'B']);
+      expect(parseRegion('Region 1')).toStrictEqual(['1']);
+    });
+
+    it('should reject unknown region text', () => {
+      expect(parseRegion('Worldwide')).toBe(undefined);
+      expect(parseRegion('')).toBe(undefined);
+    });
+  });
+
+  describe('parsePlayback', () => {
+    it('should parse labelled segments and skip notes', () => {
+      expect(
+        parsePlayback(
+          '4K Blu-ray: Region free | 2K Blu-ray: Region A, B | (C untested)',
+          '4K UHD',
+        ),
+      ).toStrictEqual({
+        ok: true,
+        discTypes: [
+          { format: '4K UHD', region: 'Region free' },
+          { format: 'Blu-ray', region: ['A', 'B'] },
+        ],
+        unknownRegions: [],
+      });
+    });
+
+    it('should use the edition format for unlabelled segments', () => {
+      expect(
+        parsePlayback('Region 1 | (2,3,4,5,6,7,8 locked)', 'DVD'),
+      ).toStrictEqual({
+        ok: true,
+        discTypes: [{ format: 'DVD', region: ['1'] }],
+        unknownRegions: [],
+      });
+    });
+
+    it('should reject unlabelled segments without an edition format', () => {
+      expect(parsePlayback('Region A', undefined)).toStrictEqual({
+        ok: false,
+        reason: 'unlabelled-without-format',
+        segment: 'Region A',
+      });
+    });
+
+    it('should reject unknown labels', () => {
+      expect(
+        parsePlayback(
+          '4K Blu-ray: Region free | 3D Blu-ray: Region A',
+          '4K UHD',
+        ),
+      ).toStrictEqual({
+        ok: false,
+        reason: 'unknown-format',
+        segment: '3D Blu-ray',
+      });
+    });
+
+    it('should report unknown regions', () => {
+      expect(parsePlayback('2K Blu-ray: Worldwide', 'Blu-ray')).toStrictEqual({
+        ok: true,
+        discTypes: [{ format: 'Blu-ray', region: undefined }],
+        unknownRegions: ['Worldwide'],
+      });
+    });
+
+    it('should return no disc types for notes only', () => {
+      expect(parsePlayback('(C untested)', '4K UHD')).toStrictEqual({
+        ok: true,
+        discTypes: [],
+        unknownRegions: [],
+      });
     });
   });
 });
