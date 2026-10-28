@@ -121,7 +121,7 @@ export function parseDiscCounts(discs: string): DiscCount[] | undefined {
 
 export function parseRegion(text: string): DiscContent['region'] {
   if (text.toLowerCase() === 'region free') return 'Region free';
-  const codes = text.match(/^Region\s+(.+)$/)?.[1];
+  const codes = text.match(/^Region\s+([^(]+)/)?.[1];
   if (!codes) return;
 
   return codes
@@ -175,4 +175,46 @@ export function parsePlayback(
   }
 
   return { ok: true, discTypes, unknownRegions };
+}
+
+/**
+ * Collapse playback segments that share a format into a single disc type,
+ * merging their regions. "2K Blu-ray: Region A | 2K Blu-ray: Region B"
+ * becomes one Blu-ray type with region ['A', 'B'].
+ */
+export function mergeDiscTypes(discTypes: DiscContent[]): DiscContent[] {
+  const byFormat = new Map<DiscFormat, DiscContent>();
+
+  for (const discType of discTypes) {
+    const existing = byFormat.get(discType.format);
+    if (!existing) {
+      byFormat.set(discType.format, { ...discType });
+      continue;
+    }
+    existing.region = mergeRegions(existing.region, discType.region);
+  }
+
+  return Array.from(byFormat.values());
+}
+
+function mergeRegions(
+  a: DiscContent['region'],
+  b: DiscContent['region'],
+): DiscContent['region'] {
+  if (a === 'Region free' || b === 'Region free') return 'Region free';
+  if (!a) return b;
+  if (!b) return a;
+  return Array.from(new Set([...a, ...b]));
+}
+
+export function parseYear(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+
+  if (isValidString(value)) {
+    const numberYear = Number(`${value}`.slice(0, 4));
+
+    if (Number.isInteger(numberYear)) return numberYear;
+  }
+
+  return;
 }

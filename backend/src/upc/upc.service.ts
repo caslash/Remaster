@@ -1,3 +1,4 @@
+import { Env } from '@/app.module';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
 import {
   DiscFormat,
@@ -10,9 +11,11 @@ import {
   isNotRetailProductReason,
   isRecord,
   isValidString,
+  mergeDiscTypes,
   normalizeUPC,
   parseDiscCounts,
   parsePlayback,
+  parseYear,
 } from '@/upc/utils/upc.utils';
 import {
   BadGatewayException,
@@ -30,7 +33,7 @@ dayjs.extend(customParseFormat);
 @Injectable()
 export class UpcService {
   private readonly logger = new Logger(UpcService.name);
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService<Env, true>) {}
 
   public async getTitle(
     upc: string,
@@ -62,8 +65,9 @@ export class UpcService {
   }
 
   private async fetchUPC(upc: string): Promise<unknown> {
-    const upcmdbURL = this.configService.get<string>('UPCMDB_LOOKUP_URL') ?? '';
-    const upcmdbKey = this.configService.get<string>('UPCMDB_API_KEY') ?? '';
+    const upcmdbURL =
+      this.configService.getOrThrow<string>('UPCMDB_LOOKUP_URL');
+    const upcmdbKey = this.configService.getOrThrow<string>('UPCMDB_API_KEY');
 
     const response = await fetch(`${upcmdbURL}${upc}`, {
       method: 'GET',
@@ -133,7 +137,7 @@ export class UpcService {
         anniversary: getBoolean(response.anniversary_edition),
         boxset: getBoolean(response.boxset),
       },
-      masterResolution: this.normalizeResolution(response),
+      masterResolution: this.normalizeResolution(response, discFormat),
       releaseDate: this.normalizeReleaseDate(response),
       distributor: isValidString(response.publisher)
         ? response.publisher
@@ -182,34 +186,11 @@ export class UpcService {
   }
 
   private normalizeYear(response: Record<string, unknown>): number | undefined {
-    const numberYear = Number(response.year);
-    if (
-      (isValidString(response.year) && Number.isInteger(numberYear)) ||
-      (typeof response.year === 'number' && Number.isInteger(response.year))
-    )
-      return numberYear;
+    const year = parseYear(response.year);
+    const omdbYear = parseYear(response.omdbYear);
+    const altYear = parseYear(response.altYear);
 
-    const numberOMDBYear = Number(response.omdbYear);
-    if (
-      (isValidString(response.omdbYear) && Number.isInteger(numberOMDBYear)) ||
-      (typeof response.omdbYear === 'number' &&
-        Number.isInteger(response.omdbYear))
-    )
-      return numberOMDBYear;
-
-    if (isValidString(response.altYear)) {
-      const numberAltYear = Number(`${response.altYear}`.slice(0, 4));
-
-      if (Number.isInteger(numberAltYear)) return numberAltYear;
-    }
-
-    if (
-      typeof response.altYear === 'number' &&
-      Number.isInteger(response.altYear)
-    )
-      return response.altYear;
-
-    return;
+    return year ? year : omdbYear ? omdbYear : altYear;
   }
 
   private normalizeFormat(
@@ -257,7 +238,7 @@ export class UpcService {
     }
     for (const region of playback.unknownRegions)
       this.logger.warn(`Unknown disc region for UPC ${upc} - ${region}`);
-    const { discTypes } = playback;
+    const discTypes = mergeDiscTypes(playback.discTypes);
 
     if (discTypes.length === 0) {
       this.logger.warn(
@@ -371,7 +352,13 @@ export class UpcService {
       return true;
     };
 
-    const extrasText: string[] = ['figure', 'replica', 'props', 'memorabilia'];
+    const extrasText: string[] = [
+      'figure',
+      'replica',
+      'props',
+      'memorabilia',
+      "collector's box",
+    ];
 
     return {
       steelbook: getSteelbook(),
@@ -386,7 +373,9 @@ export class UpcService {
 
   private normalizeResolution(
     response: Record<string, unknown>,
+    discFormat: DiscFormat | undefined,
   ): 'native' | 'upscaled' | undefined {
+    if (discFormat !== '4K UHD') return;
     if (!isValidString(response.resolution)) return;
 
     return response.resolution.toLowerCase().includes('upscaled')
@@ -401,7 +390,11 @@ export class UpcService {
   ): string | undefined {
     if (!isValidString(response.releaseDate)) return;
 
-    const parsedDate = dayjs(response.releaseDate, 'MMM DD, YYYY', true);
+    const parsedDate = dayjs(
+      response.releaseDate,
+      ['MMM DD, YYYY', 'MMM D, YYYY'],
+      true,
+    );
 
     if (parsedDate.isValid()) return parsedDate.format('YYYY-MM-DD');
 

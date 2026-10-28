@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   getBoolean,
   isNotRetailProductReason,
+  mergeDiscTypes,
   normalizeUPC,
   parseDiscCounts,
   parsePlayback,
@@ -422,6 +423,48 @@ describe('UPCUtils', () => {
     it('should reject unknown region text', () => {
       expect(parseRegion('Worldwide')).toBe(undefined);
       expect(parseRegion('')).toBe(undefined);
+    });
+  });
+
+  describe('mergeDiscTypes', () => {
+    it('should merge same-format segments and union their regions', () => {
+      expect(
+        mergeDiscTypes([
+          { format: 'Blu-ray', region: ['A'] },
+          { format: 'Blu-ray', region: ['B'] },
+        ]),
+      ).toStrictEqual([{ format: 'Blu-ray', region: ['A', 'B'] }]);
+    });
+
+    it('should prefer Region free when any merged segment is region free', () => {
+      expect(
+        mergeDiscTypes([
+          { format: '4K UHD', region: ['A'] },
+          { format: '4K UHD', region: 'Region free' },
+        ]),
+      ).toStrictEqual([{ format: '4K UHD', region: 'Region free' }]);
+    });
+
+    it('should keep the known region when one segment is unknown', () => {
+      expect(
+        mergeDiscTypes([
+          { format: 'DVD', region: undefined },
+          { format: 'DVD', region: ['1'] },
+        ]),
+      ).toStrictEqual([{ format: 'DVD', region: ['1'] }]);
+    });
+
+    it('should leave distinct formats untouched and preserve order', () => {
+      expect(
+        mergeDiscTypes([
+          { format: '4K UHD', region: 'Region free' },
+          { format: 'Blu-ray', region: ['A'] },
+          { format: 'Blu-ray', region: ['B'] },
+        ]),
+      ).toStrictEqual([
+        { format: '4K UHD', region: 'Region free' },
+        { format: 'Blu-ray', region: ['A', 'B'] },
+      ]);
     });
   });
 

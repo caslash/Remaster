@@ -23,9 +23,16 @@ import spongebob from './mock/tvdvd.json';
 describe('UpcService', () => {
   let service: UpcService;
 
-  const mockConfigServiceGet = jest.fn();
   const mockConfigService = {
-    get: mockConfigServiceGet,
+    getOrThrow: jest.fn((key: string) => {
+      const env: Record<string, string> = {
+        UPCMDB_LOOKUP_URL: 'https://test.com',
+        UPCMDB_API_KEY: 'test-key',
+      };
+
+      if (!(key in env)) throw new Error(`Missing config key: ${key}`);
+      return env[key];
+    }),
   };
 
   const fetchFixture = async (
@@ -50,8 +57,6 @@ describe('UpcService', () => {
     }).compile();
 
     service = module.get<UpcService>(UpcService);
-
-    mockConfigServiceGet.mockReturnValue('Test');
   });
 
   afterEach(() => {
@@ -425,6 +430,11 @@ describe('UpcService', () => {
       omdbYear: 'N/A',
       altYear: 'N/A',
     });
+    const rangeYearEdition = await fetchFixture('043396647640', {
+      title: 'rangeYear',
+      year: '2013-2015',
+      omdbYear: 'N/A',
+    });
 
     expect(zootopiaEdition.year).toBe(2025);
     expect(blackPantherEdition.year).toBe(2022);
@@ -437,6 +447,7 @@ describe('UpcService', () => {
     expect(omdbYearEdition.year).toBe(2021);
     expect(altYearEdition.year).toBe(2013);
     expect(junkYearEdition.year).toBe(undefined);
+    expect(rangeYearEdition.year).toBe(2013);
   });
 
   it('should normalize edition format', async () => {
@@ -530,6 +541,19 @@ describe('UpcService', () => {
     expect(spongebobEdition.discContents).toStrictEqual(
       expect.arrayContaining([{ format: 'DVD', region: ['1'] }]),
     );
+  });
+
+  it('should split same-format playback segments with different regions', async () => {
+    const edition = await fetchFixture(barnyard.upc, {
+      ...barnyard,
+      discs: '2 discs (2 BD-50)',
+      playback: '2K Blu-ray: Region A | 2K Blu-ray: Region B',
+    });
+
+    expect(edition.discContents).toStrictEqual([
+      { format: 'Blu-ray', region: ['A', 'B'] },
+      { format: 'Blu-ray', region: ['A', 'B'] },
+    ]);
   });
 
   it('should normalize edition hdr', async () => {
@@ -716,6 +740,24 @@ describe('UpcService', () => {
     expect(rickAndMortyEdition.editionFlags).toStrictEqual(unknownFlags);
     expect(austinPowersEdition.editionFlags).toStrictEqual(unknownFlags);
     expect(spongebobEdition.editionFlags).toStrictEqual(unknownFlags);
+  });
+
+  it("should flag memorabilia for a collector's box", async () => {
+    const edition = await fetchFixture(barnyard.upc, {
+      ...barnyard,
+      packaging: "Collector's box with booklet",
+    });
+
+    expect(edition.packaging.memorabilia).toBe(true);
+  });
+
+  it('should leave masterResolution absent for non-4K editions', async () => {
+    const edition = await fetchFixture(barnyard.upc, {
+      ...barnyard,
+      resolution: 'Native 4K (2160p)',
+    });
+
+    expect(edition.masterResolution).toBe(undefined);
   });
 
   it('should normalize edition masterResolution', async () => {
