@@ -1,6 +1,6 @@
 # Remaster backend
 
-NestJS v12 API for Remaster, hosted on Railway (RMSTR-55). Not scaffolded yet: the owner sets it up here with the Nest CLI.
+NestJS v12 API for Remaster, hosted on Railway (RMSTR-55). Requires Node 24.9 or later (see `engines` in `package.json` and `.nvmrc`): Nest 12 ships as ESM, and Jest relies on Node's native `require(esm)` support to load it.
 
 What it's for (see section 3 of [`AGENTS.md`](../AGENTS.md)):
 
