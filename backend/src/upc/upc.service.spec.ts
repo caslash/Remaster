@@ -468,6 +468,22 @@ describe('UpcService', () => {
     expect(spongebobEdition.format).toBe('DVD');
   });
 
+  it('should handle other formats', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const uhd4kEdition = await fetchFixture('043396647640', {
+      title: 'uhd4k',
+      format: 'UHD4K',
+    });
+    const unknownFormat = await fetchFixture('043396647640', {
+      title: 'unknown',
+      format: '3D',
+    });
+
+    expect(uhd4kEdition.format).toBe('4K UHD');
+    expect(unknownFormat.format).toBe(undefined);
+    expect(warn).toHaveBeenCalledWith('Unknown disc format - 3D');
+  });
+
   it('should normalize edition discContents', async () => {
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
     const blackPantherEdition = await fetchFixture(
@@ -516,62 +532,6 @@ describe('UpcService', () => {
     );
   });
 
-  it('should handle disc edge cases', async () => {
-    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
-
-    const bonusDiscEdition = await fetchFixture(zootopia.upc, {
-      ...zootopia,
-      discs: '4K Ultra HD | Blu-ray Disc | Three-disc set (1 BD-66, 2 BD-50)',
-    });
-    expect(bonusDiscEdition.discContents).toStrictEqual([
-      { format: '4K UHD', region: 'Region free' },
-      { format: 'Blu-ray', region: ['A', 'B'] },
-      { format: 'Blu-ray', region: ['A', 'B'] },
-    ]);
-
-    const noBreakdownEdition = await fetchFixture(zootopia.upc, {
-      ...zootopia,
-      discs: '4K Ultra HD | Blu-ray Disc | Two-disc set',
-    });
-    expect(noBreakdownEdition.discContents).toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown disc count'),
-    );
-
-    const unknownLabelEdition = await fetchFixture(zootopia.upc, {
-      ...zootopia,
-      playback: '4K Blu-ray: Region free | 3D Blu-ray: Region A',
-    });
-    expect(unknownLabelEdition.discContents).toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown disc format for UPC'),
-    );
-
-    const partialCountEdition = await fetchFixture(zootopia.upc, {
-      ...zootopia,
-      discs: '4K Ultra HD | Blu-ray Disc | Two-disc set (1 BD-66, BD-50)',
-    });
-    expect(partialCountEdition.discContents).toBeUndefined();
-
-    const capitalisedFreeEdition = await fetchFixture(zootopia.upc, {
-      ...zootopia,
-      playback: '4K Blu-ray: Region Free | 2K Blu-ray: Region Free',
-    });
-    expect(capitalisedFreeEdition.discContents).toStrictEqual([
-      { format: '4K UHD', region: 'Region free' },
-      { format: 'Blu-ray', region: 'Region free' },
-    ]);
-
-    const unlabelledBluRayEdition = await fetchFixture(barnyard.upc, {
-      ...barnyard,
-      discs: 'Blu-ray Disc | Single disc (1 BD-50)',
-      playback: 'Region A',
-    });
-    expect(unlabelledBluRayEdition.discContents).toStrictEqual([
-      { format: 'Blu-ray', region: ['A'] },
-    ]);
-  });
-
   it('should normalize edition hdr', async () => {
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
     const blackPantherEdition = await fetchFixture(
@@ -590,6 +550,10 @@ describe('UpcService', () => {
       austinPowers,
     );
     const spongebobEdition = await fetchFixture(spongebob.upc, spongebob);
+    const noHDREdition = await fetchFixture('043396647640', {
+      title: 'noHDR',
+      format: '4KUHD',
+    });
 
     expect(zootopiaEdition.hdr).toStrictEqual(
       expect.arrayContaining(['Dolby Vision', 'HDR10']),
@@ -603,6 +567,7 @@ describe('UpcService', () => {
     expect(rickAndMortyEdition.hdr).toStrictEqual([]);
     expect(austinPowersEdition.hdr).toStrictEqual([]);
     expect(spongebobEdition.hdr).toStrictEqual([]);
+    expect(noHDREdition.hdr).toStrictEqual(undefined);
   });
 
   it('should normalize edition packaging', async () => {

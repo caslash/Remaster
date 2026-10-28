@@ -48,7 +48,7 @@ export class UpcService {
       if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {
           this.logger.error(error.message);
-          throw new GatewayTimeoutException();
+          throw new GatewayTimeoutException('UPCMDB request timed out for UPC');
         }
         this.logger.error(error.message);
         throw error;
