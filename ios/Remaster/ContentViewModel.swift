@@ -14,12 +14,17 @@ public class ContentViewModel {
     private var barcodeService: BarcodeService
 
     public var edition: Edition?
+    public var error: any Error?
 
     init() { 
         self.barcodeService = BarcodeService()
     }
 
-    func processBarcode(barcode: String) throws {
-        self.edition = try self.barcodeService.fetchBarcode(barcode: barcode)
+    func processBarcode(barcode: String) async {
+        do {
+            self.edition = try await self.barcodeService.fetchBarcode(barcode: barcode)
+        } catch {
+            self.error = error
+        }
     }
 }
