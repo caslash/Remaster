@@ -12,10 +12,10 @@ struct ContentView: View {
     @State private var viewModel: ContentViewModel = .init()
     
     var body: some View {
-        BarcodeScanner { self.viewModel.processBarcode(value: $0) }
+        BarcodeScanner { do { try self.viewModel.processBarcode(barcode: $0) } catch { fatalError() }  }
             .sheet(isPresented: self.isShowingMovie) {
                 ScrollView([.vertical]) {
-                    Text(self.viewModel.movie ?? "")
+                    Text(String(describing: self.viewModel.edition))
                         .font(.system(.footnote, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -27,8 +27,8 @@ struct ContentView: View {
     /// Presents the sheet while a response is loaded, and clears it when the sheet is dismissed.
     private var isShowingMovie: Binding<Bool> {
         Binding(
-            get: { self.viewModel.movie != nil },
-            set: { if !$0 { self.viewModel.movie = nil } }
+            get: { self.viewModel.edition != nil },
+            set: { if !$0 { self.viewModel.edition = nil } }
         )
     }
 }

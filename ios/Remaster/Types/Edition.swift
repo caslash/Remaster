@@ -7,8 +7,8 @@
 
 import Foundation
 
-struct Edition: Codable, Identifiable {
-    var id: String
+public struct Edition: Codable, Identifiable {
+    public var id: String
     var barcodes: Barcodes
     var asin: String?
     var imdbId: String?
