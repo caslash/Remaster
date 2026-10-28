@@ -46,7 +46,7 @@ export class UpcService {
         `Invalid scanned barcode - ${notRetailReason}`,
       );
     try {
-      return this.normalizeResponse(normalUPC, await this.fetchUPC(normalUPC));
+      return this.normalizeResponse(normalUPC, await this.fetchUPC(upc));
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {

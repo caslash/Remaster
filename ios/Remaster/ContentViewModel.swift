@@ -15,17 +15,16 @@ public class ContentViewModel {
     public var movie: String?
 
     /// Injected at build time from `Config/Secrets.xcconfig` via Info.plist.
-    private static let apiKey = Bundle.main.object(forInfoDictionaryKey: "UPCMDBAPIKey") as? String ?? ""
+    private static let remasterURL = Bundle.main.object(forInfoDictionaryKey: "RemasterURL") as? String ?? ""
 
     init() { }
 
     func processBarcode(value: String) {
         print(value)
-        if let url = URL(string:  "https://us-central1-upcmdb-cbae5.cloudfunctions.net/api/v1/lookup/\(value.trimmingCharacters(in: [" "]))") {
+        if let url = URL(string:  "\(Self.remasterURL)/upc/\(value.trimmingCharacters(in: [" "]))") {
 
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            request.setValue(Self.apiKey, forHTTPHeaderField: "x-api-key")
 
             URLSession.shared.dataTaskPublisher(for: request)
                 .map { Self.prettyPrinted($0.data) }

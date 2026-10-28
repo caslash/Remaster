@@ -13,6 +13,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		2E43B35330919FB700D80FBF /* Mocks */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Mocks;
+			sourceTree = "<group>";
+		};
 		2E5098F830660D1500D79250 /* Remaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Remaster;
@@ -35,6 +40,7 @@
 				2E5098F830660D1500D79250 /* Remaster */,
 				2E50990630660D1600D79250 /* Config */,
 				2E5098F730660D1500D79250 /* Products */,
+				2E43B35330919FB700D80FBF /* Mocks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -69,6 +75,7 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
+				2E43B35330919FB700D80FBF /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
 			);
 			name = Remaster;
@@ -84,7 +91,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2700;
-				LastUpgradeCheck = 2700;
+				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					2E5098F530660D1500D79250 = {
 						CreatedOnToolsVersion = 27.0;
@@ -186,6 +193,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -243,6 +251,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
