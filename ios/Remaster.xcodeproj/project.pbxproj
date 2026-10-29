@@ -17,14 +17,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		2E43B35330919FB700D80FBF /* Mocks */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Mocks;
-			sourceTree = "<group>";
-		};
 		2E5098F830660D1500D79250 /* Remaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Remaster;
+			sourceTree = "<group>";
+		};
+		2EF85AD03093DB6700FE9847 /* Mocks */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Mocks;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -42,10 +42,10 @@
 		2E5098ED30660D1500D79250 = {
 			isa = PBXGroup;
 			children = (
+				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
 				2E50990630660D1600D79250 /* Config */,
 				2E5098F730660D1500D79250 /* Products */,
-				2E43B35330919FB700D80FBF /* Mocks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -80,8 +80,8 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				2E43B35330919FB700D80FBF /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
+				2EF85AD03093DB6700FE9847 /* Mocks */,
 			);
 			name = Remaster;
 			packageProductDependencies = (
@@ -286,7 +286,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -316,6 +317,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3S8XC6A264;
 				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = Editions.bundle;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Remaster;
@@ -324,7 +326,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

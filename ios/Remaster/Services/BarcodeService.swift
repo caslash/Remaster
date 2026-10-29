@@ -37,6 +37,8 @@ nonisolated public class BarcodeService: IBarcodeService {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidResponse
         }
+        
+        if (httpResponse.statusCode == 404) { throw NetworkError.notFound(barcode: barcode) }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)

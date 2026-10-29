@@ -13,6 +13,7 @@ public enum NetworkError: Error, LocalizedError {
     case transportError(URLError)
     case serverError(statusCode: Int, statusText: String)
     case decodingError(Error)
+    case notFound(barcode: String)
 
     public var errorDescription: String? {
         switch (self) {
@@ -21,6 +22,14 @@ public enum NetworkError: Error, LocalizedError {
             case .transportError: "Error request"
             case .serverError(_, let statusText): statusText
             case .decodingError: "Error decoding response"
+            case .notFound(let barcode): "We couldn't find the disc for \(barcode)"
+        }
+    }
+    
+    public var recoverySuggestion: String? {
+        switch (self) {
+            case .notFound(_): "Try manually entering the disc's barcode number"
+            default: nil
         }
     }
 }

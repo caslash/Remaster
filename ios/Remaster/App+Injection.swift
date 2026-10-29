@@ -10,12 +10,12 @@ import Foundation
 
 extension Container {
     var barcodeService: Factory<any IBarcodeService> {
-        Factory(self) {
-            #if targetEnvironment(simulator)
-            SimulatedBarcodeService()
-            #else
-            BarcodeService()
-            #endif
-        }.singleton
+        Factory(self) { BarcodeService() }
+            .singleton
+#if DEBUG
+            .onArg("SIMULATED_SERVICES", factory: {
+                SimulatedBarcodeService()
+            })
+#endif
     }
 }

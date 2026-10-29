@@ -7,6 +7,8 @@
 
 import Foundation
 
+#if DEBUG
+
 nonisolated public class SimulatedBarcodeService: IBarcodeService {
     public required init () { print("SIMULATING BARCODESERVICE") }
     
@@ -14,7 +16,7 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
         var editions: [Edition] = []
         
         do {
-            guard let jsonURLs = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil) else {
+            guard let jsonURLs = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: "Editions.bundle") else {
                 throw NetworkError.invalidURL
             }
             
@@ -30,11 +32,15 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
                 }
             }
         } catch {
-            throw NetworkError.invalidResponse
+            if let networkError = error as? NetworkError {
+                throw networkError
+            } else {
+                throw NetworkError.decodingError(error)
+            }
         }
         
         guard let edition = editions.first(where: { $0.barcodes.upc == barcode }) else {
-            throw NetworkError.serverError(statusCode: 404, statusText: "Could not find UPC \(barcode)")
+            throw NetworkError.notFound(barcode: barcode)
         }
         
         print("Found \(edition.title)")
@@ -42,3 +48,5 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
         return edition
     }
 }
+
+#endif

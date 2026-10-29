@@ -20,14 +20,21 @@ struct ContentView: View {
     
     var body: some View {
         BarcodeScanner(isSearching: self.isSearching, onScanned: fetchBarcode)
+            .alert(error: self.$viewModel.error) {
+                Button("OK", role: .close) { }
+            }
             .sheet(item: self.$viewModel.edition) { edition in
                 VStack {
-                    AsyncImage(url: edition.coverImageURL) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        ProgressView()
+                    AsyncImage(url: edition.coverImageURL) { phase in
+                        if let image = phase.image {
+                            image
+                                .resizable()
+                                .scaledToFit()
+                        } else if phase.error != nil {
+                            
+                        } else {
+                            ProgressView()
+                        }
                     }
                         .frame(height: 200)
                     
@@ -37,9 +44,6 @@ struct ContentView: View {
                     Text(edition.format?.rawValue ?? "Unknown Format")
                         .font(.subheadline)
                 }
-            }
-            .alert(error: self.$viewModel.error) { 
-                Button("OK", role: .close) { }
             }
     }
 
