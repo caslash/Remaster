@@ -21,12 +21,21 @@ struct ContentView: View {
     var body: some View {
         BarcodeScanner(isSearching: self.isSearching, onScanned: fetchBarcode)
             .sheet(item: self.$viewModel.edition) { edition in
-                ScrollView([.vertical]) {
-                    Text(String(describing: edition))
-                        .font(.system(.footnote, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+                VStack {
+                    AsyncImage(url: edition.coverImageURL) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                    } placeholder: {
+                        ProgressView()
+                    }
+                        .frame(height: 200)
+                    
+                    Text(edition.title)
+                        .font(.title2)
+                    
+                    Text(edition.format?.rawValue ?? "Unknown Format")
+                        .font(.subheadline)
                 }
             }
             .alert(error: self.$viewModel.error) { 
