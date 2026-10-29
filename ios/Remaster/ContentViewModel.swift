@@ -6,23 +6,23 @@
 //
 
 import Combine
+import FactoryKit
 import Foundation
 import Observation
+import SwiftUI
 
 @Observable
 public class ContentViewModel {
-    private var barcodeService: BarcodeService
+    @ObservationIgnored @Injected(\.barcodeService) private var barcodeService: any IBarcodeService
 
     public var edition: Edition?
     public var error: any Error?
 
-    init() { 
-        self.barcodeService = BarcodeService()
-    }
+    init() { }
 
-    func processBarcode(barcode: String) async {
+    func processBarcode(_ barcode: String) async {
         do {
-            self.edition = try await self.barcodeService.fetchBarcode(barcode: barcode)
+            self.edition = try await self.barcodeService.fetchBarcode(barcode)
         } catch {
             self.error = error
         }

@@ -9,9 +9,9 @@ import SwiftUI
 import Vision
 import VisionKit
 
-/// A live camera view that recognizes barcodes and reports each newly detected payload.
 struct BarcodeScanner: View {
     var symbologies: [VNBarcodeSymbology] = []
+    @Binding var isSearching: Bool
     let onScanned: (String) -> Void
 
     var body: some View {
@@ -19,16 +19,11 @@ struct BarcodeScanner: View {
             DataScannerRepresentable(symbologies: symbologies, onScanned: onScanned)
                 .ignoresSafeArea()
         } else {
-            ContentUnavailableView(
-                "Scanner Unavailable",
-                systemImage: "barcode.viewfinder",
-                description: Text("This device doesn't support barcode scanning, or camera access is denied.")
-            )
+            ManualEntryView(isSearching: $isSearching, onSubmit: onScanned)
         }
     }
 }
 
-/// Wraps VisionKit's `DataScannerViewController` for use in SwiftUI.
 private struct DataScannerRepresentable: UIViewControllerRepresentable {
     let symbologies: [VNBarcodeSymbology]
     let onScanned: (String) -> Void
@@ -47,7 +42,6 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 
     func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {
         context.coordinator.onScanned = onScanned
-        // Start once the controller is in the hierarchy; starting in make can fail silently.
         if !scanner.isScanning {
             try? scanner.startScanning()
         }
@@ -68,7 +62,6 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
             self.onScanned = onScanned
         }
 
-        // Fires once when a barcode first enters view, rather than on every geometry update.
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
             for item in addedItems {
                 if case .barcode(let barcode) = item, let payload = barcode.payloadStringValue {
@@ -79,8 +72,16 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 }
 
-#Preview {
-    BarcodeScanner { payload in
-        print("Scanned: \(payload)")
+extension Binding {
+    func isNil<T>() -> Binding<Bool> where Value == T? {
+        Binding<Bool>(
+            get: { self.wrappedValue == nil }, set: { _ in }
+        )
     }
+}
+
+#Preview {
+    BarcodeScanner (isSearching: Binding.constant(false), onScanned: { payload in
+        print("Scanned: \(payload)")
+    })
 }

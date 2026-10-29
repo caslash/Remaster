@@ -11,8 +11,15 @@ import SwiftUI
 struct ContentView: View {
     @State private var viewModel: ContentViewModel = .init()
     
+    private var isSearching: Binding<Bool> {
+        Binding(
+            get: { viewModel.edition == nil && viewModel.error == nil },
+            set: { _ in }
+        )
+    }
+    
     var body: some View {
-        BarcodeScanner(onScanned: fetchBarcode)
+        BarcodeScanner(isSearching: self.isSearching, onScanned: fetchBarcode)
             .sheet(item: self.$viewModel.edition) { edition in
                 ScrollView([.vertical]) {
                     Text(String(describing: edition))
@@ -27,9 +34,9 @@ struct ContentView: View {
             }
     }
 
-    private func fetchBarcode(barcode: String) {
+    private func fetchBarcode(_ barcode: String) {
         Task {
-            await self.viewModel.processBarcode(barcode: barcode)
+            await self.viewModel.processBarcode(barcode)
         }
     }
 }

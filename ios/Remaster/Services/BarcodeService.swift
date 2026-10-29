@@ -8,12 +8,12 @@
 import Combine
 import Foundation
 
-public class BarcodeService {
-    private static var remasterURL = Bundle.main.object(forInfoDictionaryKey: "RemasterURL") as? String ?? ""
+nonisolated public class BarcodeService: IBarcodeService {
+    private static let remasterURL = Bundle.main.object(forInfoDictionaryKey: "RemasterURL") as? String ?? ""
 
-    init () { }
+    public required init () { }
 
-    public func fetchBarcode(barcode: String) async throws -> Edition {
+    public func fetchBarcode(_ barcode: String) async throws -> Edition {
         guard let url = URL(string: "\(Self.remasterURL)/upc/\(barcode.trimmingCharacters(in: [" "]))") else {
             throw NetworkError.invalidURL
         }
@@ -47,24 +47,6 @@ public class BarcodeService {
             return try JSONDecoder().decode(Edition.self, from: data)
         } catch {
             throw NetworkError.decodingError(error)
-        }
-    }
-}
-
-public enum NetworkError: Error, LocalizedError {
-    case invalidURL
-    case invalidResponse
-    case transportError(URLError)
-    case serverError(statusCode: Int, statusText: String)
-    case decodingError(Error)
-
-    public var errorDescription: String? {
-        switch (self) {
-            case .invalidURL: "Invalid URL"
-            case .invalidResponse: "Invalid response"
-            case .transportError: "Error request"
-            case .serverError(_, let statusText): statusText
-            case .decodingError: "Error decoding response"
         }
     }
 }
