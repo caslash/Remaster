@@ -16,7 +16,11 @@ ios/Config/Secrets.xcconfig
 # Node / NestJS
 node_modules/
 dist/
+*.tsbuildinfo
 coverage/
 .env
 .env.*
 !.env.example
+buildServer.json
+secrets/
+backend/.envrc

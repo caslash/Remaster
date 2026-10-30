@@ -21,7 +21,7 @@ The client should restrict its scanner to those three symbologies, so that QR co
 
 ### How the code is normalized
 
-The server converts every accepted code to a canonical 13-digit GTIN before doing anything else. That value is sent to UPCMDB and returned as the edition's `id`.
+The server converts every accepted code to a canonical 13-digit GTIN before doing anything else. The canonical form is used to validate the code and is returned as the edition's `id`. It is **not** what the server sends to UPCMDB (see [What UPCMDB receives](#what-upcmdb-receives)).
 
 | `code`    | `shape`        | Treated as                                                                                         | Canonical form                         |
 | --------- | -------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -43,6 +43,12 @@ Examples:
 | `/upc/043396647640`             | `0043396647640` |
 | `/upc/04252614?shape=UPC-E`     | `0042100005264` |
 | `/upc/96385074?shape=EAN-8`     | `0000096385074` |
+
+### What UPCMDB receives
+
+**Decided (RMSTR-11):** the server sends UPCMDB the `code` exactly as the client sent it, not the canonical GTIN-13. UPCMDB answered 404 for canonical codes that it resolves when given the scanned form. Validation still runs on the canonical form first, so a code that fails normalization or the [non-product check](#codes-that-arent-products) is rejected with a 400 before UPCMDB is called.
+
+UPCMDB's `ean` field is normally the 13-digit form with a leading `0`, which matches the canonical form for UPC-A codes. When the two differ, the server logs a warning naming UPCMDB's EAN, the canonical code and the scanned code, and still returns the edition. A mismatch means either UPCMDB returned a different product or our normalization disagrees with UPCMDB's (EAN-8 padding is the likely case). Because the edition's `id` is the canonical form, a recurring mismatch for one barcode type points to a normalization fix rather than a bad record.
 
 ## Responses
 
@@ -91,6 +97,6 @@ What the client should do:
 ## Privacy
 
 - **Sent by the client:** the barcode and optionally its type. Nothing else: no user or device identifier, no library contents.
-- **Sent to UPCMDB:** the canonical GTIN-13 and the server's API key. Nothing from the client.
-- **Logged:** upstream failures and responses that can't be decoded (the raw UPCMDB body), plus warnings about the UPCMDB record itself: its EAN doesn't match the requested code, a value can't be mapped (unknown format, HDR token or date format), or its packaging fields contradict each other. Warnings include the UPC and the raw UPCMDB values, never anything about the client. The client's IP and request details are never logged by the application. Hosting-level request logging is RMSTR-10.
+- **Sent to UPCMDB:** the barcode as the client sent it, and the server's API key. Nothing else from the client.
+- **Logged:** upstream failures and responses that can't be decoded (the raw UPCMDB body), plus warnings about the UPCMDB record itself: its EAN differs from the canonical code (the warning includes the canonical and scanned codes), a value can't be mapped (unknown format, HDR token or date format), or its packaging fields contradict each other. Warnings include the UPC and the raw UPCMDB values, never anything about the client. The client's IP and request details are never logged by the application. Hosting-level request logging is RMSTR-10.
 - Invalid codes (400) and not-found lookups (404) are normal outcomes and aren't logged.

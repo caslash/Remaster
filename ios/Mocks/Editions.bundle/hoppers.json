@@ -1,0 +1,23 @@
+{
+  "id": "0043396648654",
+  "barcodes": { "upc": "043396648654", "ean": "0043396648654" },
+  "asin": "B0GZ8H6XWW",
+  "imdbId": "tt26443616",
+  "title": "Hoppers",
+  "enrichedTitle": "Hoppers",
+  "kind": "movie",
+  "year": 2026,
+  "format": "4K UHD",
+  "discContents": [
+    { "format": "4K UHD", "region": "Region free" },
+    { "format": "Blu-ray", "region": ["A"] }
+  ],
+  "hdr": ["Dolby Vision", "HDR10"],
+  "packaging": { "steelbook": true },
+  "editionFlags": {},
+  "masterResolution": "native",
+  "country": "United States",
+  "coverImageURL": "https://imagestorage.org/043396648654.jpg",
+  "audio": "English: Dolby Atmos English: Dolby TrueHD 7.1 (48kHz, 24-bit) French (Canada): Dolby Digital Plus 7.1 Spanish: Dolby Digital Plus 7.1 Japanese: Dolby Digital Plus 7.1 ( more ) | Audio descriptive",
+  "subtitles": ["English SDH", "French", "Japanese", "Spanish"]
+}

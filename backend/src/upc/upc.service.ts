@@ -46,7 +46,7 @@ export class UpcService {
         `Invalid scanned barcode - ${notRetailReason}`,
       );
     try {
-      return this.normalizeResponse(normalUPC, await this.fetchUPC(normalUPC));
+      return this.normalizeResponse(normalUPC, upc, await this.fetchUPC(upc));
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {
@@ -97,7 +97,11 @@ export class UpcService {
     }
   }
 
-  private normalizeResponse(upc: string, response: unknown): Edition {
+  private normalizeResponse(
+    upc: string,
+    scannedUPC: string,
+    response: unknown,
+  ): Edition {
     if (!isRecord(response)) {
       this.logger.warn(
         `UPCMDB response is not an object:\n${JSON.stringify(response)}`,
@@ -107,7 +111,7 @@ export class UpcService {
 
     if (typeof response.ean === 'string' && response.ean !== upc)
       this.logger.warn(
-        `EAN ${response.ean} does not match the normalized UPC ${upc}`,
+        `UPCMDB EAN ${response.ean} differs from normalized code ${upc} (scanned ${scannedUPC})`,
       );
 
     const discFormat = this.normalizeFormat(response);

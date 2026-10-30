@@ -7,29 +7,55 @@
 
 import Observation
 import SwiftUI
+import Vision
 
 struct ContentView: View {
     @State private var viewModel: ContentViewModel = .init()
     
     var body: some View {
-        BarcodeScanner { self.viewModel.processBarcode(value: $0) }
-            .sheet(isPresented: self.isShowingMovie) {
-                ScrollView([.vertical]) {
-                    Text(self.viewModel.movie ?? "")
-                        .font(.system(.footnote, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+        ZStack {
+            BarcodeScanner(symbologies: [.ean13, .upce, .ean8], isPresented: self.viewModel.isIdle, onScanned: self.viewModel.processBarcode)
+                .alert(error: self.$viewModel.error) {
+                    Button("OK", role: .close) {  }
                 }
+                .alert(error: self.$viewModel.networkError) { error in
+                    if (error.isRetryable) {
+                        Button("Retry") {
+                            self.viewModel.retry()
+                        }
+                    }
+                    
+                    Button("OK", role: .close) {  }
+                } message: { error in
+                    Text(error.recoverySuggestion ?? "")
+                }
+                .sheet(item: self.$viewModel.edition) { edition in
+                    VStack {
+                        AsyncImage(url: edition.coverImageURL) { phase in
+                            if let image = phase.image {
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                            } else if phase.error != nil {
+                                
+                            } else {
+                                ProgressView()
+                            }
+                        }
+                        .frame(height: 200)
+                        
+                        Text(edition.title)
+                            .font(.title2)
+                        
+                        Text(edition.format?.rawValue ?? "Unknown Format")
+                            .font(.subheadline)
+                    }
+                }
+            
+            if (self.viewModel.isFetching) {
+                ProgressView()
             }
-    }
-
-    /// Presents the sheet while a response is loaded, and clears it when the sheet is dismissed.
-    private var isShowingMovie: Binding<Bool> {
-        Binding(
-            get: { self.viewModel.movie != nil },
-            set: { if !$0 { self.viewModel.movie = nil } }
-        )
+        }
     }
 }
 

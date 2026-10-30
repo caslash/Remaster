@@ -9,29 +9,25 @@ import SwiftUI
 import Vision
 import VisionKit
 
-/// A live camera view that recognizes barcodes and reports each newly detected payload.
 struct BarcodeScanner: View {
     var symbologies: [VNBarcodeSymbology] = []
-    let onScanned: (String) -> Void
+    let isPresented: Bool
+    let onScanned: (String, VNBarcodeSymbology?) -> Void
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-            DataScannerRepresentable(symbologies: symbologies, onScanned: onScanned)
+            DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
                 .ignoresSafeArea()
         } else {
-            ContentUnavailableView(
-                "Scanner Unavailable",
-                systemImage: "barcode.viewfinder",
-                description: Text("This device doesn't support barcode scanning, or camera access is denied.")
-            )
+            ManualEntryView(isPresented: isPresented, onSubmit: onScanned)
         }
     }
 }
 
-/// Wraps VisionKit's `DataScannerViewController` for use in SwiftUI.
 private struct DataScannerRepresentable: UIViewControllerRepresentable {
+    let canScan: Bool
     let symbologies: [VNBarcodeSymbology]
-    let onScanned: (String) -> Void
+    let onScanned: (String, VNBarcodeSymbology?) -> Void
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
@@ -42,15 +38,13 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator
+        try? scanner.startScanning()
         return scanner
     }
 
     func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {
         context.coordinator.onScanned = onScanned
-        // Start once the controller is in the hierarchy; starting in make can fail silently.
-        if !scanner.isScanning {
-            try? scanner.startScanning()
-        }
+        context.coordinator.isPaused = !canScan
     }
 
     static func dismantleUIViewController(_ scanner: DataScannerViewController, coordinator: Coordinator) {
@@ -62,25 +56,36 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var onScanned: (String) -> Void
+        var onScanned: (String, VNBarcodeSymbology?) -> Void
+        var isPaused = false
+        private var handledIds = Set<RecognizedItem.ID>()
 
-        init(onScanned: @escaping (String) -> Void) {
+        init(onScanned: @escaping (String, VNBarcodeSymbology?) -> Void) {
             self.onScanned = onScanned
         }
 
-        // Fires once when a barcode first enters view, rather than on every geometry update.
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
-            for item in addedItems {
-                if case .barcode(let barcode) = item, let payload = barcode.payloadStringValue {
-                    onScanned(payload)
+            guard !isPaused else { return }
+            for item in addedItems where !handledIds.contains(item.id) {
+                guard case .barcode(let barcode) = item, let payload = barcode.payloadStringValue else {
+                    continue
                 }
+                
+                handledIds.insert(item.id)
+                isPaused = true
+                onScanned(payload, barcode.observation.symbology)
+                return
             }
+        }
+        
+        func dataScanner(_ dataScanner: DataScannerViewController, didRemove removedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            removedItems.forEach { handledIds.remove($0.id) }
         }
     }
 }
 
 #Preview {
-    BarcodeScanner { payload in
+    BarcodeScanner (isPresented: true, onScanned: { payload, _ in
         print("Scanned: \(payload)")
-    }
+    })
 }

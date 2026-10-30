@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UPCMDBAPIKey</key>
-	<string>$(UPCMDB_API_KEY)</string>
+	<key>RemasterBaseUrl</key>
+	<string>$(REMASTER_BACKEND_BASE_URL)</string>
+	<key>RemasterLocalPort</key>
+	<string>$(REMASTER_LOCAL_PORT)</string>
 </dict>
 </plist>

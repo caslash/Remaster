@@ -4,45 +4,73 @@
 //
 //  Created by Cameron Slash on 9/24/26.
 //
-import Combine
+
+import FactoryKit
 import Foundation
 import Observation
+import Vision
 
 @Observable
 public class ContentViewModel {
-    @ObservationIgnored private var anycancellableset = Set<AnyCancellable>()
+    private static let MINIMUM_WAIT: Duration = .milliseconds(500)
+    
+    @ObservationIgnored @Injected(\.barcodeService) private var barcodeService: any BarcodeServicing
 
-    public var movie: String?
-
-    /// Injected at build time from `Config/Secrets.xcconfig` via Info.plist.
-    private static let apiKey = Bundle.main.object(forInfoDictionaryKey: "UPCMDBAPIKey") as? String ?? ""
+    public var edition: Edition?
+    public var networkError: NetworkError?
+    public var error: any Error?
+    public var isFetching: Bool = false
+    public var isIdle: Bool {
+        self.isFetching == false && self.edition == nil && self.networkError == nil && self.error == nil
+    }
+    
+    private var previousBarcode: String?
+    private var previousShape: VNBarcodeSymbology?
 
     init() { }
-
-    func processBarcode(value: String) {
-        print(value)
-        if let url = URL(string:  "https://us-central1-upcmdb-cbae5.cloudfunctions.net/api/v1/lookup/\(value.trimmingCharacters(in: [" "]))") {
-
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue(Self.apiKey, forHTTPHeaderField: "x-api-key")
-
-            URLSession.shared.dataTaskPublisher(for: request)
-                .map { Self.prettyPrinted($0.data) }
-                .receive(on: RunLoop.main)
-                .sink(receiveCompletion: { print("completion: \($0)") }, receiveValue: { self.movie = $0 })
-                .store(in: &anycancellableset)
+    
+    func processBarcode(_ barcode: String, shape: VNBarcodeSymbology?) {
+        if (self.isFetching) { return }
+        
+        self.previousBarcode = barcode
+        self.previousShape = shape
+        self.networkError = nil
+        self.error = nil
+        
+        self.isFetching = true
+        
+        Task {
+            let clock = ContinuousClock()
+            var success: Edition?
+            var failure: Error?
+            
+            let elapsed = await clock.measure {
+                do {
+                    success = try await self.barcodeService.fetchBarcode(barcode, shape: shape)
+                } catch {
+                    failure = error
+                }
+            }
+            
+            if (elapsed < Self.MINIMUM_WAIT) { try? await Task.sleep(for: Self.MINIMUM_WAIT - elapsed) }
+            
+            if (failure == nil) {
+                self.edition = success
+            }
+            
+            if let networkFailure = failure as? NetworkError {
+                self.networkError = networkFailure
+            } else if let failure {
+                self.error = failure
+            }
+            
+            self.isFetching = false
         }
     }
-
-    /// Re-serializes the response as indented JSON, falling back to the raw text if it isn't valid JSON.
-    private static func prettyPrinted(_ data: Data) -> String {
-        guard let object = try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed),
-              let pretty = try? JSONSerialization.data(
-                withJSONObject: object,
-                options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed]
-              )
-        else { return String(decoding: data, as: UTF8.self) }
-        return String(decoding: pretty, as: UTF8.self)
+    
+    func retry() {
+        if let retryBarcode = self.previousBarcode {
+            self.processBarcode(retryBarcode, shape: self.previousShape)
+        }
     }
 }

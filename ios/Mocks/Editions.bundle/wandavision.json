@@ -1,0 +1,33 @@
+{
+  "id": "0786936900378",
+  "barcodes": { "upc": "786936900378", "ean": "0786936900378" },
+  "asin": "B0CG6J1JLT",
+  "imdbId": "tt9140560",
+  "title": "WandaVision: The Complete Series",
+  "enrichedTitle": "WandaVision",
+  "kind": "tv",
+  "year": 2021,
+  "format": "4K UHD",
+  "discContents": [
+    { "format": "4K UHD", "region": "Region free" },
+    { "format": "4K UHD", "region": "Region free" }
+  ],
+  "hdr": ["HDR10"],
+  "packaging": { "steelbook": true, "memorabilia": true },
+  "editionFlags": {
+    "limited": false,
+    "collector": true,
+    "special": false,
+    "anniversary": false,
+    "boxset": false
+  },
+  "masterResolution": "native",
+  "releaseDate": "2023-11-28",
+  "distributor": "Disney / Buena Vista",
+  "country": "United States",
+  "coverImageURL": "https://imagestorage.org/786936900378.jpg",
+  "runtime": 321,
+  "audio": "English: Dolby Atmos English: Dolby TrueHD 7.1 (48kHz, 24-bit) French (Canada): Dolby Digital 5.1 Spanish: Dolby Digital 5.1 (640 kbps) | Audio descriptive",
+  "subtitles": ["English SDH", "French", "Spanish"],
+  "hasDigital": false
+}
