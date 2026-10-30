@@ -8,8 +8,6 @@
 import Foundation
 import Vision
 
-nonisolated protocol IBarcodeService {
-    init()
-    
+nonisolated protocol BarcodeServicing {
     func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition
 }

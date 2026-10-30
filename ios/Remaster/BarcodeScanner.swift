@@ -38,16 +38,13 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator
+        try? scanner.startScanning()
         return scanner
     }
 
     func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {
         context.coordinator.onScanned = onScanned
-        if !scanner.isScanning && canScan {
-            try? scanner.startScanning()
-        } else if scanner.isScanning && !canScan {
-            scanner.stopScanning()
-        }
+        context.coordinator.isPaused = !canScan
     }
 
     static func dismantleUIViewController(_ scanner: DataScannerViewController, coordinator: Coordinator) {
@@ -60,17 +57,29 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         var onScanned: (String, VNBarcodeSymbology?) -> Void
+        var isPaused = false
+        private var handledIds = Set<RecognizedItem.ID>()
 
         init(onScanned: @escaping (String, VNBarcodeSymbology?) -> Void) {
             self.onScanned = onScanned
         }
 
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
-            for item in addedItems {
-                if case .barcode(let barcode) = item, let payload = barcode.payloadStringValue {
-                    onScanned(payload, barcode.observation.symbology)
+            guard !isPaused else { return }
+            for item in addedItems where !handledIds.contains(item.id) {
+                guard case .barcode(let barcode) = item, let payload = barcode.payloadStringValue else {
+                    continue
                 }
+                
+                handledIds.insert(item.id)
+                isPaused = true
+                onScanned(payload, barcode.observation.symbology)
+                return
             }
+        }
+        
+        func dataScanner(_ dataScanner: DataScannerViewController, didRemove removedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            removedItems.forEach { handledIds.remove($0.id) }
         }
     }
 }

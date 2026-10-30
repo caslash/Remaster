@@ -22,9 +22,8 @@ public enum NetworkError: Error, LocalizedError {
                 switch (error.code) {
                 case .notConnectedToInternet: return "You're offline"
                 case .timedOut: return "That took too long"
-                case .dataNotAllowed: return "Mobile date is off for Remaster"
+                case .dataNotAllowed: return "Mobile data is off for Remaster"
                 case .internationalRoamingOff: return "Roaming is off"
-                case .cancelled: return nil
                 default: return "Couldn't reach Remaster"
                 }
             }()
@@ -62,7 +61,7 @@ public enum NetworkError: Error, LocalizedError {
             case .notFound: return "Try entering the barcode number printed under the bars."
             case .decodingError: return "That's a problem on our end. Try another disc, or try again later."
             case .invalidResponse: return "Please try again later."
-            case .invalidURL: return "Scan the barcode printed on the case."
+            case .invalidURL: return "The URL was mangled, that's our fault. Please try again later."
         }
     }
     

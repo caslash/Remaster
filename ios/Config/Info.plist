@@ -4,5 +4,7 @@
 <dict>
 	<key>RemasterBaseUrl</key>
 	<string>$(REMASTER_BACKEND_BASE_URL)</string>
+	<key>RemasterLocalPort</key>
+	<string>$(REMASTER_LOCAL_PORT)</string>
 </dict>
 </plist>

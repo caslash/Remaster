@@ -10,24 +10,33 @@ import Foundation
 import OSLog
 import Vision
 
-nonisolated public class BarcodeService: IBarcodeService {
+nonisolated public class BarcodeService: BarcodeServicing {
     private static let remasterBaseUrl = Bundle.main.object(forInfoDictionaryKey: "RemasterBaseUrl") as? String ?? ""
+    private static let remasterLocalPort = Bundle.main.object(forInfoDictionaryKey: "RemasterLocalPort") as? String
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "BarcodeService")
 
     public required init () { }
 
     public func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition {
+        guard !barcode.isEmpty else { throw NetworkError.badRequest }
+        
         var components = URLComponents()
         components.scheme = "https"
         components.host = Self.remasterBaseUrl
-        components.path = "/upc/\(barcode.trimmingCharacters(in: [" "]))"
-        components.queryItems = []
+        components.path = "/upc/\(barcode.trimmingCharacters(in: .letters).trimmingCharacters(in: .whitespacesAndNewlines))"
+        
+        if let port = Self.remasterLocalPort, let portNumber = Int(port) {
+            components.port = portNumber
+        }
         
         if let shapeString = shape?.queryString {
+            components.queryItems = []
             components.queryItems?.append(URLQueryItem(name: "shape", value: shapeString))
         }
         
         guard let url = components.url else { throw NetworkError.invalidURL }
+        
+        print(url.absoluteString)
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

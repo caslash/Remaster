@@ -10,7 +10,7 @@ import Vision
 
 #if DEBUG
 
-nonisolated public class SimulatedBarcodeService: IBarcodeService {
+nonisolated public class SimulatedBarcodeService: BarcodeServicing {
     private let errorBarcodes: [String] = ["000", "503", "400", "404"]
     
     public required init () { print("SIMULATING BARCODESERVICE") }
@@ -24,8 +24,7 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
             case "000": throw NetworkError.transportError(URLError(.notConnectedToInternet))
             case "503": throw NetworkError.serverError(statusCode: 503)
             case "400": throw NetworkError.badRequest
-            case "404": throw NetworkError.notFound
-            default: throw NetworkError.invalidResponse
+            default: throw NetworkError.notFound
             }
         }
         
@@ -53,7 +52,7 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
             }
         }
         
-        guard let edition = editions.first(where: { $0.barcodes.upc == barcode }) else {
+        guard let edition = editions.first(where: { $0.barcodes.upc == barcode || $0.barcodes.ean == barcode }) else {
             throw NetworkError.notFound
         }
         

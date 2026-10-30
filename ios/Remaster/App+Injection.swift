@@ -9,7 +9,7 @@ import FactoryKit
 import Foundation
 
 extension Container {
-    var barcodeService: Factory<any IBarcodeService> {
+    var barcodeService: Factory<any BarcodeServicing> {
         Factory(self) { BarcodeService() }
             .singleton
 #if DEBUG

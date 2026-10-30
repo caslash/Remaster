@@ -22,3 +22,5 @@ coverage/
 .env.*
 !.env.example
 buildServer.json
+secrets/
+backend/.envrc

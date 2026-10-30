@@ -5,18 +5,16 @@
 //  Created by Cameron Slash on 9/24/26.
 //
 
-import Combine
 import FactoryKit
 import Foundation
 import Observation
-import SwiftUI
 import Vision
 
 @Observable
 public class ContentViewModel {
     private static let MINIMUM_WAIT: Duration = .milliseconds(500)
     
-    @ObservationIgnored @Injected(\.barcodeService) private var barcodeService: any IBarcodeService
+    @ObservationIgnored @Injected(\.barcodeService) private var barcodeService: any BarcodeServicing
 
     public var edition: Edition?
     public var networkError: NetworkError?
