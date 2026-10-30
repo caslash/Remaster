@@ -7,14 +7,23 @@ import * as path from 'path';
 async function bootstrap() {
   let httpsOptions;
 
-  if (process.env.NODE_ENV !== 'production') {
+  let key: NonSharedBuffer | undefined;
+  let cert: NonSharedBuffer | undefined;
+
+  try {
+    key = fs.readFileSync(
+      path.resolve(__dirname, '../secrets/localhost-key.pem'),
+    );
+    cert = fs.readFileSync(path.resolve(__dirname, '../secrets/localhost.pem'));
+  } catch {
+    key = undefined;
+    cert = undefined;
+  }
+
+  if (key && cert) {
     httpsOptions = {
-      key: fs.readFileSync(
-        path.resolve(__dirname, '../secrets/localhost-key.pem'),
-      ),
-      cert: fs.readFileSync(
-        path.resolve(__dirname, '../secrets/localhost.pem'),
-      ),
+      key,
+      cert,
     };
   }
 
