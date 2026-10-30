@@ -23,7 +23,7 @@ nonisolated public class BarcodeService: BarcodeServicing {
         var components = URLComponents()
         components.scheme = "https"
         components.host = Self.remasterBaseUrl
-        components.path = "/upc/\(barcode.trimmingCharacters(in: .letters).trimmingCharacters(in: .whitespacesAndNewlines))"
+        components.path = "/upc/\(barcode.trimmingCharacters(in: .whitespacesAndNewlines))"
         
         if let port = Self.remasterLocalPort, let portNumber = Int(port) {
             components.port = portNumber
@@ -35,8 +35,6 @@ nonisolated public class BarcodeService: BarcodeServicing {
         }
         
         guard let url = components.url else { throw NetworkError.invalidURL }
-        
-        print(url.absoluteString)
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
