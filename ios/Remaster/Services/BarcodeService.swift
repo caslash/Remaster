@@ -7,9 +7,11 @@
 
 import Combine
 import Foundation
+import OSLog
 
 nonisolated public class BarcodeService: IBarcodeService {
     private static let remasterURL = Bundle.main.object(forInfoDictionaryKey: "RemasterURL") as? String ?? ""
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "BarcodeService")
 
     public required init () { }
 
@@ -38,11 +40,13 @@ nonisolated public class BarcodeService: IBarcodeService {
             throw NetworkError.invalidResponse
         }
         
-        if (httpResponse.statusCode == 404) { throw NetworkError.notFound(barcode: barcode) }
+        if (httpResponse.statusCode == 400) { throw NetworkError.badRequest }
+        if (httpResponse.statusCode == 404) { throw NetworkError.notFound }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw NetworkError.serverError(statusCode: httpResponse.statusCode, statusText: errorResponse?.message ?? HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode))
+            Self.logger.warning("Server responded with \(httpResponse.statusCode): \(errorResponse?.message ?? "")")
+            throw NetworkError.serverError(statusCode: httpResponse.statusCode)
         }
 
         do {

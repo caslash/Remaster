@@ -111,7 +111,6 @@ export class UpcService {
 
     if (typeof response.ean === 'string' && response.ean !== upc)
       this.logger.warn(
-        // `EAN ${response.ean} does not match the normalized UPC ${upc}`,
         `UPCMDB EAN ${response.ean} differs from normalized code ${upc} (scanned ${scannedUPC})`,
       );
 

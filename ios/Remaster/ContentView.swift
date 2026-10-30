@@ -7,49 +7,54 @@
 
 import Observation
 import SwiftUI
+import Vision
 
 struct ContentView: View {
     @State private var viewModel: ContentViewModel = .init()
     
-    private var isSearching: Binding<Bool> {
-        Binding(
-            get: { viewModel.edition == nil && viewModel.error == nil },
-            set: { _ in }
-        )
-    }
-    
     var body: some View {
-        BarcodeScanner(isSearching: self.isSearching, onScanned: fetchBarcode)
-            .alert(error: self.$viewModel.error) {
-                Button("OK", role: .close) { }
-            }
-            .sheet(item: self.$viewModel.edition) { edition in
-                VStack {
-                    AsyncImage(url: edition.coverImageURL) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        } else if phase.error != nil {
-                            
-                        } else {
-                            ProgressView()
+        ZStack {
+            BarcodeScanner(symbologies: [.ean13, .upce, .ean8], isPresented: self.viewModel.isIdle, onScanned: self.viewModel.processBarcode)
+                .alert(error: self.$viewModel.error) {
+                    Button("OK", role: .close) {  }
+                }
+                .alert(error: self.$viewModel.networkError) { error in
+                    if (error.isRetryable) {
+                        Button("Retry") {
+                            self.viewModel.retry()
                         }
                     }
-                        .frame(height: 200)
                     
-                    Text(edition.title)
-                        .font(.title2)
-                    
-                    Text(edition.format?.rawValue ?? "Unknown Format")
-                        .font(.subheadline)
+                    Button("OK", role: .close) {  }
+                } message: { error in
+                    Text(error.recoverySuggestion ?? "")
                 }
+                .sheet(item: self.$viewModel.edition) { edition in
+                    VStack {
+                        AsyncImage(url: edition.coverImageURL) { phase in
+                            if let image = phase.image {
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                            } else if phase.error != nil {
+                                
+                            } else {
+                                ProgressView()
+                            }
+                        }
+                        .frame(height: 200)
+                        
+                        Text(edition.title)
+                            .font(.title2)
+                        
+                        Text(edition.format?.rawValue ?? "Unknown Format")
+                            .font(.subheadline)
+                    }
+                }
+            
+            if (self.viewModel.isFetching) {
+                ProgressView()
             }
-    }
-
-    private func fetchBarcode(_ barcode: String) {
-        Task {
-            await self.viewModel.processBarcode(barcode)
         }
     }
 }
