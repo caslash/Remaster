@@ -1,7 +1,7 @@
-import { Controller, Get, Param, ParseEnumPipe, Query } from '@nestjs/common';
-import { UpcService } from '@/upc/upc.service';
-import { Edition } from '@/upc/types/edition';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
+import { Edition } from '@/upc/types/edition';
+import { UpcService } from '@/upc/upc.service';
+import { Controller, Get, Param, ParseEnumPipe, Query } from '@nestjs/common';
 
 @Controller('upc')
 export class UpcController {

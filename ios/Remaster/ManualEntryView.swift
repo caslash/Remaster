@@ -1,8 +1,9 @@
 import SwiftUI
+import Vision
 
 struct ManualEntryView: View {
     let isPresented: Bool
-    let onSubmit: (String) -> Void
+    let onSubmit: (String, VNBarcodeSymbology?) -> Void
     
     @State private var searchText: String = ""
     
@@ -12,7 +13,7 @@ struct ManualEntryView: View {
                 TextField("UPC", text: $searchText)
                 
                 Button("OK") {
-                    self.onSubmit(searchText)
+                    self.onSubmit(searchText, nil)
                     searchText = ""
                 }
             }
@@ -20,7 +21,7 @@ struct ManualEntryView: View {
 }
 
 #Preview {
-    ManualEntryView(isPresented: true, onSubmit: { string in
+    ManualEntryView(isPresented: true, onSubmit: { string, _ in
         print(string)
     })
 }

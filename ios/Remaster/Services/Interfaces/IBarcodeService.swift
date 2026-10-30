@@ -6,9 +6,10 @@
 //
 
 import Foundation
+import Vision
 
 nonisolated protocol IBarcodeService {
     init()
     
-    func fetchBarcode(_ barcode: String) async throws -> Edition
+    func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition
 }

@@ -22,6 +22,9 @@ public enum NetworkError: Error, LocalizedError {
                 switch (error.code) {
                 case .notConnectedToInternet: return "You're offline"
                 case .timedOut: return "That took too long"
+                case .dataNotAllowed: return "Mobile date is off for Remaster"
+                case .internationalRoamingOff: return "Roaming is off"
+                case .cancelled: return nil
                 default: return "Couldn't reach Remaster"
                 }
             }()
@@ -44,7 +47,9 @@ public enum NetworkError: Error, LocalizedError {
             case .transportError(let error): return {
                 switch (error.code) {
                 case .notConnectedToInternet: return "Connect to the internet and try again."
-                default: return "Check your connection and try again."
+                case .dataNotAllowed: return "Turn on Mobile Data for Remaster in Settings, or connect to Wi-Fi."
+                case .internationalRoamingOff: return "Connect to Wi-Fi to look up discs while abroad."
+                default: return "Please try again later."
                 }
             }()
             case .serverError: return {
@@ -71,7 +76,7 @@ public enum NetworkError: Error, LocalizedError {
         }()
         case .transportError(let error): return {
             switch (error.code) {
-            case .notConnectedToInternet, .timedOut, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+            case .notConnectedToInternet, .timedOut, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff:
                     return true
                 default: return false
             }

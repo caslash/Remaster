@@ -11,22 +11,23 @@ import VisionKit
 
 struct BarcodeScanner: View {
     var symbologies: [VNBarcodeSymbology] = []
-    @Binding var isSearching: Bool
-    let onScanned: (String) -> Void
+    let isPresented: Bool
+    let onScanned: (String, VNBarcodeSymbology?) -> Void
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-            DataScannerRepresentable(symbologies: symbologies, onScanned: onScanned)
+            DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
                 .ignoresSafeArea()
         } else {
-            ManualEntryView(isSearching: $isSearching, onSubmit: onScanned)
+            ManualEntryView(isPresented: isPresented, onSubmit: onScanned)
         }
     }
 }
 
 private struct DataScannerRepresentable: UIViewControllerRepresentable {
+    let canScan: Bool
     let symbologies: [VNBarcodeSymbology]
-    let onScanned: (String) -> Void
+    let onScanned: (String, VNBarcodeSymbology?) -> Void
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
@@ -42,8 +43,10 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 
     func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {
         context.coordinator.onScanned = onScanned
-        if !scanner.isScanning {
+        if !scanner.isScanning && canScan {
             try? scanner.startScanning()
+        } else if scanner.isScanning && !canScan {
+            scanner.stopScanning()
         }
     }
 
@@ -56,32 +59,24 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var onScanned: (String) -> Void
+        var onScanned: (String, VNBarcodeSymbology?) -> Void
 
-        init(onScanned: @escaping (String) -> Void) {
+        init(onScanned: @escaping (String, VNBarcodeSymbology?) -> Void) {
             self.onScanned = onScanned
         }
 
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
             for item in addedItems {
                 if case .barcode(let barcode) = item, let payload = barcode.payloadStringValue {
-                    onScanned(payload)
+                    onScanned(payload, barcode.observation.symbology)
                 }
             }
         }
     }
 }
 
-extension Binding {
-    func isNil<T>() -> Binding<Bool> where Value == T? {
-        Binding<Bool>(
-            get: { self.wrappedValue == nil }, set: { _ in }
-        )
-    }
-}
-
 #Preview {
-    BarcodeScanner (isSearching: Binding.constant(false), onScanned: { payload in
+    BarcodeScanner (isPresented: true, onScanned: { payload, _ in
         print("Scanned: \(payload)")
     })
 }

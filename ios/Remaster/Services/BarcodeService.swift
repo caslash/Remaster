@@ -8,17 +8,26 @@
 import Combine
 import Foundation
 import OSLog
+import Vision
 
 nonisolated public class BarcodeService: IBarcodeService {
-    private static let remasterURL = Bundle.main.object(forInfoDictionaryKey: "RemasterURL") as? String ?? ""
+    private static let remasterBaseUrl = Bundle.main.object(forInfoDictionaryKey: "RemasterBaseUrl") as? String ?? ""
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "BarcodeService")
 
     public required init () { }
 
-    public func fetchBarcode(_ barcode: String) async throws -> Edition {
-        guard let url = URL(string: "\(Self.remasterURL)/upc/\(barcode.trimmingCharacters(in: [" "]))") else {
-            throw NetworkError.invalidURL
+    public func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = Self.remasterBaseUrl
+        components.path = "/upc/\(barcode.trimmingCharacters(in: [" "]))"
+        components.queryItems = []
+        
+        if let shapeString = shape?.queryString {
+            components.queryItems?.append(URLQueryItem(name: "shape", value: shapeString))
         }
+        
+        guard let url = components.url else { throw NetworkError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

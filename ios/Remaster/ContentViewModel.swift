@@ -10,6 +10,7 @@ import FactoryKit
 import Foundation
 import Observation
 import SwiftUI
+import Vision
 
 @Observable
 public class ContentViewModel {
@@ -26,13 +27,15 @@ public class ContentViewModel {
     }
     
     private var previousBarcode: String?
+    private var previousShape: VNBarcodeSymbology?
 
     init() { }
     
-    func processBarcode(_ barcode: String) {
+    func processBarcode(_ barcode: String, shape: VNBarcodeSymbology?) {
         if (self.isFetching) { return }
         
         self.previousBarcode = barcode
+        self.previousShape = shape
         self.networkError = nil
         self.error = nil
         
@@ -45,7 +48,7 @@ public class ContentViewModel {
             
             let elapsed = await clock.measure {
                 do {
-                    success = try await self.barcodeService.fetchBarcode(barcode)
+                    success = try await self.barcodeService.fetchBarcode(barcode, shape: shape)
                 } catch {
                     failure = error
                 }
@@ -69,7 +72,7 @@ public class ContentViewModel {
     
     func retry() {
         if let retryBarcode = self.previousBarcode {
-            self.processBarcode(retryBarcode)
+            self.processBarcode(retryBarcode, shape: self.previousShape)
         }
     }
 }

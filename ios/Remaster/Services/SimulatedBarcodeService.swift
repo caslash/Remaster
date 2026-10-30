@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Vision
 
 #if DEBUG
 
@@ -14,7 +15,7 @@ nonisolated public class SimulatedBarcodeService: IBarcodeService {
     
     public required init () { print("SIMULATING BARCODESERVICE") }
     
-    public func fetchBarcode(_ barcode: String) async throws -> Edition {
+    public func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition {
         try await Task.sleep(for: .milliseconds(200))
         var editions: [Edition] = []
         
