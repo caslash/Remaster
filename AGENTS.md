@@ -178,12 +178,13 @@ Any story that sends data off the device must state what is sent and confirm it 
 - **Proposed:** All personal matching (library vs. available editions, alert rules) happens on device. Notifications are local notifications, triggered after the app pulls new data.
 
 ### Backend
-- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is not chosen yet.
+- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is **PostgreSQL**.
 - **Decided:** A hosted service that queries TMDB, a UPC lookup service (UPCMDB), and possibly scrapes Blu-ray.com. The edition database is filled **on demand** over time rather than enumerated up front; it will later be crowdsourced. The server runs in the background filling in upgrade data, and clients receive it as it comes in.
+- **Decided:** **Cache-style lookup.** The first scan of a UPC resolves it upstream and stores the normalized result; later scans of that UPC are served from the edition database with no UPCMDB call.
+- **Decided:** **Keep raw JSON** alongside each normalized record so it can be re-normalized when the mapping improves, without calling upstream again.
+- **Decided:** **Fast path on a miss.** Return the basic match (title, poster, scanned format) immediately; fetch upgrade editions in the background and update when ready.
 - **Proposed:**
-  - **Normalization on the server.** Raw source responses are mapped into the app's own edition schema once, server-side. Clients only ever see the normalized schema. Keep the raw JSON alongside each normalized record so it can be reprocessed when mapping improves.
-  - **Cache-style lookup.** First scan of a UPC triggers resolution and stores the result; later scans are instant hits.
-  - **Fast path on a miss.** Return the basic match (title, poster, scanned format) immediately; fetch upgrade editions in the background and update when ready.
+  - **Normalization on the server.** Raw source responses are mapped into the app's own edition schema once, server-side. Clients only ever see the normalized schema.
   - **Seed before launch.** Pre-populate editions for the most popular few thousand titles (TMDB popularity lists) so early users mostly hit cache.
   - **Log every lookup outcome**, including unresolved UPCs ("wanted" list) and records missing key fields (`hdr`, `format`). This log drives the enrichment worker and crowdsourcing priorities.
   - **Enrichment worker** re-checks titles periodically (sooner for frequently scanned titles) and watches release listings for new 4K / DV / steelbook announcements, limited to titles already in the database.
@@ -253,11 +254,14 @@ On-device library entries reference an Edition (or a Title + format when the exa
 
 ## 6. Crowdsourcing (later release)
 
-**Decided:** After initial data collection, future information can be crowdsourced.
+**Decided:**
+- After initial data collection, future information can be crowdsourced.
+- When a lookup comes back thin (missing HDR, packaging, disc details, etc.), the user can fill in the missing fields. Those edits are stored **on the device** with their library entry. Ships in **MVP**.
+- An **opt-in setting** forwards those user-supplied edition facts to the backend datastore. It is off by default. Submissions are anonymous and contain only UPC + edition facts, never anything about the user's library. Ships in **R2**, alongside failed-scan submissions.
+- **Conflicts:** if the server later has data for a field the user filled in, the user's value stays. The app offers the server's value as an update the user can accept.
 
 **Proposed:**
-- The natural trigger is a failed scan: when a UPC doesn't resolve, ask the user to confirm title, format, and packaging, and submit the mapping.
-- Submissions are opt-in and anonymous and contain only UPC + edition facts, never anything about the user's library.
+- A failed scan is also a trigger: when a UPC doesn't resolve, ask the user to confirm title, format, and packaging, and (if opted in) submit the mapping.
 - An edit is accepted only after several independent submissions agree.
 - Users can report wrong data.
 
@@ -290,6 +294,7 @@ The story map backbone (user activities, left to right): **Catalog my collection
 | | Review my upgrade list | List of every upgradeable title |
 | Decide and upgrade | Record the upgrade | Replace owned edition with the new one |
 | Keep my data right | Handle a failed scan | Fall back to manual search · ⚙ Log unresolved UPCs |
+| | Fix thin data | Fill in missing edition details on device |
 
 ### Release 2 — editions, alerts, contributions
 
@@ -307,6 +312,7 @@ The story map backbone (user activities, left to right): **Catalog my collection
 | | Set alert preferences | Choose alert types (4K, DV, steelbook) · Set my region |
 | | Get notified | ⚙ Publish new-editions feed · On-device match + local notification |
 | Keep my data right | Handle a failed scan | Submit UPC → edition anonymously (opt-in) |
+| | Fix thin data | Share my filled-in details anonymously (opt-in) |
 | | Protect my library | Export / back up library (JSON) |
 
 ### Future — nice to have
