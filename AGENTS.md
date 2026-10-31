@@ -23,7 +23,7 @@ If a request would need app code written, say so and offer guidance instead.
 
 Agents may write and edit tests.
 
-- **In scope:** test files only. On iOS that's `ios/RemasterTests/` (Swift Testing: `import Testing`, `@Test`, `#expect`). On the backend it's `*.spec.ts` files under `backend/src/` and e2e specs under `backend/test/` (Jest), plus fixtures that only tests use, such as the recorded UPCMDB responses in `backend/src/upc/mock/`.
+- **In scope:** test files only. On iOS that's `ios/RemasterTests/` (Swift Testing: `import Testing`, `@Test`, `#expect`) and `ios/RemasterUITests/` (XCTest UI tests). On the backend it's `*.spec.ts` files under `backend/src/` and e2e specs under `backend/test/` (Jest), plus fixtures that only tests use, such as the recorded UPCMDB responses in `backend/src/upc/mock/`.
 - **Still off-limits:** the code under test, project and build files (including test target settings in `project.pbxproj`, `package.json`, and Jest config), and mock data the app itself reads, such as `ios/Mocks/Editions.bundle` (loaded by `SimulatedBarcodeService`). If something starts reading a fixture outside tests, it stops being in scope.
 - **When a test fails because of the app code,** report the failure and the likely cause (`file:line`, what's wrong, which direction to fix it in) instead of changing the app code. Don't weaken, skip, or delete a test to make it pass.
 - **When the code is hard to test** (e.g. a hard-wired `URLSession` or a missing seam for injecting a dependency), explain what would make it testable and let the owner make that change.
@@ -51,7 +51,7 @@ Monorepo with two projects:
 Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore` live at the repo root.
 
 ### iOS layout
-- `ios/Remaster.xcodeproj` — Xcode project; targets `Remaster` (app) and `RemasterTests` (unit tests)
+- `ios/Remaster.xcodeproj` — Xcode project; targets `Remaster` (app), `RemasterTests` (unit tests) and `RemasterUITests` (UI tests)
 - `ios/Remaster/RemasterApp.swift` — app entry point
 - `ios/Remaster/App+Injection.swift` — FactoryKit `Container` registrations (dependency injection)
 - `ios/Remaster/ContentView.swift` — main screen
@@ -61,7 +61,8 @@ Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore
 - `ios/Remaster/Models/` — `Edition` (the backend's normalized schema), `Errors/NetworkError`, `Extensions/VNBarcodeSymbology+String` (maps Vision symbologies to the backend's `shape` values)
 - `ios/Remaster/Services/` — `BarcodeService` (calls the backend over `URLSession` async/await), `SimulatedBarcodeService` (DEBUG only), and protocols in `Interfaces/`
 - `ios/Mocks/Editions.bundle` — sample edition JSON read by `SimulatedBarcodeService`; excluded from device builds
-- `ios/RemasterTests/` — Swift Testing unit tests
+- `ios/RemasterTests/` — Swift Testing unit tests; JSON fixtures in `Fixtures/`
+- `ios/RemasterUITests/` — XCTest UI tests
 - `ios/Config/` — xcconfig files and the partial Info.plist (see Secrets)
 
 ### iOS build
@@ -73,7 +74,16 @@ Two shared schemes:
 - `Remaster` — talks to the real backend at `REMASTER_BACKEND_BASE_URL`.
 - `Remaster_Sim` — launches with the `SIMULATED_SERVICES` argument, so `App+Injection.swift` swaps in `SimulatedBarcodeService`, which serves the sample editions from `ios/Mocks/Editions.bundle` and fakes errors for the barcodes `000`, `400`, `404` and `503`. Use it to work on the UI without a running backend.
 
-Unit tests live in the `RemasterTests` target and use Swift Testing. Both schemes include it. Run them with `xcodebuild test` against a concrete simulator destination (list them with `xcrun simctl list devices`), or with the `mcp__xcode-tools__*` test tools inside Xcode.
+### iOS tests
+Two test targets, both included in both schemes:
+- `RemasterTests` — Swift Testing unit tests. Normalized-edition JSON fixtures live in `ios/RemasterTests/Fixtures/` and are copied into the test bundle; load them with `Fixtures.load(_:)`.
+- `RemasterUITests` — XCTest UI tests (Swift Testing can't drive UI). They launch the app with `SIMULATED_SERVICES` themselves, so they need no backend, and type barcodes into the manual entry alert because the camera scanner isn't available in the Simulator.
+
+From the repo root, run all tests:
+```sh
+xcodebuild test -project ios/Remaster.xcodeproj -scheme Remaster -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one target. Tests need a concrete simulator; list them with `xcrun simctl list devices available`. Inside Xcode, use the `mcp__xcode-tools__*` test tools instead.
 
 ### iOS conventions
 - Use the Observation framework (`@Observable`, `@ObservationIgnored`) rather than `ObservableObject`.
