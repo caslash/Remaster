@@ -265,4 +265,20 @@ struct EditionDecodingTests {
         #expect(edition.barcodes.upc == "786936900001")
         #expect(edition.barcodes.ean == "0786936900001")
     }
+
+    // MARK: Fixtures
+
+    @Test("Every JSON fixture loads from the test bundle and decodes", arguments: [
+        "minimal", "combo-pack", "explicit-false", "sdr-bluray",
+        "uhd-unknown-hdr", "fourteen-dvds", "disc-without-region", "unknown-keys",
+    ])
+    func bundledFixtureDecodes(_ name: String) throws {
+        let json = Fixtures.load(name)
+        try #require(!json.isEmpty)
+
+        let edition = try Fixtures.decode(json)
+
+        #expect(!edition.id.isEmpty)
+        #expect(!edition.title.isEmpty)
+    }
 }
