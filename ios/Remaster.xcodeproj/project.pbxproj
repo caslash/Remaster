@@ -10,7 +10,18 @@
 		2EF85AAF3093956100FE9847 /* FactoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2EF85AAE3093956100FE9847 /* FactoryKit */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		2E24D31B30962EE100854D7D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2E5098EE30660D1500D79250 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E5098F530660D1500D79250;
+			remoteInfo = Remaster;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		2E24D31730962EE100854D7D /* RemasterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemasterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E5098F630660D1500D79250 /* Remaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Remaster.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E50990430660D1600D79250 /* Remaster.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Remaster.xcconfig; sourceTree = "<group>"; };
 		2E50990530660D1600D79250 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -18,6 +29,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		2E24D31830962EE100854D7D /* RemasterUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RemasterUITests;
+			sourceTree = "<group>";
+		};
 		2E5098F830660D1500D79250 /* Remaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Remaster;
@@ -36,6 +52,11 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2E24D31430962EE100854D7D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		2E5098F330660D1500D79250 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -53,9 +74,10 @@
 		2E5098ED30660D1500D79250 = {
 			isa = PBXGroup;
 			children = (
-				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
 				2E5824643095544600C1A8C8 /* RemasterTests */,
+				2E24D31830962EE100854D7D /* RemasterUITests */,
+				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E50990630660D1600D79250 /* Config */,
 				2E5098F730660D1500D79250 /* Products */,
 			);
@@ -66,6 +88,7 @@
 			children = (
 				2E5098F630660D1500D79250 /* Remaster.app */,
 				2E5824633095544600C1A8C8 /* RemasterTests.xctest */,
+				2E24D31730962EE100854D7D /* RemasterUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -82,6 +105,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2E24D31630962EE100854D7D /* RemasterUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E24D31D30962EE100854D7D /* Build configuration list for PBXNativeTarget "RemasterUITests" */;
+			buildPhases = (
+				2E24D31330962EE100854D7D /* Sources */,
+				2E24D31430962EE100854D7D /* Frameworks */,
+				2E24D31530962EE100854D7D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2E24D31C30962EE100854D7D /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2E24D31830962EE100854D7D /* RemasterUITests */,
+			);
+			name = RemasterUITests;
+			productName = RemasterUITests;
+			productReference = 2E24D31730962EE100854D7D /* RemasterUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		2E5098F530660D1500D79250 /* Remaster */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2E50990130660D1600D79250 /* Build configuration list for PBXNativeTarget "Remaster" */;
@@ -132,6 +176,10 @@
 				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
+					2E24D31630962EE100854D7D = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = 2E5098F530660D1500D79250;
+					};
 					2E5098F530660D1500D79250 = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -159,11 +207,17 @@
 			targets = (
 				2E5098F530660D1500D79250 /* Remaster */,
 				2E5824623095544600C1A8C8 /* RemasterTests */,
+				2E24D31630962EE100854D7D /* RemasterUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2E24D31530962EE100854D7D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		2E5098F430660D1500D79250 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -177,6 +231,11 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2E24D31330962EE100854D7D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		2E5098F230660D1500D79250 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -189,7 +248,55 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		2E24D31C30962EE100854D7D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E5098F530660D1500D79250 /* Remaster */;
+			targetProxy = 2E24D31B30962EE100854D7D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		2E24D31E30962EE100854D7D /* Debug configuration for PBXNativeTarget "RemasterUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3S8XC6A264;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Remaster;
+			};
+			name = Debug;
+		};
+		2E24D31F30962EE100854D7D /* Release configuration for PBXNativeTarget "RemasterUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3S8XC6A264;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Remaster;
+			};
+			name = Release;
+		};
 		2E5098FF30660D1600D79250 /* Debug configuration for PBXProject "Remaster" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -447,6 +554,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2E24D31D30962EE100854D7D /* Build configuration list for PBXNativeTarget "RemasterUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E24D31E30962EE100854D7D /* Debug configuration for PBXNativeTarget "RemasterUITests" */,
+				2E24D31F30962EE100854D7D /* Release configuration for PBXNativeTarget "RemasterUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		2E5098F130660D1500D79250 /* Build configuration list for PBXProject "Remaster" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
