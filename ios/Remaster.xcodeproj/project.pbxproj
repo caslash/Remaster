@@ -14,12 +14,18 @@
 		2E5098F630660D1500D79250 /* Remaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Remaster.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E50990430660D1600D79250 /* Remaster.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Remaster.xcconfig; sourceTree = "<group>"; };
 		2E50990530660D1600D79250 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2E5824633095544600C1A8C8 /* RemasterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemasterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2E5098F830660D1500D79250 /* Remaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Remaster;
+			sourceTree = "<group>";
+		};
+		2E5824643095544600C1A8C8 /* RemasterTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RemasterTests;
 			sourceTree = "<group>";
 		};
 		2EF85AD03093DB6700FE9847 /* Mocks */ = {
@@ -36,6 +42,11 @@
 				2EF85AAF3093956100FE9847 /* FactoryKit in Frameworks */,
 			);
 		};
+		2E5824603095544600C1A8C8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -45,6 +56,7 @@
 				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
 				2E50990630660D1600D79250 /* Config */,
+				2E5824643095544600C1A8C8 /* RemasterTests */,
 				2E5098F730660D1500D79250 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -53,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				2E5098F630660D1500D79250 /* Remaster.app */,
+				2E5824633095544600C1A8C8 /* RemasterTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +104,24 @@
 			productReference = 2E5098F630660D1500D79250 /* Remaster.app */;
 			productType = "com.apple.product-type.application";
 		};
+		2E5824623095544600C1A8C8 /* RemasterTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E5824693095544600C1A8C8 /* Build configuration list for PBXNativeTarget "RemasterTests" */;
+			buildPhases = (
+				2E58245F3095544600C1A8C8 /* Sources */,
+				2E5824603095544600C1A8C8 /* Frameworks */,
+				2E5824613095544600C1A8C8 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				2E5824643095544600C1A8C8 /* RemasterTests */,
+			);
+			name = RemasterTests;
+			productName = RemasterTests;
+			productReference = 2E5824633095544600C1A8C8 /* RemasterTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -98,11 +129,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2700;
+				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					2E5098F530660D1500D79250 = {
 						CreatedOnToolsVersion = 27.0;
+					};
+					2E5824623095544600C1A8C8 = {
+						CreatedOnToolsVersion = 27.1;
 					};
 				};
 			};
@@ -124,6 +158,7 @@
 			projectRoot = "";
 			targets = (
 				2E5098F530660D1500D79250 /* Remaster */,
+				2E5824623095544600C1A8C8 /* RemasterTests */,
 			);
 		};
 /* End PBXProject section */
@@ -134,10 +169,20 @@
 			files = (
 			);
 		};
+		2E5824613095544600C1A8C8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2E5098F230660D1500D79250 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		2E58245F3095544600C1A8C8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -347,6 +392,58 @@
 			};
 			name = Release;
 		};
+		2E5824673095544600C1A8C8 /* Debug configuration for PBXNativeTarget "RemasterTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Remaster.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Remaster";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		2E5824683095544600C1A8C8 /* Release configuration for PBXNativeTarget "RemasterTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Remaster.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Remaster";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -363,6 +460,14 @@
 			buildConfigurations = (
 				2E50990230660D1600D79250 /* Debug configuration for PBXNativeTarget "Remaster" */,
 				2E50990330660D1600D79250 /* Release configuration for PBXNativeTarget "Remaster" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		2E5824693095544600C1A8C8 /* Build configuration list for PBXNativeTarget "RemasterTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E5824673095544600C1A8C8 /* Debug configuration for PBXNativeTarget "RemasterTests" */,
+				2E5824683095544600C1A8C8 /* Release configuration for PBXNativeTarget "RemasterTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
