@@ -55,8 +55,8 @@
 			children = (
 				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E5098F830660D1500D79250 /* Remaster */,
-				2E50990630660D1600D79250 /* Config */,
 				2E5824643095544600C1A8C8 /* RemasterTests */,
+				2E50990630660D1600D79250 /* Config */,
 				2E5098F730660D1500D79250 /* Products */,
 			);
 			sourceTree = "<group>";
