@@ -1,39 +1,68 @@
 # AGENTS.md — Remaster
 
 > Working name: TBD (candidates discussed: Double Dip, Remaster, Shelf Life, Next Pressing, Spine). The repo and Xcode project are named **Remaster**.
-> Status: proof of concept (barcode scan → UPCMDB lookup → raw JSON on screen, running on iPhone).
+> Status: proof of concept, running on iPhone. Barcode scan or manual UPC entry → Remaster backend `GET /upc/{code}` → UPCMDB lookup, normalized server-side → edition details on screen. No library storage yet.
 
 This file is the shared context for agents working in this repo: how to build and work in the code, and the product context for planning and building the app. Items in the product context are labelled **Decided** (the product owner has committed to them) or **Proposed** (suggested, not yet confirmed). Treat Proposed items as defaults that may change, and flag any story or change that depends on one.
 
 ---
 
-## Ground rule: agents never write code
+## Ground rule: agents never write app code
 
-The owner writes all of the app's code by hand. This rule overrides any other instruction, skill, or command.
+The owner writes all of the app's code by hand. This rule overrides any other instruction, skill, or command. The one exception is tests (see below).
 
-- **Never write, generate, or edit code.** This covers Swift, TypeScript, and any other source, project files (`project.pbxproj`, entitlements, Info.plist, `package.json`, `tsconfig.json`, `nest-cli.json`), build settings, and tests. Don't run code generators either (`nest new`, `nest generate`, …). Don't use `Edit`/`Write` or the Xcode write tools (`XcodeWrite`, `XcodeUpdate`, `XcodeInsertFile`, `AddEntitlement`, `AddInfoPlist`, `RunCodeSnippet`, …) on code.
+- **Never write, generate, or edit app code.** This covers Swift, TypeScript, and any other source, project files (`project.pbxproj`, entitlements, Info.plist, `package.json`, `tsconfig.json`, `nest-cli.json`), and build settings. Don't run code generators either (`nest new`, `nest generate`, …). Don't use `Edit`/`Write` or the Xcode write tools (`XcodeWrite`, `XcodeUpdate`, `XcodeInsertFile`, `AddEntitlement`, `AddInfoPlist`, `RunCodeSnippet`, …) on code.
 - **Never give code snippets,** including one-liners, pseudo-code that's really Swift, "here's roughly what it looks like" examples, and diffs.
 - **When asked for help, point the way.** Explain the concept, name the relevant API, type, or modifier, link Apple's documentation, ask a guiding question, or describe the steps in prose. Name the file and line to look at instead of showing the change.
 - **Reviews are welcome, but say what's wrong without writing the fix.** Reviewing code and PRs is in scope. Describe each problem (`file:line`, what's wrong, why, and which direction to fix it in) without writing the fixed code.
 - **Everything around the code is in scope:** stories and acceptance criteria, Jira, designs and mockups, documentation (including this file), agent config, research, builds, and reading code and build logs to diagnose problems.
 
-If a request would need code written, say so and offer guidance instead.
+If a request would need app code written, say so and offer guidance instead.
+
+### Exception: tests
+
+Agents may write and edit tests.
+
+- **In scope:** test files only. On iOS that's `ios/RemasterTests/` (Swift Testing: `import Testing`, `@Test`, `#expect`) and `ios/RemasterUITests/` (XCTest UI tests). On the backend it's `*.spec.ts` files under `backend/src/` and e2e specs under `backend/test/` (Jest), plus fixtures that only tests use, such as the recorded UPCMDB responses in `backend/src/upc/mock/`.
+- **Still off-limits:** the code under test, project and build files (including test target settings in `project.pbxproj`, `package.json`, and Jest config), and mock data the app itself reads, such as `ios/Mocks/Editions.bundle` (loaded by `SimulatedBarcodeService`). If something starts reading a fixture outside tests, it stops being in scope.
+- **When a test fails because of the app code,** report the failure and the likely cause (`file:line`, what's wrong, which direction to fix it in) instead of changing the app code. Don't weaken, skip, or delete a test to make it pass.
+- **When the code is hard to test** (e.g. a hard-wired `URLSession` or a missing seam for injecting a dependency), explain what would make it testable and let the owner make that change.
+- Run the tests after writing them and report the results faithfully.
+
+## Explaining complex concepts
+
+When a concept is complex (new frameworks or APIs, concurrency, Combine, the Observation framework, NestJS modules and dependency injection, App Attest, data modelling trade-offs, and so on), walk the owner through it step by step rather than giving a one-paragraph summary:
+
+1. Start with what problem the concept solves and why it matters here, tied to this codebase where possible.
+2. Break it into small, ordered steps, one idea per step, each building on the last.
+3. Point to where each step shows up (or will show up) in the repo (`file:line`) and link the relevant documentation.
+4. Check understanding along the way: pause at natural break points, ask a guiding question, or offer to go deeper before moving on.
+5. Finish with a short recap of the steps.
+
+This is still prose and pointers, not code. The no-snippets rule above applies to explanations too.
 
 ## Working in this repo
 
 Monorepo with two projects:
 
 - `ios/` — SwiftUI iOS app (iOS 27 deployment target, Swift 5 language mode)
-- `backend/` — NestJS v12 API, hosted on Railway (not scaffolded yet)
+- `backend/` — NestJS v12 API, hosted on Railway
 
 Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore` live at the repo root.
 
 ### iOS layout
-- `ios/Remaster.xcodeproj` — Xcode project; single target / scheme: `Remaster`
+- `ios/Remaster.xcodeproj` — Xcode project; targets `Remaster` (app), `RemasterTests` (unit tests) and `RemasterUITests` (UI tests)
 - `ios/Remaster/RemasterApp.swift` — app entry point
+- `ios/Remaster/App+Injection.swift` — FactoryKit `Container` registrations (dependency injection)
 - `ios/Remaster/ContentView.swift` — main screen
-- `ios/Remaster/ContentViewModel.swift` — `@Observable` view model; barcode lookup over `URLSession` + Combine
-- `ios/Remaster/BarcodeScanner.swift` — camera barcode scanner
+- `ios/Remaster/ContentViewModel.swift` — `@Observable` view model; runs the barcode lookup through the injected `BarcodeServicing`
+- `ios/Remaster/BarcodeScanner.swift` — camera barcode scanner (Vision)
+- `ios/Remaster/ManualEntryView.swift` — type-in UPC fallback
+- `ios/Remaster/Models/` — `Edition` (the backend's normalized schema), `Errors/NetworkError`, `Extensions/VNBarcodeSymbology+String` (maps Vision symbologies to the backend's `shape` values)
+- `ios/Remaster/Services/` — `BarcodeService` (calls the backend over `URLSession` async/await), `SimulatedBarcodeService` (DEBUG only), and protocols in `Interfaces/`
+- `ios/Mocks/Editions.bundle` — sample edition JSON read by `SimulatedBarcodeService`; excluded from device builds
+- `ios/RemasterTests/` — Swift Testing unit tests; JSON fixtures in `Fixtures/`
+- `ios/RemasterUITests/` — XCTest UI tests
 - `ios/Config/` — xcconfig files and the partial Info.plist (see Secrets)
 
 ### iOS build
@@ -41,16 +70,37 @@ From the repo root:
 ```sh
 xcodebuild -project ios/Remaster.xcodeproj -scheme Remaster -destination 'generic/platform=iOS Simulator' build
 ```
-There is no test target yet.
+Two shared schemes:
+- `Remaster` — talks to the real backend at `REMASTER_BACKEND_BASE_URL`.
+- `Remaster_Sim` — launches with the `SIMULATED_SERVICES` argument, so `App+Injection.swift` swaps in `SimulatedBarcodeService`, which serves the sample editions from `ios/Mocks/Editions.bundle` and fakes errors for the barcodes `000`, `400`, `404` and `503`. Use it to work on the UI without a running backend.
+
+### iOS tests
+Two test targets, both included in both schemes:
+- `RemasterTests` — Swift Testing unit tests. Normalized-edition JSON fixtures live in `ios/RemasterTests/Fixtures/` and are copied into the test bundle; load them with `Fixtures.load(_:)`.
+- `RemasterUITests` — XCTest UI tests (Swift Testing can't drive UI). They launch the app with `SIMULATED_SERVICES` themselves, so they need no backend, and type barcodes into the manual entry alert because the camera scanner isn't available in the Simulator.
+
+From the repo root, run all tests:
+```sh
+xcodebuild test -project ios/Remaster.xcodeproj -scheme Remaster -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one target. Tests need a concrete simulator; list them with `xcrun simctl list devices available`. Inside Xcode, use the `mcp__xcode-tools__*` test tools instead.
 
 ### iOS conventions
 - Use the Observation framework (`@Observable`, `@ObservationIgnored`) rather than `ObservableObject`.
+- Default actor isolation is `MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION`). Services that do network or file work are marked `nonisolated`.
+- Use Swift concurrency (`async`/`await`, `Task`) for asynchronous work.
+- Dependencies are injected with FactoryKit: register them on `Container` in `App+Injection.swift`, and in an `@Observable` type, inject them with `@ObservationIgnored @Injected(...)`. Put services behind a protocol in `Services/Interfaces/` so they can be swapped for simulated or test doubles.
 - Keep new source files in `ios/Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
 
 ### Backend
-- NestJS v12 in `backend/`; the owner scaffolds it with the Nest CLI. See `backend/README.md` and section 3.
+- NestJS v12 in `backend/`, managed with pnpm. Requires Node 24.9+ (`.nvmrc`). Setup and local HTTPS are in `backend/README.md`; architecture is in section 3.
+- `src/main.ts` — bootstrap; serves HTTPS when `backend/secrets/` certs exist (gitignored), plain HTTP otherwise.
+- `src/app.module.ts` — `ConfigModule` with zod validation of the env (`UPCMDB_LOOKUP_URL`, `UPCMDB_API_KEY`).
+- `src/upc/` — the UPC lookup module: controller (`GET /upc/:upc?shape=`), service (calls UPCMDB and normalizes), `types/` (`Edition`, `BarcodeShape`), `utils/` (barcode normalization), `mock/` (recorded UPCMDB responses used by the specs).
+- `docs/upc-endpoint.md` is the client contract for the lookup endpoint; `docs/edition-schema.md` is the normalized schema and mapping rules. If the code and these docs disagree, fix whichever is wrong in the same change.
+- Tests: Jest, `*.spec.ts` next to the code. Run them with `pnpm test` from `backend/`. The `test:e2e` script expects `backend/test/jest-e2e.json`, which doesn't exist yet.
 - Railway deploys it with the service root directory set to `backend/`.
-- Third-party keys live in Railway service variables; locally in `backend/.env` (gitignored). Never commit them.
+- Third-party keys live in Railway service variables; locally in `backend/.env` (gitignored; template in `backend/.env.example`). Never commit them.
 
 ### Agent config
 - `CLAUDE.md` (which imports this file) and `.claude/` (`settings.json`, `commands/`) are shared by Claude Code in the terminal and the Claude agent inside Xcode. Both run from the repo root.
@@ -60,7 +110,9 @@ There is no test target yet.
 ### Secrets
 - iOS API keys go in `ios/Config/Secrets.xcconfig` (gitignored; template in `ios/Config/Secrets.example.xcconfig`), included by `ios/Config/Remaster.xcconfig`.
 - They reach code via `ios/Config/Info.plist` (merged with the generated Info.plist) and `Bundle.main.object(forInfoDictionaryKey:)`. Never hardcode keys in Swift.
-- **Known PoC gap:** the app currently calls UPCMDB directly, so the UPCMDB key ships inside the app binary. The target architecture (section 3) routes lookups through the backend, which holds third-party keys; App Attest protects the backend.
+- The iOS secrets are only the backend location: `REMASTER_BACKEND_BASE_URL` (host name only, as the app always uses `https`) and `REMASTER_LOCAL_PORT` (optional, for a local backend). They reach the app as the `RemasterBaseUrl` and `RemasterLocalPort` Info.plist keys.
+- The app no longer calls UPCMDB directly. The UPCMDB key lives only on the backend.
+- **Known PoC gap:** the backend accepts requests from any client. App Attest (section 2) isn't in place yet, so nothing stops scripted use of the `/upc` endpoint.
 
 ---
 
@@ -144,7 +196,7 @@ Any story that sends data off the device must state what is sent and confirm it 
 | Source | Used for | Notes |
 |---|---|---|
 | **TMDB** | Canonical movie/show identity (TMDB ID), posters, metadata, manual search, popularity lists for seeding | Free API. No disc-edition or HDR data. |
-| **UPCMDB** (upcmdb.com) | UPC → physical release lookup | REST API for DVD / Blu-ray / 4K. Returns IMDb IDs, so map to TMDB with `/find/{imdb_id}?external_source=imdb_id`. Used in the current PoC. |
+| **UPCMDB** (upcmdb.com) | UPC → physical release lookup | REST API for DVD / Blu-ray / 4K. Returns IMDb IDs, so map to TMDB with `/find/{imdb_id}?external_source=imdb_id`. Called by the backend's `/upc` endpoint (`backend/src/upc/upc.service.ts`). |
 | **Blu-ray.com** | Richest edition data: HDR format, steelbooks, region, distributor, release dates | No public API. Scraping may violate terms of service, risks IP blocks, and breaks when HTML changes. Proposed: ask about a data license first; if scraping, do it centrally with aggressive caching. Third-party paid wrappers exist. |
 | **FlatpanelsHD UHD database** | 4K titles with HDR format and 4K vs. 2K digital intermediate | Strong seed for the 4K/HDR upgrade layer. Ask permission before use. |
 | **TheDiscDB** | Cross-reference only | Open, community-run, ripper-oriented (disc hashes, track layouts), not retail editions. Treat as a possible partner, not an automated source. |

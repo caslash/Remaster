@@ -43,12 +43,15 @@ struct ContentView: View {
                             }
                         }
                         .frame(height: 200)
+                        .accessibilityIdentifier("sheet.edition.coverImage")
                         
                         Text(edition.title)
                             .font(.title2)
+                            .accessibilityIdentifier("sheet.edition.title")
                         
                         Text(edition.format?.rawValue ?? "Unknown Format")
                             .font(.subheadline)
+                            .accessibilityIdentifier("sheet.edition.format")
                     }
                 }
             

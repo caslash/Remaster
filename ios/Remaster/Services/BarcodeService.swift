@@ -20,10 +20,14 @@ nonisolated public class BarcodeService: BarcodeServicing {
     public func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition {
         guard !barcode.isEmpty else { throw NetworkError.badRequest }
         
+        let trimmedBarcode = barcode.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedBarcode.isEmpty else { throw NetworkError.badRequest }
+        
         var components = URLComponents()
         components.scheme = "https"
         components.host = Self.remasterBaseUrl
-        components.path = "/upc/\(barcode.trimmingCharacters(in: .whitespacesAndNewlines))"
+        components.path = "/upc/\(trimmedBarcode)"
         
         if let port = Self.remasterLocalPort, let portNumber = Int(port) {
             components.port = portNumber
