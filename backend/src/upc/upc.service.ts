@@ -1,11 +1,7 @@
 import { Env } from '@/app.module';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
-import {
-  DiscFormat,
-  Edition,
-  HDRFormat,
-  isHDRFormat,
-} from '@/upc/types/edition';
+import { DiscFormat, Edition } from '@/upc/types/edition';
+import { HDRFormat, isHDRFormat } from '@/upc/types/hdrformat';
 import {
   getBoolean,
   isNotRetailProductReason,
@@ -26,14 +22,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+import { Repository } from 'typeorm';
 dayjs.extend(customParseFormat);
 
 @Injectable()
 export class UpcService {
   private readonly logger = new Logger(UpcService.name);
-  constructor(private configService: ConfigService<Env, true>) {}
+  constructor(
+    private configService: ConfigService<Env, true>,
+    @InjectRepository(Edition)
+    private editionRepository: Repository<Edition>,
+  ) {}
 
   public async getTitle(
     upc: string,
@@ -46,7 +48,21 @@ export class UpcService {
         `Invalid scanned barcode - ${notRetailReason}`,
       );
     try {
-      return this.normalizeResponse(normalUPC, upc, await this.fetchUPC(upc));
+      const existingEdition = await this.findEdition(normalUPC);
+      if (existingEdition) {
+        this.logger.log(
+          `Found existing Edition for ${upc}, skipping UPCMDB request`,
+        );
+        return existingEdition;
+      }
+
+      const responseEdition = this.normalizeResponse(
+        normalUPC,
+        upc,
+        await this.fetchUPC(upc),
+      );
+      await this.saveEdition(responseEdition);
+      return responseEdition;
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {
@@ -62,6 +78,14 @@ export class UpcService {
       }
       throw error;
     }
+  }
+
+  private async saveEdition(edition: Edition) {
+    return await this.editionRepository.save(edition);
+  }
+
+  private async findEdition(upc: string): Promise<Edition | null> {
+    return await this.editionRepository.findOne({ where: { id: upc } });
   }
 
   private async fetchUPC(upc: string): Promise<unknown> {

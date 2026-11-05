@@ -178,7 +178,7 @@ Any story that sends data off the device must state what is sent and confirm it 
 - **Proposed:** All personal matching (library vs. available editions, alert rules) happens on device. Notifications are local notifications, triggered after the app pulls new data.
 
 ### Backend
-- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is **PostgreSQL**.
+- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is **PostgreSQL**, accessed through **TypeORM**, with normalized edition fields stored as columns (not a JSON document); raw source JSON sits alongside them.
 - **Decided:** A hosted service that queries TMDB, a UPC lookup service (UPCMDB), and possibly scrapes Blu-ray.com. The edition database is filled **on demand** over time rather than enumerated up front; it will later be crowdsourced. The server runs in the background filling in upgrade data, and clients receive it as it comes in.
 - **Decided:** **Cache-style lookup.** The first scan of a UPC resolves it upstream and stores the normalized result; later scans of that UPC are served from the edition database with no UPCMDB call.
 - **Decided:** **Keep raw JSON** alongside each normalized record so it can be re-normalized when the mapping improves, without calling upstream again.
@@ -227,7 +227,7 @@ Decode defensively, key decoding off real responses rather than docs, and log an
 **Proposed:** Model editions, not just titles. Upgrades happen at the edition level (e.g., a 2017 4K in HDR10 only vs. a 2024 remaster with Dolby Vision vs. a steelbook).
 
 ```
-Title (keyed by TMDB ID; movie or TV)
+Title (keyed by kind + TMDB ID, since TMDB IDs are only unique per kind; movie or TV)
  └── Edition
       ├── upc / ean (one or more)
       ├── format: DVD | Blu-ray | 4K UHD          (enum, normalized)

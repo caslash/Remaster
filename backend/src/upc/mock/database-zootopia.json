@@ -1,0 +1,33 @@
+{
+  "id": "0043396647640",
+  "barcodes": { "upc": "043396647640", "ean": "0043396647640" },
+  "asin": "B0GKTVSN8N",
+  "imdbId": "tt26443597",
+  "title": "Zootopia 2",
+  "enrichedTitle": "Zootopia 2",
+  "kind": "movie",
+  "year": 2025,
+  "format": "4K UHD",
+  "discContents": [
+    { "format": "4K UHD", "region": "Region free" },
+    { "format": "Blu-ray", "region": ["A", "B"] }
+  ],
+  "hdr": ["Dolby Vision", "HDR10"],
+  "packaging": { "steelbook": true, "slipcover": null, "memorabilia": null },
+  "editionFlags": {
+    "limited": null,
+    "collector": null,
+    "special": null,
+    "anniversary": null,
+    "boxset": null
+  },
+  "masterResolution": "upscaled",
+  "releaseDate": "2026-03-03",
+  "distributor": "Disney / Buena Vista",
+  "country": "United States",
+  "coverImageURL": "https://imagestorage.org/043396647640.jpg",
+  "runtime": 108,
+  "audio": "English: Dolby Atmos English: Dolby TrueHD 7.1 (48kHz, 24-bit) French: Dolby Digital Plus 7.1 Spanish: Dolby Digital Plus 7.1 Japanese: Dolby Digital Plus 7.1 | Audio descriptive",
+  "subtitles": ["English SDH", "French", "Japanese", "Spanish"],
+  "hasDigital": true
+}

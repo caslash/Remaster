@@ -2,7 +2,7 @@
 
 The normalized shape the backend returns for a disc edition, and the rules for mapping UPCMDB responses into it (RMSTR-8). The iOS client (RMSTR-11) decodes against this document.
 
-Source of truth for the type: [`src/upc/types/edition.d.ts`](../src/upc/types/edition.d.ts). If this document and the type disagree, fix whichever is wrong in the same change.
+Source of truth for the type: [`src/upc/types/edition.ts`](../src/upc/types/edition.ts). If this document and the type disagree, fix whichever is wrong in the same change.
 
 ## Conventions
 
@@ -33,6 +33,21 @@ Source of truth for the type: [`src/upc/types/edition.d.ts`](../src/upc/types/ed
 | `enrichedTitle` | string or absent           | Name of the work, e.g. "WandaVision".                                                                   |
 | `kind`          | `movie` \| `tv`, or absent | Absent when the record has no type signal (Loki S2). Not guessed from the title. Matches TMDB's naming. |
 | `year`          | integer or absent          | Year of the work, not the disc release.                                                                 |
+
+#### Planned: nested title (RMSTR-13, decided 2026-11-01)
+
+Not implemented yet. Clients shouldn't rely on it until this marker is removed.
+
+The edition and the work it's a release of are split, matching the Title and Edition tables in PostgreSQL:
+
+- **Retail title renamed.** `title` (the retail title as printed) becomes `upcTitle`. This is a **breaking change** for the iOS `Edition` decoder, which reads `title` as a string.
+- **`title` becomes an object** describing the work, filled from TMDB via the edition's IMDb ID (`/find/{imdb_id}?external_source=imdb_id`). It's absent when the edition has no IMDb ID or TMDB has no match.
+- **Fields of the nested `title`:** kind (`movie` | `tv`, from which TMDB result list matched), TMDB ID, name, year (from `release_date` or `first_air_date`), IMDb ID, and poster URL.
+- **TMDB IDs are only unique per kind** (movie 1399 and TV 1399 are different works), so a Title is identified by kind + TMDB ID. Clients should compare both.
+- **Poster URL is built at response time.** The database stores TMDB's `poster_path`; the base URL and size are applied when the response is built, so a later change (e.g. a backend image proxy, RMSTR-62) needs no data migration.
+- **TV editions link to the show**, not a season: Loki S2's title is "Loki". The season or scope appears only in `upcTitle` for now (see AGENTS.md §5, TV).
+
+Still open: whether partial matches carry an explicit `unmatchedTitle` flag (named in the RMSTR-13 acceptance criteria) or whether an absent `title` object is the signal, and whether the edition-level `enrichedTitle`, `kind`, `year` and `imdbId` stay as UPCMDB fallbacks next to the nested `title`.
 
 ### Disc facts (used for upgrade detection)
 
@@ -148,9 +163,9 @@ Recorded UPCMDB responses in [`src/upc/mock/`](../src/upc/mock/), with the expec
 
 ## Open items
 
-- **Response wrapper.** The endpoint response needs an envelope with a schema version (and source and fetch time) so clients can detect breaking changes. Not defined yet.
+- **Response wrapper.** The endpoint response needs an envelope with a schema version (and source and fetch time) so clients can detect breaking changes. Not defined yet. Deferred (2026-11-01): not part of RMSTR-13, even though the nested title is a breaking change. That's acceptable while the only client is the unreleased iOS app.
 - **Provenance.** RMSTR-8 calls for per-field provenance (source + last checked). The type has none yet. With UPCMDB as the only source, record-level provenance in the wrapper would carry the same information.
 - **Cover image privacy.** `productImageUrl` points at `imagestorage.org/<UPC>.jpg`. If the app loads it directly, a third party sees the user's IP and the UPCs in their library, which breaks the privacy model (AGENTS.md §2). The backend should proxy or re-host images before any public build. The same applies to TMDB posters later.
 - **New enum values.** Adding an `HDRFormat` or `DiscFormat` value breaks clients that decode those enums strictly. Either the client tolerates unknown values or the schema version is bumped.
 - **Structured audio.** `audio` stays a display string for MVP (decided 2026-10-26). UPCMDB runs tracks together with no delimiter ("English: Dolby Atmos English: Dolby TrueHD 7.1 … French (Canada): Dolby Digital 5.1 | Audio descriptive"), multi-word language names make the boundaries ambiguous, and nothing in MVP uses it. Revisit with the R2 edition detail story: likely a list of tracks (language + codec) plus an audio-description flag from the text after `|`. Changing the type then is a breaking change, so it goes with a schema version bump.
-- **TMDB.** A TMDB ID and poster will be added when RMSTR-13 maps IMDb IDs to TMDB. New optional fields are non-breaking if the client ignores unknown keys.
+- **TMDB.** Decided 2026-11-01: TMDB identity and poster arrive as a nested `title` object (see [Planned: nested title](#planned-nested-title-rmstr-13-decided-2026-11-01)).

@@ -20,6 +20,7 @@
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "moduleResolution": "nodenext",
+    "strictPropertyInitialization": false,
     "types": ["node", "jest"],
     "paths": {
       "@/*": ["./src/*"]

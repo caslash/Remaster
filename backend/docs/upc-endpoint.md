@@ -92,7 +92,8 @@ What the client should do:
 
 - **RCN-8:** reject restricted-circulation EAN-8 codes, which needs `normalizeUPC` to report which reading it chose.
 - **Error codes:** a stable, machine-readable code per 400 reason (bad characters, wrong length, length doesn't match `shape`, bad check digit, store label), so clients can show specific messages without matching on text.
-- **Response wrapper** with a schema version (see open items in [`edition-schema.md`](edition-schema.md)).
+- **Response wrapper** with a schema version (see open items in [`edition-schema.md`](edition-schema.md)). Deferred; not part of RMSTR-13.
+- **Nested title (RMSTR-13):** the retail title moves to `upcTitle` and `title` becomes an object for the TMDB work. A breaking change for the iOS decoder. See [`edition-schema.md`](edition-schema.md#planned-nested-title-rmstr-13-decided-2026-11-01).
 
 ## Privacy
 
