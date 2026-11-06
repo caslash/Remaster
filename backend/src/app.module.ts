@@ -1,4 +1,6 @@
 import { Edition } from '@/upc/types/edition';
+import { Title } from '@/upc/types/title';
+import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { UpcModule } from '@/upc/upc.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -24,7 +26,7 @@ export type Env = z.infer<typeof envSchema>;
       useFactory: () => ({
         type: 'postgres',
         url: process.env.DATABASE_URL,
-        entities: [Edition],
+        entities: [Edition, Title, UnresolvedUPC],
         migrations: [join(__dirname, 'database/migrations/*.js')],
         synchronize: false,
         migrationsRun: true,

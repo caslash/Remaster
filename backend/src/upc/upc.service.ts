@@ -1,6 +1,7 @@
 import { Env } from '@/app.module';
+import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
-import { DiscFormat, Edition } from '@/upc/types/edition';
+import { DiscFormat, Edition, EditionResponse } from '@/upc/types/edition';
 import { HDRFormat, isHDRFormat } from '@/upc/types/hdrformat';
 import {
   getBoolean,
@@ -22,10 +23,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Repository } from 'typeorm';
 dayjs.extend(customParseFormat);
 
 @Injectable()
@@ -33,14 +32,13 @@ export class UpcService {
   private readonly logger = new Logger(UpcService.name);
   constructor(
     private configService: ConfigService<Env, true>,
-    @InjectRepository(Edition)
-    private editionRepository: Repository<Edition>,
+    private editionStore: EditionStore,
   ) {}
 
   public async getTitle(
     upc: string,
     shape: BarcodeShape | undefined,
-  ): Promise<Edition> {
+  ): Promise<EditionResponse> {
     const normalUPC = normalizeUPC(upc, shape);
     const notRetailReason = isNotRetailProductReason(normalUPC);
     if (notRetailReason)
@@ -48,7 +46,8 @@ export class UpcService {
         `Invalid scanned barcode - ${notRetailReason}`,
       );
     try {
-      const existingEdition = await this.findEdition(normalUPC);
+      const existingEdition =
+        await this.editionStore.findEditionByGTIN(normalUPC);
       if (existingEdition) {
         this.logger.log(
           `Found existing Edition for ${upc}, skipping UPCMDB request`,
@@ -56,12 +55,13 @@ export class UpcService {
         return existingEdition;
       }
 
-      const responseEdition = this.normalizeResponse(
-        normalUPC,
+      const response: Record<string, unknown> = await this.fetchUPC(
         upc,
-        await this.fetchUPC(upc),
+        normalUPC,
       );
-      await this.saveEdition(responseEdition);
+
+      const responseEdition = this.normalizeResponse(normalUPC, upc, response);
+      await this.editionStore.saveEdition(responseEdition, response);
       return responseEdition;
     } catch (error) {
       if (error instanceof DOMException) {
@@ -80,15 +80,10 @@ export class UpcService {
     }
   }
 
-  private async saveEdition(edition: Edition) {
-    return await this.editionRepository.save(edition);
-  }
-
-  private async findEdition(upc: string): Promise<Edition | null> {
-    return await this.editionRepository.findOne({ where: { id: upc } });
-  }
-
-  private async fetchUPC(upc: string): Promise<unknown> {
+  private async fetchUPC(
+    upc: string,
+    normalUPC: string,
+  ): Promise<Record<string, unknown>> {
     const upcmdbURL =
       this.configService.getOrThrow<string>('UPCMDB_LOOKUP_URL');
     const upcmdbKey = this.configService.getOrThrow<string>('UPCMDB_API_KEY');
@@ -102,6 +97,7 @@ export class UpcService {
     if (!response.ok) {
       switch (response.status) {
         case 404:
+          await this.editionStore.recordUnresolvedGTIN(normalUPC);
           throw new NotFoundException(response.statusText);
         case 500:
           throw new BadGatewayException(response.statusText);
@@ -114,7 +110,9 @@ export class UpcService {
 
     const body = await response.text();
     try {
-      return JSON.parse(body);
+      const json = JSON.parse(body);
+      if (isRecord(json)) return json;
+      throw new NotFoundException();
     } catch {
       this.logger.warn(`UPCMDB response is not JSON:\n${body}`);
       throw new NotFoundException();
@@ -124,15 +122,8 @@ export class UpcService {
   private normalizeResponse(
     upc: string,
     scannedUPC: string,
-    response: unknown,
-  ): Edition {
-    if (!isRecord(response)) {
-      this.logger.warn(
-        `UPCMDB response is not an object:\n${JSON.stringify(response)}`,
-      );
-      throw new NotFoundException();
-    }
-
+    response: Record<string, unknown>,
+  ): EditionResponse {
     if (typeof response.ean === 'string' && response.ean !== upc)
       this.logger.warn(
         `UPCMDB EAN ${response.ean} differs from normalized code ${upc} (scanned ${scannedUPC})`,

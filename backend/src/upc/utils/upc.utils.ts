@@ -3,6 +3,8 @@ import { DiscContent, DiscFormat } from '@/upc/types/edition';
 import { BadRequestException } from '@nestjs/common';
 import { isValid, upcE } from 'gtin';
 
+export const NORMALIZER_VERSION = 1;
+
 export function normalizeUPC(
   upc: string,
   shape: BarcodeShape | undefined,

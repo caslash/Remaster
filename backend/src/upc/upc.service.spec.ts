@@ -8,10 +8,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Edition } from './types/edition';
+import { EditionStore } from './storage/upc.storage.store';
+import { EditionResponse } from './types/edition';
 import { StoreRangeReason } from './utils/upc.utils';
 
-import { getRepositoryToken } from '@nestjs/typeorm';
 import databaseZootopia from './mock/database-zootopia.json';
 import zootopia from './mock/movie4kdv.json';
 import blackPanther from './mock/movie4khdr.json';
@@ -22,9 +22,10 @@ import wandavision from './mock/tv4khdr.json';
 import rickAndMorty from './mock/tvbr.json';
 import spongebob from './mock/tvdvd.json';
 
-const mockEditionRepository = {
-  findOne: jest.fn(),
-  save: jest.fn(),
+const mockEditionStore = {
+  findEditionByGTIN: jest.fn(),
+  saveEdition: jest.fn(),
+  recordUnresolvedGTIN: jest.fn(),
 };
 
 describe('UpcService', () => {
@@ -45,7 +46,7 @@ describe('UpcService', () => {
   const fetchFixture = async (
     upc: string,
     fixture: Record<string, unknown>,
-  ): Promise<Edition> => {
+  ): Promise<EditionResponse> => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -60,10 +61,7 @@ describe('UpcService', () => {
       providers: [
         UpcService,
         { provide: ConfigService, useValue: mockConfigService },
-        {
-          provide: getRepositoryToken(Edition),
-          useValue: mockEditionRepository,
-        },
+        { provide: EditionStore, useValue: mockEditionStore },
       ],
     }).compile();
 
@@ -113,6 +111,49 @@ describe('UpcService', () => {
     await expect(service.getTitle(upc, undefined)).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('should record the canonical GTIN as unresolved when UPCMDB responds with 404', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    });
+
+    await expect(service.getTitle('043396647640', undefined)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledTimes(1);
+    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledWith(
+      '0043396647640',
+    );
+    expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
+  });
+
+  it('should record a UPC-E scan as its expanded canonical GTIN', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    });
+
+    await expect(service.getTitle('04252614', 'UPC-E')).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledWith(
+      '0042100005264',
+    );
+  });
+
+  it('should not record anything as unresolved when UPCMDB fails', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
+
+    await expect(service.getTitle('043396647640', undefined)).rejects.toThrow(
+      BadGatewayException,
+    );
+    expect(mockEditionStore.recordUnresolvedGTIN).not.toHaveBeenCalled();
+    expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
   });
 
   it('should throw BadGateway when UPCMDB responds with 500', async () => {
@@ -175,25 +216,37 @@ describe('UpcService', () => {
   });
 
   it('should save when a new upc is requested', async () => {
-    mockEditionRepository.findOne.mockResolvedValue(null);
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
 
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
-    expect(mockEditionRepository.findOne).toHaveBeenCalledWith({
-      where: { id: zootopiaEdition.id },
-    });
-    expect(mockEditionRepository.save).toHaveBeenCalledWith(zootopiaEdition);
+    expect(mockEditionStore.findEditionByGTIN).toHaveBeenCalledWith(
+      zootopiaEdition.id,
+    );
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
+      zootopiaEdition,
+      zootopia,
+    );
   });
 
   it('should return pre-existing edition from database', async () => {
-    mockEditionRepository.findOne.mockResolvedValue(databaseZootopia);
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(databaseZootopia);
 
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
-    expect(mockEditionRepository.findOne).toHaveBeenCalledWith({
-      where: { id: zootopiaEdition.id },
-    });
-    expect(mockEditionRepository.save).not.toHaveBeenCalled();
+    expect(mockEditionStore.findEditionByGTIN).toHaveBeenCalledWith(
+      zootopiaEdition.id,
+    );
+    expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
+    expect(zootopiaEdition).toStrictEqual(databaseZootopia);
+  });
+
+  it('should return no raw property on edition miss', async () => {
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
+
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(zootopiaEdition).not.toHaveProperty('raw');
   });
 
   describe('normalization', () => {
@@ -219,7 +272,7 @@ describe('UpcService', () => {
       );
       const spongebobEdition = await fetchFixture(spongebob.upc, spongebob);
 
-      mockEditionRepository.findOne.mockResolvedValue(null);
+      mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
 
       expect(zootopiaEdition.id).not.toBe(zootopia.upc);
       expect(zootopiaEdition.id).not.toBe('');

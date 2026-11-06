@@ -1,8 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { UpcController } from '@/upc/upc.controller';
 import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { UpcController } from '@/upc/upc.controller';
 import { UpcService } from './upc.service';
 
 describe('UpcController', () => {
