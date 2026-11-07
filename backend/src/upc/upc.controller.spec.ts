@@ -8,11 +8,11 @@ import { UpcService } from './upc.service';
 describe('UpcController', () => {
   let controller: UpcController;
   let app: INestApplication<App>;
-  let mockUPCService: { getTitle: jest.Mock };
+  let mockUPCService: { getEdition: jest.Mock };
 
   beforeEach(async () => {
     mockUPCService = {
-      getTitle: jest.fn(),
+      getEdition: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -38,7 +38,7 @@ describe('UpcController', () => {
       .get('/upc/043396647640?shape=UPC-A')
       .expect(200);
 
-    expect(mockUPCService.getTitle).toHaveBeenCalledWith(
+    expect(mockUPCService.getEdition).toHaveBeenCalledWith(
       '043396647640',
       'UPC-A',
     );
@@ -47,7 +47,7 @@ describe('UpcController', () => {
   it('should allow shape to be omitted', async () => {
     await request(app.getHttpServer()).get('/upc/043396647640').expect(200);
 
-    expect(mockUPCService.getTitle).toHaveBeenCalledWith(
+    expect(mockUPCService.getEdition).toHaveBeenCalledWith(
       '043396647640',
       undefined,
     );
@@ -58,6 +58,6 @@ describe('UpcController', () => {
       .get('/upc/043396647640?shape=banana')
       .expect(400);
 
-    expect(mockUPCService.getTitle).not.toHaveBeenCalled();
+    expect(mockUPCService.getEdition).not.toHaveBeenCalled();
   });
 });

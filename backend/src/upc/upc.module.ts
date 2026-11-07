@@ -1,5 +1,6 @@
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TypeORMEditionStore } from '@/upc/storage/upc.storage.typeorm-store';
+import { TMDBService } from '@/upc/tmdb.service';
 import { Edition } from '@/upc/types/edition';
 import { Title } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
@@ -13,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   controllers: [UpcController],
   providers: [
     UpcService,
+    TMDBService,
     { provide: EditionStore, useClass: TypeORMEditionStore },
   ],
 })

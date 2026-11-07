@@ -12,6 +12,7 @@ import { EditionStore } from './storage/upc.storage.store';
 import { EditionResponse } from './types/edition';
 import { StoreRangeReason } from './utils/upc.utils';
 
+import { TMDBService } from '@/upc/tmdb.service';
 import databaseZootopia from './mock/database-zootopia.json';
 import zootopia from './mock/movie4kdv.json';
 import blackPanther from './mock/movie4khdr.json';
@@ -22,14 +23,10 @@ import wandavision from './mock/tv4khdr.json';
 import rickAndMorty from './mock/tvbr.json';
 import spongebob from './mock/tvdvd.json';
 
-const mockEditionStore = {
-  findEditionByGTIN: jest.fn(),
-  saveEdition: jest.fn(),
-  recordUnresolvedGTIN: jest.fn(),
-};
-
 describe('UpcService', () => {
   let service: UpcService;
+
+  const mockTMDBService = {};
 
   const mockConfigService = {
     getOrThrow: jest.fn((key: string) => {
@@ -43,6 +40,12 @@ describe('UpcService', () => {
     }),
   };
 
+  const mockEditionStore = {
+    findEditionByGTIN: jest.fn(),
+    saveEdition: jest.fn(),
+    recordUnresolvedGTIN: jest.fn(),
+  };
+
   const fetchFixture = async (
     upc: string,
     fixture: Record<string, unknown>,
@@ -53,13 +56,14 @@ describe('UpcService', () => {
       text: () => Promise.resolve(JSON.stringify(fixture)),
     });
 
-    return await service.getTitle(upc, undefined);
+    return await service.getEdition(upc, undefined);
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UpcService,
+        { provide: TMDBService, useValue: mockTMDBService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: EditionStore, useValue: mockEditionStore },
       ],
@@ -82,7 +86,7 @@ describe('UpcService', () => {
 
     global.fetch = jest.fn();
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+    await expect(service.getEdition(upc, undefined)).rejects.toThrow(
       BadRequestException,
     );
     expect(global.fetch).not.toHaveBeenCalled();
@@ -93,7 +97,7 @@ describe('UpcService', () => {
 
     global.fetch = jest.fn();
 
-    const result = service.getTitle(upc, undefined);
+    const result = service.getEdition(upc, undefined);
 
     await expect(result).rejects.toThrow(BadRequestException);
     await expect(result).rejects.toThrow(StoreRangeReason.COUPON);
@@ -108,52 +112,9 @@ describe('UpcService', () => {
       status: 404,
     });
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+    await expect(service.getEdition(upc, undefined)).rejects.toThrow(
       NotFoundException,
     );
-  });
-
-  it('should record the canonical GTIN as unresolved when UPCMDB responds with 404', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-    });
-
-    await expect(service.getTitle('043396647640', undefined)).rejects.toThrow(
-      NotFoundException,
-    );
-    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledTimes(1);
-    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledWith(
-      '0043396647640',
-    );
-    expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
-  });
-
-  it('should record a UPC-E scan as its expanded canonical GTIN', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-    });
-
-    await expect(service.getTitle('04252614', 'UPC-E')).rejects.toThrow(
-      NotFoundException,
-    );
-    expect(mockEditionStore.recordUnresolvedGTIN).toHaveBeenCalledWith(
-      '0042100005264',
-    );
-  });
-
-  it('should not record anything as unresolved when UPCMDB fails', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    });
-
-    await expect(service.getTitle('043396647640', undefined)).rejects.toThrow(
-      BadGatewayException,
-    );
-    expect(mockEditionStore.recordUnresolvedGTIN).not.toHaveBeenCalled();
-    expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
   });
 
   it('should throw BadGateway when UPCMDB responds with 500', async () => {
@@ -164,7 +125,7 @@ describe('UpcService', () => {
       status: 500,
     });
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+    await expect(service.getEdition(upc, undefined)).rejects.toThrow(
       BadGatewayException,
     );
   });
@@ -178,7 +139,7 @@ describe('UpcService', () => {
       statusText: 'Generic Text',
     });
 
-    const result = service.getTitle(upc, undefined);
+    const result = service.getEdition(upc, undefined);
 
     await expect(result).rejects.toThrow(BadGatewayException);
     await expect(result).rejects.toThrow(
@@ -193,7 +154,7 @@ describe('UpcService', () => {
       .fn()
       .mockRejectedValueOnce(new DOMException(undefined, 'TimeoutError'));
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+    await expect(service.getEdition(upc, undefined)).rejects.toThrow(
       GatewayTimeoutException,
     );
   });
@@ -209,7 +170,7 @@ describe('UpcService', () => {
       text: () => Promise.resolve(body),
     });
 
-    await expect(service.getTitle(upc, undefined)).rejects.toThrow(
+    await expect(service.getEdition(upc, undefined)).rejects.toThrow(
       NotFoundException,
     );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(body));

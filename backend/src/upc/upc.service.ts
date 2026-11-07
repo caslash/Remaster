@@ -1,5 +1,6 @@
 import { Env } from '@/app.module';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
+import { TMDBService } from '@/upc/tmdb.service';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
 import { DiscFormat, Edition, EditionResponse } from '@/upc/types/edition';
 import { HDRFormat, isHDRFormat } from '@/upc/types/hdrformat';
@@ -31,11 +32,12 @@ dayjs.extend(customParseFormat);
 export class UpcService {
   private readonly logger = new Logger(UpcService.name);
   constructor(
+    private tmdbService: TMDBService,
     private configService: ConfigService<Env, true>,
     private editionStore: EditionStore,
   ) {}
 
-  public async getTitle(
+  public async getEdition(
     upc: string,
     shape: BarcodeShape | undefined,
   ): Promise<EditionResponse> {

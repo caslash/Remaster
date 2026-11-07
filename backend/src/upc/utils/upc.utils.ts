@@ -179,11 +179,6 @@ export function parsePlayback(
   return { ok: true, discTypes, unknownRegions };
 }
 
-/**
- * Collapse playback segments that share a format into a single disc type,
- * merging their regions. "2K Blu-ray: Region A | 2K Blu-ray: Region B"
- * becomes one Blu-ray type with region ['A', 'B'].
- */
 export function mergeDiscTypes(discTypes: DiscContent[]): DiscContent[] {
   const byFormat = new Map<DiscFormat, DiscContent>();
 

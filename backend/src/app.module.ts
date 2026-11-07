@@ -11,7 +11,8 @@ import { z } from 'zod';
 export const envSchema = z.object({
   UPCMDB_LOOKUP_URL: z.string(),
   UPCMDB_API_KEY: z.string(),
-  TMDB_API_KEY: z.string(),
+  TMDB_FIND_URL: z.string(),
+  TMDB_READ_ACCESS_TOKEN: z.string(),
   DATABASE_URL: z.string(),
 });
 export type Env = z.infer<typeof envSchema>;

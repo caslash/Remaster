@@ -47,6 +47,43 @@ The edition and the work it's a release of are split, matching the Title and Edi
 - **Poster URL is built at response time.** The database stores TMDB's `poster_path`; the base URL and size are applied when the response is built, so a later change (e.g. a backend image proxy, RMSTR-62) needs no data migration.
 - **TV editions link to the show**, not a season: Loki S2's title is "Loki". The season or scope appears only in `upcTitle` for now (see AGENTS.md §5, TV).
 
+#### TMDB matching (RMSTR-67)
+
+`TMDBService.getTitle(imdbId, kind)` in [`src/upc/tmdb.service.ts`](../src/upc/tmdb.service.ts) turns an edition's IMDb ID into a Title. Nothing calls it yet: RMSTR-68 adds it to the `/upc` lookup on a cache miss.
+
+**Request.** `GET {TMDB_FIND_URL}{imdbId}?external_source=imdb_id` with `Authorization: Bearer {TMDB_READ_ACCESS_TOKEN}` and a 5-second timeout, which covers reading the body as well as the headers. Only the IMDb ID and the server's token are sent.
+
+**Outcomes.** These three stay separate so the caller can tell "TMDB doesn't know this work" from "TMDB is down". A failure must never be saved as a partial match, or the cached edition would stay unmatched after TMDB recovers.
+
+| Outcome          | Result                           | When                                                                                                                                                                                                  |
+| ---------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Match            | a `Title`                        | A result list has a usable first entry (see below).                                                                                                                                                   |
+| No match         | `undefined`                      | Both lists are empty, or the first entry of each non-empty list isn't an object, has no numeric `id`, or has no name.                                                                                 |
+| Upstream failure | throws `BadGatewayException`     | TMDB returned a non-2xx status (including 401, 404 and 429), the network request failed, the body isn't JSON or isn't a JSON object, or `movie_results` or `tv_results` is missing or isn't an array. |
+| Upstream failure | throws `GatewayTimeoutException` | TMDB didn't respond, or didn't finish sending the body, within 5 seconds.                                                                                                                             |
+
+**Choosing a result.** `/find` normally puts an IMDb ID in at most one list. Only the first entry of `movie_results` and `tv_results` is considered; `person_results`, `tv_episode_results` and `tv_season_results` are ignored.
+
+- **`kind` is `tv`:** the TV result, else the movie result.
+- **`kind` is `movie`:** the movie result, else the TV result.
+- **`kind` is absent:** the movie result, else the TV result. When both lists have a result, the movie wins.
+
+The edition's `kind` comes from UPCMDB and thin records can get it wrong, so it sets the order but doesn't filter. When the result returned isn't the hinted kind, a warning is logged.
+
+**Field mapping.**
+
+| Title field  | From TMDB                                                                                                                                                                                                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tmdbId`     | `id` (a number in TMDB), stored as a string.                                                                                                                                                                                                                                              |
+| `kind`       | The result's `media_type`; if that's missing, the list it came from.                                                                                                                                                                                                                      |
+| `name`       | `title` for a movie, `name` for TV.                                                                                                                                                                                                                                                       |
+| `year`       | Year of `release_date` (movie) or `first_air_date` (TV), parsed as `YYYY-MM-DD`. Absent if the date is missing; a date in another format is also left absent and logged.                                                                                                                  |
+| `imdbId`     | The IMDb ID that was looked up.                                                                                                                                                                                                                                                           |
+| `posterPath` | `poster_path`, or absent. The full URL is built at response time (see above) by `TMDBService.getPosterURL`, which prefixes TMDB's image host (`https://image.tmdb.org/t/p/`) and a fixed size. The size and host live only in that method, so the RMSTR-62 image proxy changes one place. |
+| `raw`        | The whole `/find` response, not just the chosen entry, so the choice between lists can be redone when re-normalizing.                                                                                                                                                                     |
+
+**Logging.** Log lines name the status code, the network error code (e.g. `ECONNREFUSED`), the body length or the invalid field names. They never include the IMDb ID, the request URL or any of the body's contents, since those would record what was looked up (AGENTS.md §2). Client-facing messages are fixed strings ("TMDB request timed out", "TMDB request failed", "TMDB returned an error", "TMDB returned an invalid response").
+
 Still open: whether partial matches carry an explicit `unmatchedTitle` flag (named in the RMSTR-13 acceptance criteria) or whether an absent `title` object is the signal, and whether the edition-level `enrichedTitle`, `kind`, `year` and `imdbId` stay as UPCMDB fallbacks next to the nested `title`.
 
 ### Disc facts (used for upgrade detection)
@@ -160,6 +197,14 @@ Recorded UPCMDB responses in [`src/upc/mock/`](../src/upc/mock/), with the expec
 | `tvdvd.json`      | SpongeBob SquarePants: The First 100 Episodes, rich but no title metadata | DVD · HDR empty · slipcover true · fourteen DVD discs, region 1 · imdbId, year, kind absent                                                |
 
 **Missing fixture:** a 4K record with no `hdr` field, needed to test that HDR comes out absent rather than empty.
+
+Recorded TMDB `/find` responses, used by `tmdb.service.spec.ts`:
+
+| File             | Response                | Expected Title                                                  |
+| ---------------- | ----------------------- | --------------------------------------------------------------- |
+| `tmdbmovie.json` | Zootopia 2, movie match | kind `movie` · tmdbId `1084242` · name "Zootopia 2" · year 2025 |
+| `tmdbtv.json`    | WandaVision, TV match   | kind `tv` · tmdbId `85271` · name "WandaVision" · year 2021     |
+| `tmdbempty.json` | Every result list empty | no match (`undefined`)                                          |
 
 ## Open items
 

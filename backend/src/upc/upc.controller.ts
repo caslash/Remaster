@@ -13,6 +13,6 @@ export class UpcController {
     @Query('shape', new ParseEnumPipe(BarcodeShape, { optional: true }))
     shape: BarcodeShape | undefined,
   ): Promise<EditionResponse> {
-    return await this.upcService.getTitle(upc, shape);
+    return await this.upcService.getEdition(upc, shape);
   }
 }
