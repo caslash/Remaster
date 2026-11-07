@@ -50,6 +50,24 @@ Examples:
 
 UPCMDB's `ean` field is normally the 13-digit form with a leading `0`, which matches the canonical form for UPC-A codes. When the two differ, the server logs a warning naming UPCMDB's EAN, the canonical code and the scanned code, and still returns the edition. A mismatch means either UPCMDB returned a different product or our normalization disagrees with UPCMDB's (EAN-8 padding is the likely case). Because the edition's `id` is the canonical form, a recurring mismatch for one barcode type points to a normalization fix rather than a bad record.
 
+### Lookup flow (RMSTR-68)
+
+Lookups are cache-first. Editions are stored in PostgreSQL by their canonical GTIN, so a UPC-A scan and an EAN-13 scan of the same disc find the same row.
+
+1. **Validate.** Normalize the code and run the [non-product check](#codes-that-arent-products). A failure returns 400 before any lookup.
+2. **Cache hit.** If an edition with that canonical GTIN is stored, return it. Neither UPCMDB nor TMDB is called.
+3. **Cache miss.** Ask UPCMDB for the scanned code and normalize the record. If it has an IMDb ID, ask TMDB for the work ([TMDB matching](edition-schema.md#tmdb-matching-rmstr-67)). Then save, in one transaction:
+   - the TMDB Title (upserted on TMDB ID + kind), if there was a match;
+   - the edition, linked to that Title, with the raw UPCMDB body, the fetch time and the normalizer version;
+   - removal of the code's `unresolved_upcs` row, if it had one (decided 2026-11-07), so that table only lists codes that are still missing.
+
+   Then return the edition. Saves are upserts, so two misses for the same code at once leave one row and both succeed.
+
+4. **UPCMDB 404.** Record the canonical GTIN in `unresolved_upcs`, return 404. The row keeps the time the code was first seen and updates the time it was last seen. Unresolved codes aren't consulted on lookup: the next scan asks UPCMDB again, because UPCMDB records are added and filled in over time.
+5. **Upstream failure.** If UPCMDB or TMDB fails or times out (500, 502, 504), nothing is saved and the next scan retries.
+
+What's stored is the barcode → edition mapping, the TMDB work it belongs to, and the unresolved codes. Nothing about the client or the request is stored.
+
 ## Responses
 
 ### 200 OK
@@ -63,10 +81,12 @@ Error bodies use Nest's default shape: a JSON object with `statusCode` (number),
 | Status                        | When                                                                                                                                                                                                                                                                                                                                                                       | Calls UPCMDB? |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | **400 Bad Request**           | `code` contains anything other than digits, or is empty. Its length isn't 8, 12 or 13, or doesn't match `shape` (e.g. 13 digits with `UPC-E`). The check digit is wrong. A `UPC-E` code's first digit isn't `0` or `1`. `shape` isn't one of the four values. The code is valid but isn't a retail product (see [Codes that aren't products](#codes-that-arent-products)). | no            |
-| **404 Not Found**             | UPCMDB has no record for the code, or its response isn't JSON or isn't a JSON object (the raw body is logged).                                                                                                                                                                                                                                                             | yes           |
+| **404 Not Found**             | UPCMDB has no record for the code (recorded as unresolved), or its response isn't JSON or isn't a JSON object (the raw body is logged).                                                                                                                                                                                                                                    | yes           |
 | **500 Internal Server Error** | The request to UPCMDB failed in some other way (e.g. a network error).                                                                                                                                                                                                                                                                                                     | yes           |
-| **502 Bad Gateway**           | UPCMDB returned an error status other than 404.                                                                                                                                                                                                                                                                                                                            | yes           |
-| **504 Gateway Timeout**       | UPCMDB didn't respond within 5 seconds.                                                                                                                                                                                                                                                                                                                                    | yes           |
+| **502 Bad Gateway**           | UPCMDB returned an error status other than 404. Or TMDB failed: an error status, a network error, or a response that isn't valid (see [TMDB matching](edition-schema.md#tmdb-matching-rmstr-67)).                                                                                                                                                                          | yes           |
+| **504 Gateway Timeout**       | UPCMDB or TMDB didn't respond within 5 seconds.                                                                                                                                                                                                                                                                                                                            | yes           |
+
+A cached code (see [Lookup flow](#lookup-flow-rmstr-68)) returns 200 without calling UPCMDB or TMDB, so the 404, 500, 502 and 504 rows only apply to a code that isn't stored yet. None of them save anything except the unresolved-code row for a UPCMDB 404. TMDB having no match for the work isn't an error: the edition is returned and saved with no title (a partial match, RMSTR-69).
 
 #### Codes that aren't products
 
@@ -93,12 +113,14 @@ What the client should do:
 - **RCN-8:** reject restricted-circulation EAN-8 codes, which needs `normalizeUPC` to report which reading it chose.
 - **Error codes:** a stable, machine-readable code per 400 reason (bad characters, wrong length, length doesn't match `shape`, bad check digit, store label), so clients can show specific messages without matching on text.
 - **Response wrapper** with a schema version (see open items in [`edition-schema.md`](edition-schema.md)). Deferred; not part of RMSTR-13.
-- **TMDB errors (RMSTR-68):** once the lookup calls TMDB on a cache miss, a **502** can also mean TMDB failed or returned something invalid, and a **504** that TMDB timed out. Neither is saved, so the next scan retries. TMDB having no match for the work is not an error and won't produce a 404; it's a partial match (RMSTR-69). The client handling above doesn't change. See [TMDB matching](edition-schema.md#tmdb-matching-rmstr-67).
 - **Nested title (RMSTR-13):** the retail title moves to `upcTitle` and `title` becomes an object for the TMDB work. A breaking change for the iOS decoder. See [`edition-schema.md`](edition-schema.md#planned-nested-title-rmstr-13-decided-2026-11-01).
 
 ## Privacy
 
 - **Sent by the client:** the barcode and optionally its type. Nothing else: no user or device identifier, no library contents.
 - **Sent to UPCMDB:** the barcode as the client sent it, and the server's API key. Nothing else from the client.
+- **Sent to TMDB:** on a cache miss only, the IMDb ID from the UPCMDB record and the server's token. Nothing from the client.
+- **Stored:** the edition, its TMDB title and unresolved codes (see [Lookup flow](#lookup-flow-rmstr-68)). No IP, identifier or request details.
+- **Logged on a cache hit:** "Found existing Edition for `<code>`", with the code as scanned. **Decided 2026-11-07:** logging the barcode is acceptable because nothing about the client is logged with it, so the line can't be tied to a person or device.
 - **Logged:** upstream failures and responses that can't be decoded (the raw UPCMDB body), plus warnings about the UPCMDB record itself: its EAN differs from the canonical code (the warning includes the canonical and scanned codes), a value can't be mapped (unknown format, HDR token or date format), or its packaging fields contradict each other. Warnings include the UPC and the raw UPCMDB values, never anything about the client. The client's IP and request details are never logged by the application. Hosting-level request logging is RMSTR-10.
 - Invalid codes (400) and not-found lookups (404) are normal outcomes and aren't logged.

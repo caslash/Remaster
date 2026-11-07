@@ -13,6 +13,7 @@ import { EditionResponse } from './types/edition';
 import { StoreRangeReason } from './utils/upc.utils';
 
 import { TMDBService } from '@/upc/tmdb.service';
+import { Title } from '@/upc/types/title';
 import databaseZootopia from './mock/database-zootopia.json';
 import zootopia from './mock/movie4kdv.json';
 import blackPanther from './mock/movie4khdr.json';
@@ -26,18 +27,31 @@ import spongebob from './mock/tvdvd.json';
 describe('UpcService', () => {
   let service: UpcService;
 
-  const mockTMDBService = {};
+  const mockTMDBService = { getTitle: jest.fn() };
 
+  const zootopiaTitle = {
+    tmdbId: '1084242',
+    kind: 'movie',
+    name: 'Zootopia 2',
+    year: 2025,
+    imdbId: 'tt26443597',
+    posterPath: '/poster.jpg',
+    raw: { movie_results: [{ id: 1084242 }], tv_results: [] },
+    editions: [],
+  } as unknown as Title;
+
+  // A plain function, not jest.fn, so resetAllMocks in afterEach doesn't wipe
+  // it and leave every later test calling UPCMDB at `undefined<upc>`.
   const mockConfigService = {
-    getOrThrow: jest.fn((key: string) => {
+    getOrThrow: (key: string) => {
       const env: Record<string, string> = {
-        UPCMDB_LOOKUP_URL: 'https://test.com',
+        UPCMDB_LOOKUP_URL: 'https://test.com/',
         UPCMDB_API_KEY: 'test-key',
       };
 
       if (!(key in env)) throw new Error(`Missing config key: ${key}`);
       return env[key];
-    }),
+    },
   };
 
   const mockEditionStore = {
@@ -79,6 +93,19 @@ describe('UpcService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('should call UPCMDB with the configured URL and API key on every lookup', async () => {
+    await fetchFixture(zootopia.upc, zootopia);
+    await fetchFixture(barnyard.upc, barnyard);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `https://test.com/${barnyard.upc}`,
+      expect.objectContaining({
+        method: 'GET',
+        headers: { 'x-api-key': 'test-key' },
+      }),
+    );
   });
 
   it('should deny invalid UPC value', async () => {
@@ -176,8 +203,37 @@ describe('UpcService', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(body));
   });
 
+  it.each([
+    ['null', 'null'],
+    ['an array', '[]'],
+    ['a string', '"error"'],
+    ['a number', '42'],
+  ])(
+    'should throw NotFound without calling it "not JSON" when UPCMDB responds with %s',
+    async (_case, body) => {
+      const upc = '043396647640';
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(body),
+      });
+
+      await expect(service.getEdition(upc, undefined)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('not JSON'),
+      );
+      expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
+      expect(mockEditionStore.recordUnresolvedGTIN).not.toHaveBeenCalled();
+    },
+  );
+
   it('should save when a new upc is requested', async () => {
     mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
+    mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
 
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
@@ -186,7 +242,34 @@ describe('UpcService', () => {
     );
     expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
       zootopiaEdition,
+      zootopiaTitle,
       zootopia,
+    );
+  });
+
+  it('should save with no title when TMDB has no match', async () => {
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
+    mockTMDBService.getTitle.mockResolvedValue(undefined);
+
+    const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
+
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
+      zootopiaEdition,
+      undefined,
+      zootopia,
+    );
+  });
+
+  it('should save with no title and skip TMDB when the record has no IMDb ID', async () => {
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
+
+    const lokiEdition = await fetchFixture(loki.upc, loki);
+
+    expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
+      lokiEdition,
+      undefined,
+      loki,
     );
   });
 

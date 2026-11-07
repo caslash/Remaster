@@ -49,7 +49,7 @@ The edition and the work it's a release of are split, matching the Title and Edi
 
 #### TMDB matching (RMSTR-67)
 
-`TMDBService.getTitle(imdbId, kind)` in [`src/upc/tmdb.service.ts`](../src/upc/tmdb.service.ts) turns an edition's IMDb ID into a Title. Nothing calls it yet: RMSTR-68 adds it to the `/upc` lookup on a cache miss.
+`TMDBService.getTitle(imdbId, kind)` in [`src/upc/tmdb.service.ts`](../src/upc/tmdb.service.ts) turns an edition's IMDb ID into a Title. The `/upc` lookup calls it on a cache miss when the edition has an IMDb ID, before anything is saved (RMSTR-68; see [Lookup flow](upc-endpoint.md#lookup-flow-rmstr-68)). A match is saved to the `titles` table and linked to the edition in the same transaction. No IMDb ID, or no match, saves the edition with no title.
 
 **Request.** `GET {TMDB_FIND_URL}{imdbId}?external_source=imdb_id` with `Authorization: Bearer {TMDB_READ_ACCESS_TOKEN}` and a 5-second timeout, which covers reading the body as well as the headers. Only the IMDb ID and the server's token are sent.
 

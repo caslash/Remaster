@@ -5,7 +5,7 @@ import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { NORMALIZER_VERSION } from '@/upc/utils/upc.utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 @Injectable()
 export class TypeORMEditionStore extends EditionStore {
@@ -16,6 +16,7 @@ export class TypeORMEditionStore extends EditionStore {
     private titleRepository: Repository<Title>,
     @InjectRepository(UnresolvedUPC)
     private unresolvedRepository: Repository<UnresolvedUPC>,
+    private readonly dataSource: DataSource,
   ) {
     super();
   }
@@ -24,15 +25,32 @@ export class TypeORMEditionStore extends EditionStore {
     return await this.editionRepository.findOne({ where: { id: gtin } });
   }
 
-  async saveEdition(edition: EditionResponse, raw: object): Promise<void> {
-    await this.editionRepository.upsert(
-      {
-        ...edition,
-        raw,
-        fetchedAt: new Date(),
-        normalizerVersion: NORMALIZER_VERSION,
+  async saveEdition(
+    edition: EditionResponse,
+    title: Title | undefined,
+    raw: object,
+  ): Promise<void> {
+    await this.dataSource.manager.transaction(
+      async (transactionalEntityManager) => {
+        if (title)
+          await transactionalEntityManager.upsert(Title, title, {
+            conflictPaths: ['tmdbId', 'kind'],
+          });
+
+        await transactionalEntityManager.delete(UnresolvedUPC, edition.id);
+
+        await transactionalEntityManager.upsert(
+          Edition,
+          {
+            ...edition,
+            raw,
+            fetchedAt: new Date(),
+            normalizerVersion: NORMALIZER_VERSION,
+            work: title,
+          },
+          { conflictPaths: ['id'] },
+        );
       },
-      { conflictPaths: ['id'] },
     );
   }
 

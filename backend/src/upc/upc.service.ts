@@ -4,6 +4,7 @@ import { TMDBService } from '@/upc/tmdb.service';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
 import { DiscFormat, Edition, EditionResponse } from '@/upc/types/edition';
 import { HDRFormat, isHDRFormat } from '@/upc/types/hdrformat';
+import { Title } from '@/upc/types/title';
 import {
   getBoolean,
   isNotRetailProductReason,
@@ -63,7 +64,15 @@ export class UpcService {
       );
 
       const responseEdition = this.normalizeResponse(normalUPC, upc, response);
-      await this.editionStore.saveEdition(responseEdition, response);
+
+      let title: Title | undefined;
+      if (responseEdition.imdbId)
+        title = await this.tmdbService.getTitle(
+          responseEdition.imdbId,
+          responseEdition.kind,
+        );
+
+      await this.editionStore.saveEdition(responseEdition, title, response);
       return responseEdition;
     } catch (error) {
       if (error instanceof DOMException) {
@@ -115,9 +124,12 @@ export class UpcService {
       const json = JSON.parse(body);
       if (isRecord(json)) return json;
       throw new NotFoundException();
-    } catch {
-      this.logger.warn(`UPCMDB response is not JSON:\n${body}`);
-      throw new NotFoundException();
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        this.logger.warn(`UPCMDB response is not JSON:\n${body}`);
+        throw new NotFoundException();
+      }
+      throw error;
     }
   }
 

@@ -6,7 +6,8 @@ What it's for (see section 3 of [`AGENTS.md`](../AGENTS.md)):
 
 - UPC and title lookup, so the iOS app stops calling UPCMDB directly and its key leaves the app binary.
 - Normalizing raw source responses (UPCMDB, TMDB, and later others) into the app's own edition schema.
-- Later: the edition database, the enrichment worker, and the new-editions feed.
+- An edition database in PostgreSQL, filled on demand: each UPC is resolved upstream once and served from the database after that (see `docs/upc-endpoint.md`, Lookup flow).
+- Later: the enrichment worker and the new-editions feed.
 
 ## Ground rules
 
