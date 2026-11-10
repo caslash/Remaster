@@ -2,7 +2,7 @@
   "id": "0786936900001",
   "barcodes": { "upc": "786936900001", "ean": "0786936900001" },
   "imdbId": "tt26443597",
-  "title": "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook",
+  "upcTitle": "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook",
   "enrichedTitle": "Zootopia 2",
   "kind": "movie",
   "year": 2025,
@@ -18,5 +18,14 @@
   "releaseDate": "2026-03-03",
   "coverImageURL": "https://imagestorage.org/786936900001.jpg",
   "runtime": 108,
-  "hasDigital": true
+  "hasDigital": true,
+  "title": {
+    "tmdbId": "1084242",
+    "kind": "movie",
+    "name": "Zootopia 2",
+    "year": 2025,
+    "imdbId": "tt26443597",
+    "posterURL": "https://image.tmdb.org/t/p/w500/poster.jpg"
+  },
+  "unmatchedTitle": false
 }

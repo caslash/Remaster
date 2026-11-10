@@ -23,37 +23,81 @@ Source of truth for the type: [`src/upc/types/edition.ts`](../src/upc/types/edit
 | `barcodes.upc` | string or absent       | As printed on the case (12 digits).                                                                                                                                         |
 | `barcodes.ean` | string or absent       | 13 digits.                                                                                                                                                                  |
 | `asin`         | string or absent       | Amazon product ID, for retailer links (R2).                                                                                                                                 |
-| `imdbId`       | string or absent       | The only title key until TMDB mapping (RMSTR-13). Missing on some records (Loki S2, SpongeBob).                                                                             |
+| `imdbId`       | string or absent       | From UPCMDB. Missing on some records (Loki S2, SpongeBob). Used to find the TMDB work (see [Nested title](#nested-title-rmstr-69)).                                         |
 
 ### Title
 
-| Field           | Type                       | Notes                                                                                                   |
-| --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `title`         | string, always present     | Retail title as printed, e.g. "Loki: The Complete Second Season".                                       |
-| `enrichedTitle` | string or absent           | Name of the work, e.g. "WandaVision".                                                                   |
-| `kind`          | `movie` \| `tv`, or absent | Absent when the record has no type signal (Loki S2). Not guessed from the title. Matches TMDB's naming. |
-| `year`          | integer or absent          | Year of the work, not the disc release.                                                                 |
+| Field            | Type                       | Notes                                                                                                   |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `upcTitle`       | string, always present     | Retail title as printed, e.g. "Loki: The Complete Second Season". Renamed from `title` (RMSTR-69).      |
+| `enrichedTitle`  | string or absent           | Name of the work, e.g. "WandaVision".                                                                   |
+| `kind`           | `movie` \| `tv`, or absent | Absent when the record has no type signal (Loki S2). Not guessed from the title. Matches TMDB's naming. |
+| `year`           | integer or absent          | Year of the work, not the disc release.                                                                 |
+| `title`          | object or absent           | The TMDB work this edition is a release of. See [Nested title](#nested-title-rmstr-69).                 |
+| `unmatchedTitle` | boolean, always present    | `false` when `title` is present, `true` when it isn't.                                                  |
 
-#### Planned: nested title (RMSTR-13, decided 2026-11-01)
+`enrichedTitle`, `kind`, `year` and `imdbId` above come from UPCMDB and stay on the edition next to the nested `title`, so an unmatched edition still has them.
 
-Not implemented yet. Clients shouldn't rely on it until this marker is removed.
+#### Nested title (RMSTR-69)
 
-The edition and the work it's a release of are split, matching the Title and Edition tables in PostgreSQL:
+Decided 2026-11-01 (RMSTR-13); the response shape was settled and implemented on 2026-11-08 (RMSTR-69). The edition and the work it's a release of are split, matching the Title and Edition tables in PostgreSQL:
 
-- **Retail title renamed.** `title` (the retail title as printed) becomes `upcTitle`. This is a **breaking change** for the iOS `Edition` decoder, which reads `title` as a string.
-- **`title` becomes an object** describing the work, filled from TMDB via the edition's IMDb ID (`/find/{imdb_id}?external_source=imdb_id`). It's absent when the edition has no IMDb ID or TMDB has no match.
-- **Fields of the nested `title`:** kind (`movie` | `tv`, from which TMDB result list matched), TMDB ID, name, year (from `release_date` or `first_air_date`), IMDb ID, and poster URL.
-- **TMDB IDs are only unique per kind** (movie 1399 and TV 1399 are different works), so a Title is identified by kind + TMDB ID. Clients should compare both.
-- **Poster URL is built at response time.** The database stores TMDB's `poster_path`; the base URL and size are applied when the response is built, so a later change (e.g. a backend image proxy, RMSTR-62) needs no data migration.
-- **TV editions link to the show**, not a season: Loki S2's title is "Loki". The season or scope appears only in `upcTitle` for now (see AGENTS.md §5, TV).
+- **`upcTitle`** is the retail title as printed. Until RMSTR-69 this was `title`, a **breaking change** for the iOS `Edition` decoder, which still reads `title` as a string.
+- **`title`** is an object describing the work, filled from TMDB via the edition's IMDb ID (see [TMDB matching](#tmdb-matching-rmstr-67)).
+- **`unmatchedTitle`** is always present. When it's `true`, `title` is left out of the JSON: the edition has no IMDb ID, TMDB has no match, or TMDB failed on this lookup (that last case isn't saved, so a later scan can still match; see [Lookup flow](upc-endpoint.md#lookup-flow-rmstr-68)). The edition's own fields, including `upcTitle` and `format`, are still filled in.
+
+| Field (in `title`) | Type                            | Notes                                                                                                                                                                            |
+| ------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tmdbId`           | string, always present          | TMDB's numeric ID as a string.                                                                                                                                                   |
+| `kind`             | `movie` \| `tv`, always present | Which TMDB result list matched. **TMDB IDs are only unique per kind** (movie 1399 and TV 1399 are different works), so clients should compare kind + `tmdbId`.                   |
+| `name`             | string, always present          | The work's name in TMDB, e.g. "Loki" for Loki S2. **TV editions link to the show**, not a season; the season or scope appears only in `upcTitle` for now (see AGENTS.md §5, TV). |
+| `year`             | integer or absent               | From `release_date` (movie) or `first_air_date` (TV).                                                                                                                            |
+| `imdbId`           | string or absent                | The IMDb ID the work was matched on.                                                                                                                                             |
+| `posterURL`        | string or absent                | Full URL of TMDB's poster at size `w500`, e.g. `https://image.tmdb.org/t/p/w500/abc.jpg`. Absent when TMDB has no poster for the work.                                           |
+
+**Poster URL is built at response time.** The database stores TMDB's `poster_path`; `TMDBService.getPosterURL(path, PosterSize.W500)` adds the host and size when the response is built, on a cache hit as well as a miss. A later change (e.g. a backend image proxy, RMSTR-62) changes only that method and needs no data migration. The client never builds TMDB image URLs itself.
+
+**Why `w500`** (decided 2026-11-07): sharp enough for a library grid cell on a 3× iPhone. `original` is often 1–3 MB and about 24 MB decoded, which a poster grid can't afford. A larger detail-size URL is to be added with the R2 edition detail story.
+
+The nested `title` never includes `posterPath`, the raw TMDB response or the Title's editions.
+
+Example (abridged):
+
+```json
+{
+  "id": "0043396647640",
+  "upcTitle": "Zootopia 2",
+  "format": "4K UHD",
+  "title": {
+    "tmdbId": "1084242",
+    "kind": "movie",
+    "name": "Zootopia 2",
+    "year": 2025,
+    "imdbId": "tt26443597",
+    "posterURL": "https://image.tmdb.org/t/p/w500/poster.jpg"
+  },
+  "unmatchedTitle": false
+}
+```
+
+An unmatched edition, e.g. Loki S2, which has no IMDb ID:
+
+```json
+{
+  "id": "0043396640559",
+  "upcTitle": "Loki: The Complete Second Season",
+  "format": "4K UHD",
+  "unmatchedTitle": true
+}
+```
 
 #### TMDB matching (RMSTR-67)
 
-`TMDBService.getTitle(imdbId, kind)` in [`src/upc/tmdb.service.ts`](../src/upc/tmdb.service.ts) turns an edition's IMDb ID into a Title. The `/upc` lookup calls it on a cache miss when the edition has an IMDb ID, before anything is saved (RMSTR-68; see [Lookup flow](upc-endpoint.md#lookup-flow-rmstr-68)). A match is saved to the `titles` table and linked to the edition in the same transaction. No IMDb ID, or no match, saves the edition with no title.
+`TMDBService.getTitle(imdbId, kind)` in [`src/upc/tmdb.service.ts`](../src/upc/tmdb.service.ts) turns an edition's IMDb ID into a Title. The `/upc` lookup calls it on a cache miss when the edition has an IMDb ID, before anything is saved (RMSTR-68; see [Lookup flow](upc-endpoint.md#lookup-flow-rmstr-68)). A match is saved to the `titles` table and linked to the edition in the same transaction. No IMDb ID, or no match, saves the edition with no title. An upstream failure returns the edition unmatched without saving it (RMSTR-69).
 
 **Request.** `GET {TMDB_FIND_URL}{imdbId}?external_source=imdb_id` with `Authorization: Bearer {TMDB_READ_ACCESS_TOKEN}` and a 5-second timeout, which covers reading the body as well as the headers. Only the IMDb ID and the server's token are sent.
 
-**Outcomes.** These three stay separate so the caller can tell "TMDB doesn't know this work" from "TMDB is down". A failure must never be saved as a partial match, or the cached edition would stay unmatched after TMDB recovers.
+**Outcomes.** These three stay separate so the caller can tell "TMDB doesn't know this work" from "TMDB is down". A failure must never be saved as a partial match, or the cached edition would stay unmatched after TMDB recovers. The `/upc` lookup catches the two failure exceptions and returns the edition unmatched and unsaved, so they never reach the client as a 502 or 504.
 
 | Outcome          | Result                           | When                                                                                                                                                                                                  |
 | ---------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,19 +116,19 @@ The edition's `kind` comes from UPCMDB and thin records can get it wrong, so it 
 
 **Field mapping.**
 
-| Title field  | From TMDB                                                                                                                                                                                                                                                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tmdbId`     | `id` (a number in TMDB), stored as a string.                                                                                                                                                                                                                                              |
-| `kind`       | The result's `media_type`; if that's missing, the list it came from.                                                                                                                                                                                                                      |
-| `name`       | `title` for a movie, `name` for TV.                                                                                                                                                                                                                                                       |
-| `year`       | Year of `release_date` (movie) or `first_air_date` (TV), parsed as `YYYY-MM-DD`. Absent if the date is missing; a date in another format is also left absent and logged.                                                                                                                  |
-| `imdbId`     | The IMDb ID that was looked up.                                                                                                                                                                                                                                                           |
-| `posterPath` | `poster_path`, or absent. The full URL is built at response time (see above) by `TMDBService.getPosterURL`, which prefixes TMDB's image host (`https://image.tmdb.org/t/p/`) and a fixed size. The size and host live only in that method, so the RMSTR-62 image proxy changes one place. |
-| `raw`        | The whole `/find` response, not just the chosen entry, so the choice between lists can be redone when re-normalizing.                                                                                                                                                                     |
+| Title field  | From TMDB                                                                                                                                                                                                                                                                                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tmdbId`     | `id` (a number in TMDB), stored as a string.                                                                                                                                                                                                                                                                                                                    |
+| `kind`       | The result's `media_type`; if that's missing, the list it came from.                                                                                                                                                                                                                                                                                            |
+| `name`       | `title` for a movie, `name` for TV.                                                                                                                                                                                                                                                                                                                             |
+| `year`       | Year of `release_date` (movie) or `first_air_date` (TV), parsed as `YYYY-MM-DD`. Absent if the date is missing; a date in another format is also left absent and logged.                                                                                                                                                                                        |
+| `imdbId`     | The IMDb ID that was looked up.                                                                                                                                                                                                                                                                                                                                 |
+| `posterPath` | `poster_path`, or absent. Stored, never sent to clients: the response carries `posterURL`, built at response time (see [Nested title](#nested-title-rmstr-69)) by `TMDBService.getPosterURL`, which prefixes TMDB's image host (`https://image.tmdb.org/t/p/`) and the size. The host lives only in that method, so the RMSTR-62 image proxy changes one place. |
+| `raw`        | The whole `/find` response, not just the chosen entry, so the choice between lists can be redone when re-normalizing.                                                                                                                                                                                                                                           |
 
 **Logging.** Log lines name the status code, the network error code (e.g. `ECONNREFUSED`), the body length or the invalid field names. They never include the IMDb ID, the request URL or any of the body's contents, since those would record what was looked up (AGENTS.md §2). Client-facing messages are fixed strings ("TMDB request timed out", "TMDB request failed", "TMDB returned an error", "TMDB returned an invalid response").
 
-Still open: whether partial matches carry an explicit `unmatchedTitle` flag (named in the RMSTR-13 acceptance criteria) or whether an absent `title` object is the signal, and whether the edition-level `enrichedTitle`, `kind`, `year` and `imdbId` stay as UPCMDB fallbacks next to the nested `title`.
+**Re-matching** (decided 2026-11-08): a cached edition that's unmatched isn't re-checked against TMDB on later scans, even when it has an IMDb ID. That's left to the planned enrichment worker (AGENTS.md §3).
 
 ### Disc facts (used for upgrade detection)
 
@@ -213,4 +257,6 @@ Recorded TMDB `/find` responses, used by `tmdb.service.spec.ts`:
 - **Cover image privacy.** `productImageUrl` points at `imagestorage.org/<UPC>.jpg`. If the app loads it directly, a third party sees the user's IP and the UPCs in their library, which breaks the privacy model (AGENTS.md §2). The backend should proxy or re-host images before any public build. The same applies to TMDB posters later.
 - **New enum values.** Adding an `HDRFormat` or `DiscFormat` value breaks clients that decode those enums strictly. Either the client tolerates unknown values or the schema version is bumped.
 - **Structured audio.** `audio` stays a display string for MVP (decided 2026-10-26). UPCMDB runs tracks together with no delimiter ("English: Dolby Atmos English: Dolby TrueHD 7.1 … French (Canada): Dolby Digital 5.1 | Audio descriptive"), multi-word language names make the boundaries ambiguous, and nothing in MVP uses it. Revisit with the R2 edition detail story: likely a list of tracks (language + codec) plus an audio-description flag from the text after `|`. Changing the type then is a breaking change, so it goes with a schema version bump.
-- **TMDB.** Decided 2026-11-01: TMDB identity and poster arrive as a nested `title` object (see [Planned: nested title](#planned-nested-title-rmstr-13-decided-2026-11-01)).
+- **TMDB.** Resolved (RMSTR-69, 2026-11-08): TMDB identity and poster arrive as a nested `title` object with `unmatchedTitle` alongside (see [Nested title](#nested-title-rmstr-69)).
+- **Re-matching unmatched editions.** Cache hits don't retry TMDB (decided 2026-11-08). Until the enrichment worker exists, an edition saved unmatched stays unmatched.
+- **Poster privacy.** The app loading `posterURL` directly from `image.tmdb.org` shows TMDB the user's IP and which posters they view, the same issue as cover images. The RMSTR-62 image proxy covers it.

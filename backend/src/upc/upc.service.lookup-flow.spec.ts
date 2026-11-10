@@ -14,9 +14,24 @@
 // Real concurrency (two misses racing to one row) needs a live Postgres and is
 // not covered here; see the SQL-level upsert specs in
 // storage/upc.storage.typeorm-store.spec.ts.
+//
+// RMSTR-69 (response contract) assertions read the response the way a client
+// does, through a JSON round trip (`body`), so they don't depend on how the
+// response type is declared. Decided 2026-11-08:
+//
+// - `title` is the TMDB work: tmdbId, kind, name, year, imdbId, posterURL
+//   (w500). It is left out of the JSON when there's no match.
+// - `unmatchedTitle` is true whenever `title` is absent.
+// - A TMDB failure on a miss returns the UPCMDB-only edition, unmatched and
+//   unsaved, so the next scan retries both upstreams.
+// - Cache hits never call TMDB, even for an unmatched edition with an IMDb ID
+//   (re-matching is left to the enrichment worker). The store builds the
+//   cache-hit response; the service builds the cache-miss one.
+// - A UPCMDB record with no title is a 404 and is recorded as unresolved.
 
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TMDBService } from '@/upc/tmdb.service';
+import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import { UpcService } from '@/upc/upc.service';
 import {
@@ -31,8 +46,10 @@ import databaseZootopia from './mock/database-zootopia.json';
 import zootopia from './mock/movie4kdv.json';
 import loki from './mock/tv4kdv.json';
 import wandavision from './mock/tv4khdr.json';
+import spongebob from './mock/tvdvd.json';
 
 const ZOOTOPIA_GTIN = '0043396647640';
+const ZOOTOPIA_POSTER_URL = 'https://image.tmdb.org/t/p/w500/poster.jpg';
 
 const zootopiaTitle = {
   tmdbId: '1084242',
@@ -44,6 +61,42 @@ const zootopiaTitle = {
   raw: { movie_results: [{ id: 1084242 }], tv_results: [] },
   editions: [],
 } as unknown as Title;
+
+// The nested `title` a client receives for Zootopia.
+const zootopiaResponseTitle = {
+  tmdbId: '1084242',
+  kind: 'movie',
+  name: 'Zootopia 2',
+  year: 2025,
+  imdbId: 'tt26443597',
+  posterURL: ZOOTOPIA_POSTER_URL,
+};
+
+// The same, for a Title with no poster_path: posterURL is left out.
+const zootopiaResponseTitleWithoutPoster = {
+  tmdbId: '1084242',
+  kind: 'movie',
+  name: 'Zootopia 2',
+  year: 2025,
+  imdbId: 'tt26443597',
+};
+
+// What findEditionByGTIN returns on a cache hit: the store maps the stored
+// Title to the response shape itself (see upc.storage.typeorm-store.spec.ts),
+// so the service passes it through.
+const storedZootopia = {
+  ...databaseZootopia,
+  title: zootopiaResponseTitle,
+  unmatchedTitle: false,
+};
+const storedUnmatchedZootopia = {
+  ...databaseZootopia,
+  unmatchedTitle: true,
+};
+
+// What a client receives over HTTP: undefined properties dropped.
+const body = (edition: unknown): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(edition)) as Record<string, unknown>;
 
 // Names a Nest container, Jest or `await` may probe on a provider object. The
 // proxy must not invent a jest.fn for these, or e.g. `then` would make the
@@ -104,7 +157,7 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
   let service: UpcService;
   let calls: Record<string, jest.Mock>;
 
-  const mockTMDBService = { getTitle: jest.fn() };
+  const mockTMDBService = { getTitle: jest.fn(), getPosterURL: jest.fn() };
 
   // A plain function, not jest.fn, so resetAllMocks doesn't wipe it.
   const mockConfigService = {
@@ -159,6 +212,12 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     service = module.get<UpcService>(UpcService);
     // Reading the proxy creates the mock; a miss is the default.
     auto.store.findEditionByGTIN.mockResolvedValue(null);
+    // The real URL builder (it doesn't touch `this`), set here because
+    // resetAllMocks wipes implementations.
+    mockTMDBService.getPosterURL.mockImplementation(
+      (path: string, size: PosterSize) =>
+        TMDBService.prototype.getPosterURL.call(undefined, path, size),
+    );
   });
 
   afterEach(() => {
@@ -172,13 +231,13 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     ] as const)(
       'should serve a %s scan from the database without calling UPCMDB or TMDB',
       async (shape, code) => {
-        calls.findEditionByGTIN.mockResolvedValue(databaseZootopia);
+        calls.findEditionByGTIN.mockResolvedValue(storedZootopia);
         global.fetch = jest.fn();
 
         const edition = await service.getEdition(code, shape);
 
         expect(calls.findEditionByGTIN).toHaveBeenCalledWith(ZOOTOPIA_GTIN);
-        expect(edition).toStrictEqual(databaseZootopia);
+        expect(body(edition)).toStrictEqual(storedZootopia);
         expect(global.fetch).not.toHaveBeenCalled();
         expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
         expect(writes()).toEqual([]);
@@ -186,7 +245,7 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     );
 
     it('should look up UPC-A and EAN-13 scans of the same disc by the same GTIN', async () => {
-      calls.findEditionByGTIN.mockResolvedValue(databaseZootopia);
+      calls.findEditionByGTIN.mockResolvedValue(storedZootopia);
       global.fetch = jest.fn();
 
       await service.getEdition(zootopia.upc, 'UPC-A');
@@ -318,21 +377,47 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
       ).toBe(false);
     });
 
+    // RMSTR-69, decided 2026-11-08: a TMDB failure isn't a "no match". The
+    // collector still gets the UPCMDB edition, but nothing is saved, or the
+    // cached edition would stay unmatched after TMDB recovers.
     it.each([
       ['BadGateway', new BadGatewayException('TMDB returned an error')],
       ['GatewayTimeout', new GatewayTimeoutException('TMDB request timed out')],
     ])(
-      'should pass a TMDB %s through and save nothing',
+      'should return the edition unmatched and save nothing when TMDB fails with %s',
       async (_name, tmdbError) => {
         mockUPCMDB(zootopia);
         mockTMDBService.getTitle.mockRejectedValue(tmdbError);
 
-        await expect(
-          service.getEdition(zootopia.upc, undefined),
-        ).rejects.toThrow(tmdbError.constructor as new () => Error);
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        const response = body(edition);
+        expect(response.id).toBe(ZOOTOPIA_GTIN);
+        expect(response.upcTitle).toBe(zootopia.title);
+        expect(response.format).toBe('4K UHD');
+        expect(response.unmatchedTitle).toBe(true);
+        expect(response).not.toHaveProperty('title');
         expect(writes()).toEqual([]);
       },
     );
+
+    it('should call UPCMDB and TMDB again on the next scan after a TMDB failure', async () => {
+      mockUPCMDB(zootopia);
+      mockTMDBService.getTitle
+        .mockRejectedValueOnce(
+          new GatewayTimeoutException('TMDB request timed out'),
+        )
+        .mockResolvedValueOnce(zootopiaTitle);
+
+      const first = await service.getEdition(zootopia.upc, undefined);
+      const second = await service.getEdition(zootopia.upc, undefined);
+
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(mockTMDBService.getTitle).toHaveBeenCalledTimes(2);
+      expect(body(first).unmatchedTitle).toBe(true);
+      expect(body(second).unmatchedTitle).toBe(false);
+      expect(body(second).title).toStrictEqual(zootopiaResponseTitle);
+    });
 
     it('should let two concurrent misses for one UPC both succeed', async () => {
       mockUPCMDB(zootopia);
@@ -404,5 +489,177 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
         expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
       },
     );
+
+    // RMSTR-69, decided 2026-11-08: no retail title means "not found", not a
+    // partial match, and the code joins the unresolved (wanted) list.
+    it.each([
+      ['missing', { ...zootopia, title: undefined }],
+      ['the string "null"', { ...zootopia, title: 'null' }],
+      ['blank', { ...zootopia, title: '  ' }],
+    ])(
+      'should return 404, record the GTIN as unresolved and skip TMDB when the UPCMDB title is %s',
+      async (_case, fixture) => {
+        mockUPCMDB(fixture);
+
+        await expect(
+          service.getEdition(zootopia.upc, undefined),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(writes()).toEqual([['recordUnresolvedGTIN', [ZOOTOPIA_GTIN]]]);
+        expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('response contract (RMSTR-69)', () => {
+    describe('cache miss', () => {
+      it('should return the TMDB title with a w500 poster URL when TMDB matches', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        const response = body(edition);
+        expect(response.title).toStrictEqual(zootopiaResponseTitle);
+        expect(response.unmatchedTitle).toBe(false);
+        expect(mockTMDBService.getPosterURL).toHaveBeenCalledWith(
+          '/poster.jpg',
+          PosterSize.W500,
+        );
+      });
+
+      it('should keep the retail title as upcTitle alongside the TMDB title', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        expect(body(edition).upcTitle).toBe(zootopia.title);
+      });
+
+      it('should leave posterURL out when the TMDB title has no poster', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue({
+          ...zootopiaTitle,
+          posterPath: undefined,
+        });
+
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        const response = body(edition);
+        expect(response.title).toStrictEqual(
+          zootopiaResponseTitleWithoutPoster,
+        );
+        expect(response.unmatchedTitle).toBe(false);
+        expect(mockTMDBService.getPosterURL).not.toHaveBeenCalled();
+      });
+
+      it('should not expose posterPath, raw or editions in the nested title', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        const title = body(edition).title as Record<string, unknown>;
+        expect(title).not.toHaveProperty('posterPath');
+        expect(title).not.toHaveProperty('raw');
+        expect(title).not.toHaveProperty('editions');
+      });
+
+      it.each([
+        ['Loki S2', loki, '4K UHD'],
+        ['SpongeBob', spongebob, 'DVD'],
+      ] as const)(
+        'should return %s unmatched, with the UPCMDB title and format, when it has no IMDb ID',
+        async (_name, fixture, format) => {
+          mockUPCMDB(fixture);
+
+          const edition = await service.getEdition(fixture.upc, undefined);
+
+          const response = body(edition);
+          expect(response.upcTitle).toBe(fixture.title);
+          expect(response.format).toBe(format);
+          expect(response.unmatchedTitle).toBe(true);
+          expect(response).not.toHaveProperty('title');
+        },
+      );
+
+      it('should return the edition unmatched, with the UPCMDB title and format, when TMDB has no match', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue(undefined);
+
+        const edition = await service.getEdition(zootopia.upc, undefined);
+
+        const response = body(edition);
+        expect(response.upcTitle).toBe(zootopia.title);
+        expect(response.format).toBe('4K UHD');
+        expect(response.unmatchedTitle).toBe(true);
+        expect(response).not.toHaveProperty('title');
+      });
+
+      it('should not write the response-only fields to the store', async () => {
+        mockUPCMDB(zootopia);
+        mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+
+        await service.getEdition(zootopia.upc, undefined);
+
+        const hasResponseField = (candidate: unknown) =>
+          isRecord(candidate) &&
+          ('unmatchedTitle' in candidate || 'posterURL' in candidate);
+        expect(
+          writes().some(([, args]) => contains(args, hasResponseField)),
+        ).toBe(false);
+      });
+    });
+
+    // The store builds the cache-hit response; the mapping itself is tested
+    // in upc.storage.typeorm-store.spec.ts. Here: the service returns it
+    // unchanged and calls nothing upstream.
+    describe('cache hit', () => {
+      it.each([
+        ['matched', storedZootopia],
+        ['unmatched', storedUnmatchedZootopia],
+      ])(
+        'should return the stored %s edition unchanged without calling TMDB',
+        async (_case, stored) => {
+          calls.findEditionByGTIN.mockResolvedValue(stored);
+          global.fetch = jest.fn();
+
+          const edition = await service.getEdition(zootopia.upc, undefined);
+
+          expect(body(edition)).toStrictEqual(stored);
+          expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+          expect(global.fetch).not.toHaveBeenCalled();
+          expect(writes()).toEqual([]);
+        },
+      );
+
+      // Decided 2026-11-08: re-matching is left to the enrichment worker.
+      it('should not retry TMDB for an unmatched edition that has an IMDb ID', async () => {
+        calls.findEditionByGTIN.mockResolvedValue(storedUnmatchedZootopia);
+        global.fetch = jest.fn();
+
+        await service.getEdition(zootopia.upc, undefined);
+
+        expect(storedUnmatchedZootopia.imdbId).toBeDefined();
+        expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(writes()).toEqual([]);
+      });
+    });
+
+    // A miss is built by the service and a hit by the store; the client must
+    // see the same shape either way.
+    it('should return the same title and flag for a disc on its first and repeat scans', async () => {
+      mockUPCMDB(zootopia);
+      mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+      const miss = body(await service.getEdition(zootopia.upc, undefined));
+
+      calls.findEditionByGTIN.mockResolvedValue(storedZootopia);
+      const hit = body(await service.getEdition(zootopia.upc, undefined));
+
+      expect(hit.title).toStrictEqual(miss.title);
+      expect(hit.unmatchedTitle).toBe(miss.unmatchedTitle);
+    });
   });
 });

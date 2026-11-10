@@ -1,6 +1,8 @@
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TypeORMEditionStore } from '@/upc/storage/upc.storage.typeorm-store';
-import { Edition, EditionResponse } from '@/upc/types/edition';
+import { TMDBService } from '@/upc/tmdb.service';
+import { Edition } from '@/upc/types/edition';
+import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { NORMALIZER_VERSION } from '@/upc/utils/upc.utils';
@@ -25,6 +27,29 @@ const zootopiaTitle = {
   raw: { id: 1084242 },
   editions: [],
 } as unknown as Title;
+
+const FETCHED_AT = new Date('2026-11-08T20:00:00Z');
+
+// The full Edition entity the service hands saveEdition: the stored fields
+// plus raw, fetch time, normalizer version and the TMDB Title (if matched).
+const fullEdition = (title?: Title): Edition =>
+  ({
+    ...databaseZootopia,
+    raw: zootopia,
+    fetchedAt: FETCHED_AT,
+    normalizerVersion: NORMALIZER_VERSION,
+    title,
+  }) as unknown as Edition;
+
+// The store builds the cache-hit response, so it uses TMDBService's real
+// poster URL builder (it doesn't touch `this`).
+const mockTMDBService = { getPosterURL: jest.fn() };
+const realPosterURL = (path: string, size: PosterSize) =>
+  TMDBService.prototype.getPosterURL.call(undefined, path, size);
+
+// What a client receives over HTTP: undefined properties dropped.
+const body = (value: unknown): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 
 const mockEditionRepository = {
   findOne: jest.fn(),
@@ -75,6 +100,7 @@ describe('TypeORMEditionStore', () => {
           useValue: mockUnresolvedRepository,
         },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: TMDBService, useValue: mockTMDBService },
       ],
     }).compile();
 
@@ -83,11 +109,12 @@ describe('TypeORMEditionStore', () => {
     // Set here, not in the jest.fn() calls above, because afterEach's
     // resetAllMocks wipes implementations.
     mockDataSource.manager.transaction.mockImplementation(
-      (work: (manager: typeof mockManager) => Promise<unknown>) =>
-        work(mockManager),
+      (title: (manager: typeof mockManager) => Promise<unknown>) =>
+        title(mockManager),
     );
     mockManager.upsert.mockResolvedValue(undefined);
     mockManager.delete.mockResolvedValue({ raw: [], affected: 0 });
+    mockTMDBService.getPosterURL.mockImplementation(realPosterURL);
   });
 
   afterEach(() => {
@@ -98,15 +125,124 @@ describe('TypeORMEditionStore', () => {
     expect(store).toBeInstanceOf(TypeORMEditionStore);
   });
 
-  it('should find an edition by GTIN', async () => {
-    mockEditionRepository.findOne.mockResolvedValue(databaseZootopia);
+  // RMSTR-69: a cache hit returns the linked Title, mapped to the response
+  // shape, so the client gets the TMDB ID and poster without a TMDB call.
+  describe('findEditionByGTIN (cache-hit response)', () => {
+    // The Title as TypeORM loads it through the relation: raw is
+    // select: false and editions isn't loaded.
+    const storedTitle = {
+      tmdbId: zootopiaTitle.tmdbId,
+      kind: zootopiaTitle.kind,
+      name: zootopiaTitle.name,
+      year: zootopiaTitle.year,
+      imdbId: zootopiaTitle.imdbId,
+      posterPath: zootopiaTitle.posterPath,
+    };
+    const responseTitle = {
+      tmdbId: '1084242',
+      kind: 'movie',
+      name: 'Zootopia 2',
+      year: 2025,
+      imdbId: 'tt26443597',
+      posterURL: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+    };
 
-    const edition = await store.findEditionByGTIN(databaseZootopia.id);
+    // Accepts either form of TypeORM's relations option; the SQL-level spec
+    // below checks the join itself.
+    it('should load the linked title', async () => {
+      mockEditionRepository.findOne.mockResolvedValue({
+        ...databaseZootopia,
+        title: storedTitle,
+      });
 
-    expect(mockEditionRepository.findOne).toHaveBeenCalledWith({
-      where: { id: databaseZootopia.id },
+      await store.findEditionByGTIN(databaseZootopia.id);
+
+      expect(mockEditionRepository.findOne).toHaveBeenCalledTimes(1);
+      const [options] = mockEditionRepository.findOne.mock.calls[0] as [
+        { where: unknown; relations?: unknown },
+      ];
+      expect(options.where).toEqual({ id: databaseZootopia.id });
+      const relations = options.relations;
+      const loadsTitle = Array.isArray(relations)
+        ? relations.includes('title')
+        : typeof relations === 'object' &&
+          relations !== null &&
+          (relations as Record<string, unknown>).title === true;
+      expect(loadsTitle).toBe(true);
     });
-    expect(edition).toStrictEqual(databaseZootopia);
+
+    it('should return the edition with its title mapped to a w500 poster URL and unmatchedTitle false', async () => {
+      mockEditionRepository.findOne.mockResolvedValue({
+        ...databaseZootopia,
+        title: storedTitle,
+      });
+
+      const edition = await store.findEditionByGTIN(databaseZootopia.id);
+
+      expect(body(edition)).toStrictEqual({
+        ...databaseZootopia,
+        title: responseTitle,
+        unmatchedTitle: false,
+      });
+      expect(mockTMDBService.getPosterURL).toHaveBeenCalledWith(
+        '/poster.jpg',
+        PosterSize.W500,
+      );
+    });
+
+    it('should leave out raw, fetch time and normalizer version even if the entity has them', async () => {
+      mockEditionRepository.findOne.mockResolvedValue({
+        ...databaseZootopia,
+        raw: zootopia,
+        fetchedAt: FETCHED_AT,
+        normalizerVersion: NORMALIZER_VERSION,
+        title: { ...storedTitle, raw: { id: 1084242 }, editions: [] },
+      });
+
+      const edition = body(await store.findEditionByGTIN(databaseZootopia.id));
+
+      expect(edition).not.toHaveProperty('raw');
+      expect(edition).not.toHaveProperty('fetchedAt');
+      expect(edition).not.toHaveProperty('normalizerVersion');
+      expect(edition.title).toStrictEqual(responseTitle);
+    });
+
+    it('should leave posterURL out when the stored title has no poster', async () => {
+      mockEditionRepository.findOne.mockResolvedValue({
+        ...databaseZootopia,
+        title: { ...storedTitle, posterPath: null },
+      });
+
+      const edition = body(await store.findEditionByGTIN(databaseZootopia.id));
+
+      const title = edition.title as Record<string, unknown>;
+      expect(title).not.toHaveProperty('posterURL');
+      expect(title).not.toHaveProperty('posterPath');
+      expect(edition.unmatchedTitle).toBe(false);
+      expect(mockTMDBService.getPosterURL).not.toHaveBeenCalled();
+    });
+
+    // TypeORM gives null, not undefined, for an unlinked relation.
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+    ])(
+      'should return the edition unmatched, with no title key, when its stored title is %s',
+      async (_case, title) => {
+        mockEditionRepository.findOne.mockResolvedValue({
+          ...databaseZootopia,
+          title,
+        });
+
+        const edition = body(
+          await store.findEditionByGTIN(databaseZootopia.id),
+        );
+
+        expect(edition).not.toHaveProperty('title');
+        expect(edition.unmatchedTitle).toBe(true);
+        expect(edition.upcTitle).toBe(databaseZootopia.upcTitle);
+      },
+    );
   });
 
   it('should return null when the GTIN is not stored', async () => {
@@ -123,11 +259,7 @@ describe('TypeORMEditionStore', () => {
     );
 
   it('should run both writes in one transaction, through its entity manager', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      zootopiaTitle,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition(zootopiaTitle));
 
     expect(mockDataSource.manager.transaction).toHaveBeenCalledTimes(1);
     expect(upsertsInto(Title)).toHaveLength(1);
@@ -137,25 +269,19 @@ describe('TypeORMEditionStore', () => {
   });
 
   it('should upsert an edition linked to its title', async () => {
-    const edition = databaseZootopia as unknown as EditionResponse;
-
-    await store.saveEdition(edition, zootopiaTitle, zootopia);
+    await store.saveEdition(fullEdition(zootopiaTitle));
 
     const [[, saved]] = upsertsInto(Edition) as [
       [unknown, Record<string, unknown>, unknown],
     ];
-    expect(saved.work).toBe(zootopiaTitle);
+    expect(saved.title).toBe(zootopiaTitle);
   });
 
   // editions.(title_tmdb_id, title_kind) is a foreign key to titles
   // (migration 1793932312854), so the title row has to exist before the
   // edition that points at it, or Postgres rejects the edition upsert.
   it('should upsert the title row before the edition that links to it', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      zootopiaTitle,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition(zootopiaTitle));
 
     expect(upsertsInto(Title)).toEqual([
       [
@@ -175,11 +301,7 @@ describe('TypeORMEditionStore', () => {
   });
 
   it('should not write a title row when the edition has no title', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      undefined,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition());
 
     expect(upsertsInto(Title)).toEqual([]);
     expect(upsertsInto(Edition)).toHaveLength(1);
@@ -205,11 +327,7 @@ describe('TypeORMEditionStore', () => {
     ])(
       'should delete the unresolved row for the edition GTIN %s',
       async (_case, title) => {
-        await store.saveEdition(
-          databaseZootopia as unknown as EditionResponse,
-          title,
-          zootopia,
-        );
+        await store.saveEdition(fullEdition(title));
 
         const deletes = deletesOfUnresolved();
         expect(deletes).toHaveLength(1);
@@ -218,11 +336,7 @@ describe('TypeORMEditionStore', () => {
     );
 
     it('should delete through the transaction, not the unresolved repository', async () => {
-      await store.saveEdition(
-        databaseZootopia as unknown as EditionResponse,
-        zootopiaTitle,
-        zootopia,
-      );
+      await store.saveEdition(fullEdition(zootopiaTitle));
 
       expect(mockDataSource.manager.transaction).toHaveBeenCalledTimes(1);
       expect(deletesOfUnresolved()).toHaveLength(1);
@@ -230,11 +344,7 @@ describe('TypeORMEditionStore', () => {
     });
 
     it('should only delete from unresolved_upcs', async () => {
-      await store.saveEdition(
-        databaseZootopia as unknown as EditionResponse,
-        zootopiaTitle,
-        zootopia,
-      );
+      await store.saveEdition(fullEdition(zootopiaTitle));
 
       const targets = (mockManager.delete.mock.calls as [unknown][]).map(
         ([target]) => target,
@@ -246,25 +356,15 @@ describe('TypeORMEditionStore', () => {
       const failure = new Error('delete failed');
       mockManager.delete.mockRejectedValue(failure);
 
-      await expect(
-        store.saveEdition(
-          databaseZootopia as unknown as EditionResponse,
-          zootopiaTitle,
-          zootopia,
-        ),
-      ).rejects.toBe(failure);
+      await expect(store.saveEdition(fullEdition(zootopiaTitle))).rejects.toBe(
+        failure,
+      );
     });
 
     it('should still save when there was no unresolved row to delete', async () => {
       mockManager.delete.mockResolvedValue({ raw: [], affected: 0 });
 
-      await expect(
-        store.saveEdition(
-          databaseZootopia as unknown as EditionResponse,
-          undefined,
-          zootopia,
-        ),
-      ).resolves.toBeUndefined();
+      await expect(store.saveEdition(fullEdition())).resolves.toBeUndefined();
       expect(upsertsInto(Edition)).toHaveLength(1);
     });
   });
@@ -275,40 +375,28 @@ describe('TypeORMEditionStore', () => {
       target === Edition ? Promise.reject(failure) : Promise.resolve(),
     );
 
-    await expect(
-      store.saveEdition(
-        databaseZootopia as unknown as EditionResponse,
-        zootopiaTitle,
-        zootopia,
-      ),
-    ).rejects.toBe(failure);
+    await expect(store.saveEdition(fullEdition(zootopiaTitle))).rejects.toBe(
+      failure,
+    );
   });
 
-  it('should upsert an edition with its raw response, fetch time and normalizer version', async () => {
-    const edition = databaseZootopia as unknown as EditionResponse;
-    const before = new Date();
+  // The service stamps raw, fetchedAt and normalizerVersion (see
+  // upc.service.spec.ts); the store writes the edition exactly as given.
+  it('should upsert the edition as given, with its raw response, fetch time and normalizer version', async () => {
+    const edition = fullEdition();
 
-    await store.saveEdition(edition, undefined, zootopia);
+    await store.saveEdition(edition);
 
     const editionUpserts = upsertsInto(Edition);
     expect(editionUpserts).toHaveLength(1);
     const [[, saved, options]] = editionUpserts as [
-      [unknown, Record<string, unknown> & { fetchedAt: unknown }, unknown],
+      [unknown, Record<string, unknown>, unknown],
     ];
-    const { fetchedAt, ...rest } = saved;
-
-    expect(rest).toStrictEqual({
-      ...edition,
-      raw: zootopia,
-      normalizerVersion: NORMALIZER_VERSION,
-      work: undefined,
-    });
+    expect(saved).toStrictEqual({ ...edition });
+    expect(saved.raw).toStrictEqual(zootopia);
+    expect(saved.fetchedAt).toBe(FETCHED_AT);
+    expect(saved.normalizerVersion).toBe(NORMALIZER_VERSION);
     expect(options).toStrictEqual({ conflictPaths: ['id'] });
-    expect(fetchedAt).toBeInstanceOf(Date);
-    expect((fetchedAt as Date).getTime()).toBeGreaterThanOrEqual(
-      before.getTime(),
-    );
-    expect((fetchedAt as Date).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
   it('should upsert a title on its composite key', async () => {
@@ -386,6 +474,7 @@ describe('TypeORMEditionStore SQL', () => {
       dataSource.getRepository(Title),
       dataSource.getRepository(UnresolvedUPC),
       dataSource,
+      { getPosterURL: realPosterURL } as unknown as TMDBService,
     );
   });
 
@@ -397,8 +486,8 @@ describe('TypeORMEditionStore SQL', () => {
     // below captures instead of sending.
     jest
       .spyOn(dataSource.manager, 'transaction')
-      .mockImplementation(((work: (manager: unknown) => Promise<unknown>) =>
-        work(dataSource.manager)) as never);
+      .mockImplementation(((title: (manager: unknown) => Promise<unknown>) =>
+        title(dataSource.manager)) as never);
     jest
       .spyOn(SelectQueryBuilder.prototype, 'getOne')
       .mockImplementation(function (this: SelectQueryBuilder<object>) {
@@ -429,12 +518,27 @@ describe('TypeORMEditionStore SQL', () => {
     await store.findEditionByGTIN('0043396647640');
 
     const [sql] = queries;
-    expect(sql).toContain('FROM "editions" "Edition"');
-    expect(sql).toContain('"Edition"."edition_id"');
+    expect(sql).toMatch(/FROM "editions" "\w+"/);
+    expect(sql).toContain('"edition_id"');
+    // Neither the edition's nor the joined title's raw JSON.
     expect(sql).not.toContain('"raw"');
     expect(sql).not.toContain('"fetched_at"');
     expect(sql).not.toContain('"normalizer_version"');
-    expect(sql).not.toContain('JOIN');
+  });
+
+  // RMSTR-69. Alias-agnostic, so it holds for findOne with relations
+  // ("Edition__Edition_title") or a query builder ("title").
+  it('should join the linked title on both key columns in the response lookup', async () => {
+    await store.findEditionByGTIN('0043396647640');
+
+    const [sql] = queries;
+    const join = sql.match(
+      /LEFT JOIN "titles" "(\w+)" ON "\1"\."tmdb_id"="(\w+)"\."title_tmdb_id" AND "\1"\."kind"="\2"\."title_kind"/,
+    );
+    expect(join).not.toBeNull();
+    const titleAlias = join?.[1] ?? '';
+    expect(sql).toContain(`"${titleAlias}"."name"`);
+    expect(sql).toContain(`"${titleAlias}"."poster_path"`);
   });
 
   it('should load raw, fetch time, normalizer version and the linked title in the full lookup', async () => {
@@ -444,21 +548,17 @@ describe('TypeORMEditionStore SQL', () => {
     expect(sql).toContain('"edition"."raw"');
     expect(sql).toContain('"edition"."fetched_at"');
     expect(sql).toContain('"edition"."normalizer_version"');
-    expect(sql).toContain('"edition"."title"');
+    expect(sql).toContain('"edition"."upc_title"');
     expect(sql).toContain('"edition"."steelbook"');
     expect(sql).toContain(
-      'LEFT JOIN "titles" "work" ON "work"."tmdb_id"="edition"."title_tmdb_id" AND "work"."kind"="edition"."title_kind"',
+      'LEFT JOIN "titles" "title" ON "title"."tmdb_id"="edition"."title_tmdb_id" AND "title"."kind"="edition"."title_kind"',
     );
-    expect(sql).toContain('"work"."name"');
+    expect(sql).toContain('"title"."name"');
     expect(sql).toContain('WHERE "edition"."edition_id" = :id');
   });
 
   it('should write both columns of the title link when an edition is saved with a title', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      zootopiaTitle,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition(zootopiaTitle));
 
     const sql = insertInto('editions');
     const columns = sql.slice(0, sql.indexOf('VALUES'));
@@ -470,11 +570,7 @@ describe('TypeORMEditionStore SQL', () => {
   });
 
   it('should delete the unresolved row by its gtin column when an edition is saved', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      undefined,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition());
 
     expect(deletes).toHaveLength(1);
     const [{ sql, parameters }] = deletes;
@@ -484,11 +580,7 @@ describe('TypeORMEditionStore SQL', () => {
   });
 
   it('should upsert editions on the GTIN primary key', async () => {
-    await store.saveEdition(
-      databaseZootopia as unknown as EditionResponse,
-      undefined,
-      zootopia,
-    );
+    await store.saveEdition(fullEdition());
 
     const sql = insertInto('editions');
     expect(sql).toContain('INSERT INTO "editions"');

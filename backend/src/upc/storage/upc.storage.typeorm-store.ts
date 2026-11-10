@@ -1,8 +1,9 @@
 import { EditionStore } from '@/upc/storage/upc.storage.store';
+import { TMDBService } from '@/upc/tmdb.service';
 import { Edition, EditionResponse } from '@/upc/types/edition';
-import { Title } from '@/upc/types/title';
+import { POSTER_SIZES } from '@/upc/types/poster-size';
+import { Title, TitleResponse } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
-import { NORMALIZER_VERSION } from '@/upc/utils/upc.utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -17,39 +18,59 @@ export class TypeORMEditionStore extends EditionStore {
     @InjectRepository(UnresolvedUPC)
     private unresolvedRepository: Repository<UnresolvedUPC>,
     private readonly dataSource: DataSource,
+    private tmdbService: TMDBService,
   ) {
     super();
   }
 
   async findEditionByGTIN(gtin: string): Promise<EditionResponse | null> {
-    return await this.editionRepository.findOne({ where: { id: gtin } });
+    const dbEdition = await this.editionRepository.findOne({
+      where: { id: gtin },
+      relations: { title: true },
+    });
+    if (!dbEdition) return null;
+
+    const { raw, normalizerVersion, fetchedAt, title, ...editionResponse } =
+      dbEdition;
+
+    let responseTitle: TitleResponse | undefined;
+
+    if (dbEdition.title) {
+      const { raw, posterPath, editions, ...titleResponse } = dbEdition.title;
+
+      responseTitle = {
+        ...titleResponse,
+        posterURL: posterPath
+          ? this.tmdbService.getPosterURL(posterPath, POSTER_SIZES.W500)
+          : undefined,
+      };
+    }
+
+    return responseTitle
+      ? {
+          ...editionResponse,
+          title: responseTitle,
+          unmatchedTitle: false,
+        }
+      : {
+          ...editionResponse,
+          unmatchedTitle: true,
+        };
   }
 
-  async saveEdition(
-    edition: EditionResponse,
-    title: Title | undefined,
-    raw: object,
-  ): Promise<void> {
+  async saveEdition(edition: Edition): Promise<void> {
     await this.dataSource.manager.transaction(
       async (transactionalEntityManager) => {
-        if (title)
-          await transactionalEntityManager.upsert(Title, title, {
+        if (edition.title)
+          await transactionalEntityManager.upsert(Title, edition.title, {
             conflictPaths: ['tmdbId', 'kind'],
           });
 
         await transactionalEntityManager.delete(UnresolvedUPC, edition.id);
 
-        await transactionalEntityManager.upsert(
-          Edition,
-          {
-            ...edition,
-            raw,
-            fetchedAt: new Date(),
-            normalizerVersion: NORMALIZER_VERSION,
-            work: title,
-          },
-          { conflictPaths: ['id'] },
-        );
+        await transactionalEntityManager.upsert(Edition, edition, {
+          conflictPaths: ['id'],
+        });
       },
     );
   }
@@ -74,7 +95,7 @@ export class TypeORMEditionStore extends EditionStore {
       .addSelect('edition.raw')
       .addSelect('edition.fetchedAt')
       .addSelect('edition.normalizerVersion')
-      .leftJoinAndSelect('edition.work', 'work')
+      .leftJoinAndSelect('edition.title', 'title')
       .getOne();
   }
 }

@@ -56,7 +56,7 @@ nonisolated public class SimulatedBarcodeService: BarcodeServicing {
             throw NetworkError.notFound
         }
         
-        print("Found \(edition.title)")
+        print("Found \(edition.upcTitle)")
         
         return edition
     }

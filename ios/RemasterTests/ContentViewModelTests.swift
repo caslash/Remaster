@@ -47,7 +47,7 @@ final class ContentViewModelTests {
         try await waitForLookup(viewModel)
 
         let edition = try #require(viewModel.edition)
-        #expect(edition.title == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
+        #expect(edition.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
         #expect(edition.format == .uhd)
         #expect(viewModel.networkError == nil)
         #expect(viewModel.error == nil)

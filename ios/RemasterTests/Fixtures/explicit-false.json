@@ -1,7 +1,7 @@
 {
   "id": "0786936900002",
   "barcodes": { "upc": "786936900002" },
-  "title": "Black Panther: Wakanda Forever",
+  "upcTitle": "Black Panther: Wakanda Forever",
   "format": "4K UHD",
   "hdr": ["HDR10"],
   "packaging": { "steelbook": false, "slipcover": true },
@@ -13,5 +13,6 @@
     "boxset": false
   },
   "masterResolution": "native",
-  "hasDigital": false
+  "hasDigital": false,
+  "unmatchedTitle": true
 }

@@ -17,10 +17,12 @@ import Testing
 enum Fixtures {
     /// Only the keys the schema says are always present. The backend always
     /// sends `barcodes`, `packaging` and `editionFlags` as objects, dropping
-    /// any keys whose value is unknown, so they can arrive empty.
+    /// any keys whose value is unknown, so they can arrive empty. No TMDB
+    /// match, so there's no `title` and `unmatchedTitle` is true.
     static var minimal: String { load("minimal") }
 
-    /// Zootopia 2 (movie4kdv.json): a combo pack, 4K disc first.
+    /// Zootopia 2 (movie4kdv.json): a combo pack, 4K disc first, matched to
+    /// its TMDB title with a w500 poster URL.
     static var comboPack: String { load("combo-pack") }
 
     /// Black Panther: Wakanda Forever (movie4khdr.json): every flag an explicit false.
@@ -38,19 +40,38 @@ enum Fixtures {
     /// A disc whose region the backend couldn't read: `region` is left out.
     static var discWithoutRegion: String { load("disc-without-region") }
 
-    /// Keys a later backend might add (TMDB mapping, response wrapper).
+    /// Keys a later backend might add, at the top level (schema version,
+    /// provenance) and inside the nested TMDB `title`.
     static var withUnknownKeys: String { load("unknown-keys") }
 
-    /// The minimal body with one top-level key replaced or added.
+    /// The minimal body with one top-level key added. Don't pass
+    /// `unmatchedTitle` or `title`; use `matched(title:)` for a TMDB match.
     static func minimal(with key: String, _ jsonValue: String) -> String {
         """
         {
           "id": "0786936900378",
-          "title": "WandaVision: The Complete Series",
+          "upcTitle": "WandaVision: The Complete Series",
           "barcodes": {},
           "packaging": {},
           "editionFlags": {},
+          "unmatchedTitle": true,
           "\(key)": \(jsonValue)
+        }
+        """
+    }
+
+    /// The minimal body matched to a TMDB title: `titleJSON` is the nested
+    /// `title` object and `unmatchedTitle` is false (RMSTR-69).
+    static func matched(title titleJSON: String) -> String {
+        """
+        {
+          "id": "0786936900378",
+          "upcTitle": "WandaVision: The Complete Series",
+          "barcodes": {},
+          "packaging": {},
+          "editionFlags": {},
+          "title": \(titleJSON),
+          "unmatchedTitle": false
         }
         """
     }

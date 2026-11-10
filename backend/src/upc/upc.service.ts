@@ -4,6 +4,7 @@ import { TMDBService } from '@/upc/tmdb.service';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
 import { DiscFormat, Edition, EditionResponse } from '@/upc/types/edition';
 import { HDRFormat, isHDRFormat } from '@/upc/types/hdrformat';
+import { POSTER_SIZES } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import {
   getBoolean,
@@ -11,6 +12,7 @@ import {
   isRecord,
   isValidString,
   mergeDiscTypes,
+  NORMALIZER_VERSION,
   normalizeUPC,
   parseDiscCounts,
   parsePlayback,
@@ -63,17 +65,62 @@ export class UpcService {
         normalUPC,
       );
 
-      const responseEdition = this.normalizeResponse(normalUPC, upc, response);
+      const responseEdition = await this.normalizeResponse(
+        normalUPC,
+        upc,
+        response,
+      );
 
       let title: Title | undefined;
-      if (responseEdition.imdbId)
-        title = await this.tmdbService.getTitle(
-          responseEdition.imdbId,
-          responseEdition.kind,
-        );
 
-      await this.editionStore.saveEdition(responseEdition, title, response);
-      return responseEdition;
+      try {
+        title = responseEdition.imdbId
+          ? await this.tmdbService.getTitle(
+              responseEdition.imdbId,
+              responseEdition.kind,
+            )
+          : undefined;
+      } catch (error) {
+        if (
+          error instanceof BadGatewayException ||
+          error instanceof GatewayTimeoutException
+        ) {
+          return {
+            ...responseEdition,
+            unmatchedTitle: true,
+          };
+        }
+
+        throw error;
+      }
+
+      await this.editionStore.saveEdition({
+        ...responseEdition,
+        raw: response,
+        fetchedAt: new Date(),
+        normalizerVersion: NORMALIZER_VERSION,
+        title: title,
+      });
+
+      return title
+        ? {
+            ...responseEdition,
+            title: {
+              tmdbId: title.tmdbId,
+              kind: title.kind,
+              name: title.name,
+              year: title.year,
+              imdbId: title.imdbId,
+              posterURL: title.posterPath
+                ? this.tmdbService.getPosterURL(
+                    title.posterPath,
+                    POSTER_SIZES.W500,
+                  )
+                : undefined,
+            },
+            unmatchedTitle: false,
+          }
+        : { ...responseEdition, unmatchedTitle: true };
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === 'TimeoutError') {
@@ -121,7 +168,7 @@ export class UpcService {
 
     const body = await response.text();
     try {
-      const json = JSON.parse(body);
+      const json: unknown = JSON.parse(body);
       if (isRecord(json)) return json;
       throw new NotFoundException();
     } catch (error) {
@@ -133,11 +180,11 @@ export class UpcService {
     }
   }
 
-  private normalizeResponse(
+  private async normalizeResponse(
     upc: string,
     scannedUPC: string,
     response: Record<string, unknown>,
-  ): EditionResponse {
+  ): Promise<Omit<EditionResponse, 'title' | 'unmatchedTitle'>> {
     if (typeof response.ean === 'string' && response.ean !== upc)
       this.logger.warn(
         `UPCMDB EAN ${response.ean} differs from normalized code ${upc} (scanned ${scannedUPC})`,
@@ -153,7 +200,7 @@ export class UpcService {
       },
       asin: isValidString(response.asin) ? response.asin : undefined,
       imdbId: isValidString(response.imdbID) ? response.imdbID : undefined,
-      title: this.normalizeTitle(upc, response),
+      upcTitle: await this.normalizeTitle(upc, response),
       enrichedTitle: isValidString(response.enrichedTitle)
         ? response.enrichedTitle
         : undefined,
@@ -191,12 +238,13 @@ export class UpcService {
     };
   }
 
-  private normalizeTitle(
+  private async normalizeTitle(
     upc: string,
     response: Record<string, unknown>,
-  ): string {
+  ): Promise<string> {
     if (isValidString(response.title)) return response.title;
 
+    await this.editionStore.recordUnresolvedGTIN(upc);
     throw new NotFoundException(`Title for UPC ${upc} could not be found`);
   }
 

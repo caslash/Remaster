@@ -10,9 +10,10 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EditionStore } from './storage/upc.storage.store';
 import { EditionResponse } from './types/edition';
-import { StoreRangeReason } from './utils/upc.utils';
+import { NORMALIZER_VERSION, StoreRangeReason } from './utils/upc.utils';
 
 import { TMDBService } from '@/upc/tmdb.service';
+import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import databaseZootopia from './mock/database-zootopia.json';
 import zootopia from './mock/movie4kdv.json';
@@ -27,7 +28,7 @@ import spongebob from './mock/tvdvd.json';
 describe('UpcService', () => {
   let service: UpcService;
 
-  const mockTMDBService = { getTitle: jest.fn() };
+  const mockTMDBService = { getTitle: jest.fn(), getPosterURL: jest.fn() };
 
   const zootopiaTitle = {
     tmdbId: '1084242',
@@ -84,7 +85,21 @@ describe('UpcService', () => {
     }).compile();
 
     service = module.get<UpcService>(UpcService);
+    // The real URL builder; set here because resetAllMocks wipes it.
+    mockTMDBService.getPosterURL.mockImplementation(
+      (path: string, size: PosterSize) =>
+        TMDBService.prototype.getPosterURL.call(undefined, path, size),
+    );
   });
+
+  // The normalized edition the store saves: the response without the
+  // RMSTR-69 response-only fields (`title`, `unmatchedTitle`).
+  const savedFormOf = (edition: unknown): Record<string, unknown> => {
+    const copy = { ...(edition as Record<string, unknown>) };
+    delete copy.title;
+    delete copy.unmatchedTitle;
+    return copy;
+  };
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -240,11 +255,32 @@ describe('UpcService', () => {
     expect(mockEditionStore.findEditionByGTIN).toHaveBeenCalledWith(
       zootopiaEdition.id,
     );
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledTimes(1);
     expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
-      zootopiaEdition,
-      zootopiaTitle,
-      zootopia,
+      expect.objectContaining({
+        ...savedFormOf(zootopiaEdition),
+        raw: zootopia,
+        normalizerVersion: NORMALIZER_VERSION,
+        fetchedAt: expect.any(Date) as Date,
+        title: zootopiaTitle,
+      }),
     );
+  });
+
+  // The service now stamps the fetch time (it moved out of the store).
+  it('should stamp the saved edition with the time of the UPCMDB fetch', async () => {
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(null);
+    mockTMDBService.getTitle.mockResolvedValue(zootopiaTitle);
+    const before = Date.now();
+
+    await fetchFixture(zootopia.upc, zootopia);
+
+    const [[saved]] = mockEditionStore.saveEdition.mock.calls as [
+      [{ fetchedAt: Date }],
+    ];
+    expect(saved.fetchedAt).toBeInstanceOf(Date);
+    expect(saved.fetchedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(saved.fetchedAt.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
   it('should save with no title when TMDB has no match', async () => {
@@ -253,10 +289,15 @@ describe('UpcService', () => {
 
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledTimes(1);
     expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
-      zootopiaEdition,
-      undefined,
-      zootopia,
+      expect.objectContaining({
+        ...savedFormOf(zootopiaEdition),
+        raw: zootopia,
+        normalizerVersion: NORMALIZER_VERSION,
+        fetchedAt: expect.any(Date) as Date,
+        title: undefined,
+      }),
     );
   });
 
@@ -266,15 +307,34 @@ describe('UpcService', () => {
     const lokiEdition = await fetchFixture(loki.upc, loki);
 
     expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+    expect(mockEditionStore.saveEdition).toHaveBeenCalledTimes(1);
     expect(mockEditionStore.saveEdition).toHaveBeenCalledWith(
-      lokiEdition,
-      undefined,
-      loki,
+      expect.objectContaining({
+        ...savedFormOf(lokiEdition),
+        raw: loki,
+        normalizerVersion: NORMALIZER_VERSION,
+        fetchedAt: expect.any(Date) as Date,
+        title: undefined,
+      }),
     );
   });
 
+  // The store builds the cache-hit response (RMSTR-69); the service returns
+  // it as is.
   it('should return pre-existing edition from database', async () => {
-    mockEditionStore.findEditionByGTIN.mockResolvedValue(databaseZootopia);
+    const stored = {
+      ...databaseZootopia,
+      title: {
+        tmdbId: '1084242',
+        kind: 'movie',
+        name: 'Zootopia 2',
+        year: 2025,
+        imdbId: 'tt26443597',
+        posterURL: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+      },
+      unmatchedTitle: false,
+    };
+    mockEditionStore.findEditionByGTIN.mockResolvedValue(stored);
 
     const zootopiaEdition = await fetchFixture(zootopia.upc, zootopia);
 
@@ -282,7 +342,8 @@ describe('UpcService', () => {
       zootopiaEdition.id,
     );
     expect(mockEditionStore.saveEdition).not.toHaveBeenCalled();
-    expect(zootopiaEdition).toStrictEqual(databaseZootopia);
+    expect(mockTMDBService.getTitle).not.toHaveBeenCalled();
+    expect(zootopiaEdition).toStrictEqual(stored);
   });
 
   it('should return no raw property on edition miss', async () => {
@@ -472,14 +533,18 @@ describe('UpcService', () => {
       );
       const spongebobEdition = await fetchFixture(spongebob.upc, spongebob);
 
-      expect(zootopiaEdition.title).toBe('Zootopia 2');
-      expect(blackPantherEdition.title).toBe('Black Panther: Wakanda Forever');
-      expect(lokiEdition.title).toBe('Loki: The Complete Second Season');
-      expect(wandaVisionEdition.title).toBe('WandaVision: The Complete Series');
-      expect(barnyardEdition.title).toBe('Barnyard');
-      expect(rickAndMortyEdition.title).toBe('Rick and Morty: Season 1');
-      expect(austinPowersEdition.title).toBe('Austin Powers in Goldmember');
-      expect(spongebobEdition.title).toBe(
+      expect(zootopiaEdition.upcTitle).toBe('Zootopia 2');
+      expect(blackPantherEdition.upcTitle).toBe(
+        'Black Panther: Wakanda Forever',
+      );
+      expect(lokiEdition.upcTitle).toBe('Loki: The Complete Second Season');
+      expect(wandaVisionEdition.upcTitle).toBe(
+        'WandaVision: The Complete Series',
+      );
+      expect(barnyardEdition.upcTitle).toBe('Barnyard');
+      expect(rickAndMortyEdition.upcTitle).toBe('Rick and Morty: Season 1');
+      expect(austinPowersEdition.upcTitle).toBe('Austin Powers in Goldmember');
+      expect(spongebobEdition.upcTitle).toBe(
         'SpongeBob SquarePants: The First 100 Episodes',
       );
     });

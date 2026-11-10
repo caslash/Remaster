@@ -28,6 +28,10 @@ export class Title {
   @Column({ type: 'jsonb', select: false })
   raw: object;
 
-  @OneToMany(() => Edition, (edition) => edition.work)
+  @OneToMany(() => Edition, (edition) => edition.title)
   editions: Edition[];
 }
+
+export type TitleResponse = Omit<Title, 'raw' | 'posterPath' | 'editions'> & {
+  posterURL: string | undefined;
+};

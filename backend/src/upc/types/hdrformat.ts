@@ -5,10 +5,8 @@ export enum HDRFormat {
 }
 export const HDR_FORMATS = HDRFormat;
 
+const values: string[] = Object.values(HDRFormat);
+
 export function isHDRFormat(format: unknown): format is HDRFormat {
-  return (
-    typeof format === 'string' &&
-    format !== null &&
-    !!Object.values(HDRFormat).find((hdr) => hdr === format)
-  );
+  return typeof format === 'string' && values.includes(format);
 }

@@ -45,7 +45,7 @@ struct ContentView: View {
                         .frame(height: 200)
                         .accessibilityIdentifier("sheet.edition.coverImage")
                         
-                        Text(edition.title)
+                        Text(edition.upcTitle)
                             .font(.title2)
                             .accessibilityIdentifier("sheet.edition.title")
                         

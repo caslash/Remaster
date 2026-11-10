@@ -108,7 +108,7 @@ final class BarcodeServiceTests {
 
         let edition = try await service.fetchBarcode("0786936900001", shape: .ean13)
 
-        #expect(edition.title == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
+        #expect(edition.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
         #expect(edition.format == .uhd)
     }
 

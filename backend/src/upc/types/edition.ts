@@ -2,7 +2,7 @@ import { Barcodes } from '@/upc/types/barcodes';
 import { EditionFlags } from '@/upc/types/edition-flags';
 import { HDRFormat } from '@/upc/types/hdrformat';
 import { Packaging } from '@/upc/types/packaging';
-import { Title } from '@/upc/types/title';
+import { Title, TitleResponse } from '@/upc/types/title';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 
 @Entity('editions')
@@ -19,8 +19,8 @@ export class Edition {
   @Column({ type: 'text', nullable: true, name: 'imdb_id' })
   imdbId: string | undefined;
 
-  @Column({ type: 'text' })
-  title: string;
+  @Column({ type: 'text', name: 'upc_title' })
+  upcTitle: string;
 
   @Column({ type: 'text', nullable: true, name: 'enriched_title' })
   enrichedTitle: string | undefined;
@@ -100,7 +100,7 @@ export class Edition {
     { name: 'title_tmdb_id', referencedColumnName: 'tmdbId' },
     { name: 'title_kind', referencedColumnName: 'kind' },
   ])
-  work: Title | undefined;
+  title: Title | undefined;
 }
 
 export class DiscContents {
@@ -112,7 +112,12 @@ export type DiscFormat = 'DVD' | 'Blu-ray' | '4K UHD';
 
 export type DiscContent = NonNullable<Edition['discContents']>[number];
 
-export type EditionResponse = Omit<
-  Edition,
-  'raw' | 'normalizerVersion' | 'work' | 'fetchedAt'
->;
+export type EditionResponse =
+  | (Omit<Edition, 'raw' | 'normalizerVersion' | 'fetchedAt' | 'title'> & {
+      title: TitleResponse;
+      unmatchedTitle: false;
+    })
+  | (Omit<Edition, 'raw' | 'normalizerVersion' | 'fetchedAt' | 'title'> & {
+      title?: undefined;
+      unmatchedTitle: true;
+    });
