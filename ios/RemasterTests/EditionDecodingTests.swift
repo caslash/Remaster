@@ -3,7 +3,8 @@
 //  RemasterTests
 //
 //  Decoding the backend's normalized edition (backend/docs/edition-schema.md,
-//  RMSTR-11 AC: "the app shows the title and format from it").
+//  RMSTR-11 AC: "the app shows the title and format from it"; RMSTR-69:
+//  the retail title is upcTitle, and title is the nested TMDB work).
 //
 
 import Foundation
@@ -18,7 +19,9 @@ struct EditionDecodingTests {
         let edition = try Fixtures.decode(Fixtures.minimal)
 
         #expect(edition.id == "0786936900378")
-        #expect(edition.title == "WandaVision: The Complete Series")
+        #expect(edition.upcTitle == "WandaVision: The Complete Series")
+        #expect(edition.title == nil)
+        #expect(edition.unmatchedTitle == true)
         #expect(edition.barcodes.upc == nil)
         #expect(edition.barcodes.ean == nil)
         #expect(edition.asin == nil)
@@ -44,7 +47,7 @@ struct EditionDecodingTests {
     func titleAndFormat() throws {
         let edition = try Fixtures.decode(Fixtures.comboPack)
 
-        #expect(edition.title == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
+        #expect(edition.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
         #expect(edition.format == .uhd)
     }
 
@@ -52,7 +55,12 @@ struct EditionDecodingTests {
     func unknownKeysIgnored() throws {
         let edition = try Fixtures.decode(Fixtures.withUnknownKeys)
 
-        #expect(edition.title == "WandaVision: The Complete Series")
+        #expect(edition.upcTitle == "WandaVision: The Complete Series")
+        // Unknown keys inside the nested title are ignored too.
+        let title = try #require(edition.title)
+        #expect(title.tmdbId == "85271")
+        #expect(title.kind == .tv)
+        #expect(title.name == "WandaVision")
     }
 
     // MARK: HDR: empty is SDR, absent is unknown
@@ -123,8 +131,9 @@ struct EditionDecodingTests {
         let json = """
         {
           "id": "0786936900378",
-          "title": "Tri-state",
+          "upcTitle": "Tri-state",
           "barcodes": {},
+          "unmatchedTitle": true,
           "packaging": { \(entry) },
           "editionFlags": { \(flags) }\(digital)
         }
@@ -168,10 +177,10 @@ struct EditionDecodingTests {
     }
 
     @Test("Kind decodes from TMDB's naming", arguments: [
-        ("movie", EditionKind.movie),
-        ("tv", EditionKind.tv),
+        ("movie", Kind.movie),
+        ("tv", Kind.tv),
     ])
-    func kindSpellings(_ raw: String, _ expected: EditionKind) throws {
+    func kindSpellings(_ raw: String, _ expected: Kind) throws {
         let edition = try Fixtures.decode(Fixtures.minimal(with: "kind", "\"\(raw)\""))
 
         #expect(edition.kind == expected)
@@ -279,6 +288,150 @@ struct EditionDecodingTests {
         let edition = try Fixtures.decode(json)
 
         #expect(!edition.id.isEmpty)
-        #expect(!edition.title.isEmpty)
+        #expect(!edition.upcTitle.isEmpty)
+        // The flag and the nested title always agree.
+        #expect(edition.unmatchedTitle == (edition.title == nil))
+    }
+
+    // MARK: Nested TMDB title (RMSTR-69)
+
+    @Test("A matched edition decodes its TMDB title, poster URL and unmatchedTitle false")
+    func matchedTitle() throws {
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+
+        #expect(edition.unmatchedTitle == false)
+        let title = try #require(edition.title)
+        #expect(title.tmdbId == "1084242")
+        #expect(title.kind == .movie)
+        #expect(title.name == "Zootopia 2")
+        #expect(title.year == 2025)
+        #expect(title.imdbId == "tt26443597")
+        #expect(title.posterURL == URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
+    }
+
+    @Test("The retail title stays separate from the TMDB name")
+    func retailTitleAndTMDBName() throws {
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+
+        #expect(edition.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
+        #expect(edition.title?.name == "Zootopia 2")
+    }
+
+    @Test("An unmatched edition has no title and still has its retail title and format")
+    func unmatchedEdition() throws {
+        let edition = try Fixtures.decode(Fixtures.sdrBluray)
+
+        #expect(edition.unmatchedTitle == true)
+        #expect(edition.title == nil)
+        #expect(edition.upcTitle == "Barnyard")
+        #expect(edition.format == .bluray)
+    }
+
+    @Test("A TV title decodes with kind tv")
+    func tvTitle() throws {
+        let edition = try Fixtures.decode(Fixtures.matched(title: """
+            { "tmdbId": "85271", "kind": "tv", "name": "WandaVision", "year": 2021 }
+            """))
+
+        let title = try #require(edition.title)
+        #expect(title.kind == .tv)
+        #expect(title.year == 2021)
+    }
+
+    @Test("A title with only its required fields decodes, with no poster, year or IMDb ID")
+    func titleWithOnlyRequiredFields() throws {
+        let edition = try Fixtures.decode(Fixtures.matched(title: """
+            { "tmdbId": "1084242", "kind": "movie", "name": "Zootopia 2" }
+            """))
+
+        let title = try #require(edition.title)
+        #expect(title.posterURL == nil)
+        #expect(title.year == nil)
+        #expect(title.imdbId == nil)
+    }
+
+    @Test("A title missing a required field fails to decode", arguments: ["tmdbId", "kind", "name"])
+    func titleMissingRequiredField(_ missing: String) throws {
+        let fields = [
+            "tmdbId": #""tmdbId": "1084242""#,
+            "kind": #""kind": "movie""#,
+            "name": #""name": "Zootopia 2""#,
+        ]
+        let present = fields.filter { $0.key != missing }.map(\.value).sorted().joined(separator: ", ")
+
+        #expect(throws: DecodingError.self) {
+            try Fixtures.decode(Fixtures.matched(title: "{ \(present) }"))
+        }
+    }
+
+    @Test("A title whose kind isn't movie or tv fails to decode")
+    func titleWithUnknownKind() throws {
+        #expect(throws: DecodingError.self) {
+            try Fixtures.decode(Fixtures.matched(title: """
+                { "tmdbId": "1084242", "kind": "person", "name": "Zootopia 2" }
+                """))
+        }
+    }
+
+    // The backend always sends tmdbId as a string (edition-schema.md).
+    @Test("A numeric tmdbId fails to decode")
+    func numericTMDBID() throws {
+        #expect(throws: DecodingError.self) {
+            try Fixtures.decode(Fixtures.matched(title: """
+                { "tmdbId": 1084242, "kind": "movie", "name": "Zootopia 2" }
+                """))
+        }
+    }
+
+    // unmatchedTitle is always present in the response (edition-schema.md).
+    @Test("A body without unmatchedTitle fails to decode")
+    func missingUnmatchedTitle() throws {
+        let json = """
+        {
+          "id": "0786936900378",
+          "upcTitle": "WandaVision: The Complete Series",
+          "barcodes": {},
+          "packaging": {},
+          "editionFlags": {}
+        }
+        """
+
+        #expect(throws: DecodingError.self) {
+            try Fixtures.decode(json)
+        }
+    }
+
+    // The pre-RMSTR-69 shape, where title was the retail title as a string.
+    // The app can't decode it, so the backend and app have to ship together.
+    @Test("The old response shape, with title as a string, fails to decode")
+    func oldResponseShape() throws {
+        let json = """
+        {
+          "id": "0786936900378",
+          "title": "WandaVision: The Complete Series",
+          "barcodes": {},
+          "packaging": {},
+          "editionFlags": {}
+        }
+        """
+
+        #expect(throws: DecodingError.self) {
+            try Fixtures.decode(json)
+        }
+    }
+
+    @Test("The TMDB title survives encoding and decoding again")
+    func titleRoundTrip() throws {
+        let original = try Fixtures.decode(Fixtures.comboPack)
+
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Edition.self, from: encoded)
+
+        #expect(decoded.unmatchedTitle == false)
+        let title = try #require(decoded.title)
+        #expect(title.tmdbId == "1084242")
+        #expect(title.kind == .movie)
+        #expect(title.name == "Zootopia 2")
+        #expect(title.posterURL == URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
     }
 }

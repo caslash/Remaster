@@ -1,0 +1,26 @@
+{
+  "movie_results": [],
+  "person_results": [],
+  "tv_results": [
+    {
+      "adult": false,
+      "backdrop_path": "/fSCb3lzRbHknuKD7apdH4RYJLkc.jpg",
+      "id": 85271,
+      "name": "WandaVision",
+      "original_name": "WandaVision",
+      "overview": "Wanda Maximoff and Vision—two super-powered beings living idealized suburban lives—begin to suspect that everything is not as it seems.",
+      "poster_path": "/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg",
+      "media_type": "tv",
+      "original_language": "en",
+      "genre_ids": [10765, 9648, 18],
+      "popularity": 29.0597,
+      "first_air_date": "2021-01-15",
+      "softcore": false,
+      "vote_average": 8.2,
+      "vote_count": 13026,
+      "origin_country": ["US"]
+    }
+  ],
+  "tv_episode_results": [],
+  "tv_season_results": []
+}

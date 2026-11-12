@@ -3,6 +3,8 @@ import { DiscContent, DiscFormat } from '@/upc/types/edition';
 import { BadRequestException } from '@nestjs/common';
 import { isValid, upcE } from 'gtin';
 
+export const NORMALIZER_VERSION = 1;
+
 export function normalizeUPC(
   upc: string,
   shape: BarcodeShape | undefined,
@@ -177,11 +179,6 @@ export function parsePlayback(
   return { ok: true, discTypes, unknownRegions };
 }
 
-/**
- * Collapse playback segments that share a format into a single disc type,
- * merging their regions. "2K Blu-ray: Region A | 2K Blu-ray: Region B"
- * becomes one Blu-ray type with region ['A', 'B'].
- */
 export function mergeDiscTypes(discTypes: DiscContent[]): DiscContent[] {
   const byFormat = new Map<DiscFormat, DiscContent>();
 
@@ -217,4 +214,10 @@ export function parseYear(value: unknown): number | undefined {
   }
 
   return;
+}
+
+export function castUndefinedToNull<T>(obj: T): unknown {
+  if (obj === undefined) return null;
+
+  return obj;
 }

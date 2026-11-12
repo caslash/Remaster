@@ -24,7 +24,8 @@ If a request would need app code written, say so and offer guidance instead.
 Agents may write and edit tests.
 
 - **In scope:** test files only. On iOS that's `ios/RemasterTests/` (Swift Testing: `import Testing`, `@Test`, `#expect`) and `ios/RemasterUITests/` (XCTest UI tests). On the backend it's `*.spec.ts` files under `backend/src/` and e2e specs under `backend/test/` (Jest), plus fixtures that only tests use, such as the recorded UPCMDB responses in `backend/src/upc/mock/`.
-- **Still off-limits:** the code under test, project and build files (including test target settings in `project.pbxproj`, `package.json`, and Jest config), and mock data the app itself reads, such as `ios/Mocks/Editions.bundle` (loaded by `SimulatedBarcodeService`). If something starts reading a fixture outside tests, it stops being in scope.
+- **Also in scope: the sample editions in `ios/Mocks/Editions.bundle`,** but only to keep them in step with the backend's response contract (`backend/docs/edition-schema.md`), e.g. renamed or new fields. The app reads them (`SimulatedBarcodeService`, the `Remaster_Sim` scheme and the UI tests), so don't add, remove or repurpose editions or change the barcodes the UI tests rely on without the owner's say-so. Decided 2026-11-08 (RMSTR-69).
+- **Still off-limits:** the code under test, project and build files (including test target settings in `project.pbxproj`, `package.json`, and Jest config), and any other mock data the app itself reads. If something starts reading a fixture outside tests, it stops being in scope.
 - **When a test fails because of the app code,** report the failure and the likely cause (`file:line`, what's wrong, which direction to fix it in) instead of changing the app code. Don't weaken, skip, or delete a test to make it pass.
 - **When the code is hard to test** (e.g. a hard-wired `URLSession` or a missing seam for injecting a dependency), explain what would make it testable and let the owner make that change.
 - Run the tests after writing them and report the results faithfully.
@@ -51,6 +52,7 @@ Monorepo with two projects:
 Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore` live at the repo root.
 
 ### iOS layout
+
 - `ios/Remaster.xcodeproj` — Xcode project; targets `Remaster` (app), `RemasterTests` (unit tests) and `RemasterUITests` (UI tests)
 - `ios/Remaster/RemasterApp.swift` — app entry point
 - `ios/Remaster/App+Injection.swift` — FactoryKit `Container` registrations (dependency injection)
@@ -66,26 +68,35 @@ Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore
 - `ios/Config/` — xcconfig files and the partial Info.plist (see Secrets)
 
 ### iOS build
+
 From the repo root:
+
 ```sh
 xcodebuild -project ios/Remaster.xcodeproj -scheme Remaster -destination 'generic/platform=iOS Simulator' build
 ```
+
 Two shared schemes:
+
 - `Remaster` — talks to the real backend at `REMASTER_BACKEND_BASE_URL`.
 - `Remaster_Sim` — launches with the `SIMULATED_SERVICES` argument, so `App+Injection.swift` swaps in `SimulatedBarcodeService`, which serves the sample editions from `ios/Mocks/Editions.bundle` and fakes errors for the barcodes `000`, `400`, `404` and `503`. Use it to work on the UI without a running backend.
 
 ### iOS tests
+
 Two test targets, both included in both schemes:
+
 - `RemasterTests` — Swift Testing unit tests. Normalized-edition JSON fixtures live in `ios/RemasterTests/Fixtures/` and are copied into the test bundle; load them with `Fixtures.load(_:)`.
 - `RemasterUITests` — XCTest UI tests (Swift Testing can't drive UI). They launch the app with `SIMULATED_SERVICES` themselves, so they need no backend, and type barcodes into the manual entry alert because the camera scanner isn't available in the Simulator.
 
 From the repo root, run all tests:
+
 ```sh
 xcodebuild test -project ios/Remaster.xcodeproj -scheme Remaster -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
+
 Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one target. Tests need a concrete simulator; list them with `xcrun simctl list devices available`. Inside Xcode, use the `mcp__xcode-tools__*` test tools instead.
 
 ### iOS conventions
+
 - Use the Observation framework (`@Observable`, `@ObservationIgnored`) rather than `ObservableObject`.
 - Default actor isolation is `MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION`). Services that do network or file work are marked `nonisolated`.
 - Use Swift concurrency (`async`/`await`, `Task`) for asynchronous work.
@@ -93,21 +104,26 @@ Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one 
 - Keep new source files in `ios/Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
 
 ### Backend
+
 - NestJS v12 in `backend/`, managed with pnpm. Requires Node 24.9+ (`.nvmrc`). Setup and local HTTPS are in `backend/README.md`; architecture is in section 3.
 - `src/main.ts` — bootstrap; serves HTTPS when `backend/secrets/` certs exist (gitignored), plain HTTP otherwise.
-- `src/app.module.ts` — `ConfigModule` with zod validation of the env (`UPCMDB_LOOKUP_URL`, `UPCMDB_API_KEY`).
-- `src/upc/` — the UPC lookup module: controller (`GET /upc/:upc?shape=`), service (calls UPCMDB and normalizes), `types/` (`Edition`, `BarcodeShape`), `utils/` (barcode normalization), `mock/` (recorded UPCMDB responses used by the specs).
+- `src/app.module.ts` — `ConfigModule` with zod validation of the env (`UPCMDB_LOOKUP_URL`, `UPCMDB_API_KEY`, `TMDB_FIND_URL`, `TMDB_READ_ACCESS_TOKEN`, `DATABASE_URL`), the TypeORM connection, and the global `TimingInterceptor`.
+- `src/cli.ts` — standalone entry point (no HTTP server) for `pnpm rebuild:editions`, which re-normalizes stored editions from their raw JSON (RMSTR-70).
+- `src/common/app.interceptor.ts` — `TimingInterceptor`: logs one line per request with the handler name and duration, nothing from the request.
+- `src/upc/` — the UPC lookup module: controller (`GET /upc/:upc?shape=`), service (cache-first lookup: serves stored editions, otherwise calls UPCMDB and TMDB, normalizes and saves), `tmdb.service.ts` (IMDb ID → TMDB Title), `normalization/` (`NormalizationService`, the side-effect-free UPCMDB → Edition mapping; `RebuildService`, which rebuilds out-of-date editions from raw JSON), `storage/` (`EditionStore` repository; `TypeORMEditionStore` saves the Title and Edition in one transaction, and finds and updates editions for the rebuild), `types/` (`Edition`, `Title`, `BarcodeShape`, `RebuildSummary`), `utils/` (barcode normalization, `NORMALIZER_VERSION`), `mock/` (recorded UPCMDB and TMDB responses used by the specs).
 - `docs/upc-endpoint.md` is the client contract for the lookup endpoint; `docs/edition-schema.md` is the normalized schema and mapping rules. If the code and these docs disagree, fix whichever is wrong in the same change.
 - Tests: Jest, `*.spec.ts` next to the code. Run them with `pnpm test` from `backend/`. The `test:e2e` script expects `backend/test/jest-e2e.json`, which doesn't exist yet.
 - Railway deploys it with the service root directory set to `backend/`.
 - Third-party keys live in Railway service variables; locally in `backend/.env` (gitignored; template in `backend/.env.example`). Never commit them.
 
 ### Agent config
+
 - `CLAUDE.md` (which imports this file) and `.claude/` (`settings.json`, `commands/`) are shared by Claude Code in the terminal and the Claude agent inside Xcode. Both run from the repo root.
 - Xcode's agent keeps its user-level config in `~/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/`, not `~/.claude/`. Anything that should apply in both places belongs in the repo.
 - Inside Xcode, prefer the `mcp__xcode-tools__*` tools (`BuildProject`, `XcodeRead`, etc.) over shell `xcodebuild`.
 
 ### Secrets
+
 - iOS API keys go in `ios/Config/Secrets.xcconfig` (gitignored; template in `ios/Config/Secrets.example.xcconfig`), included by `ios/Config/Remaster.xcconfig`.
 - They reach code via `ios/Config/Info.plist` (merged with the generated Info.plist) and `Bundle.main.object(forInfoDictionaryKey:)`. Never hardcode keys in Swift.
 - The iOS secrets are only the backend location: `REMASTER_BACKEND_BASE_URL` (host name only, as the app always uses `https`) and `REMASTER_LOCAL_PORT` (optional, for a local backend). They reach the app as the `RemasterBaseUrl` and `RemasterLocalPort` Info.plist keys.
@@ -145,12 +161,14 @@ Existing apps (CLZ Movies, iCollect Movies, Disc Bin, Slipcover, Libib) are inve
 ## 2. Privacy model
 
 **Decided**
+
 - The user's library is stored locally on the device. No account is required.
 - The backend accepts anonymous requests from any client. Requests carry no user or device identifier.
 - The server does not group or correlate requests from the same client.
 - The server drops client IP addresses and does not read or log them.
 
 **Proposed**
+
 - Ensure the whole hosting stack (load balancer, CDN, host) also has IP/path logging disabled, so the no-logging promise holds end to end. On Railway this means confirming what its built-in HTTP request logs record and whether they can be turned off (RMSTR-10).
 - Privacy policy wording: "We don't collect or store what you look up." (A trust-based guarantee; the server could in principle see lookups but is built not to.)
 - Optional future upgrade to a structural guarantee: clients download a shared "changes since version X" catalog feed and match locally, so recurring checks never send title IDs.
@@ -174,16 +192,19 @@ Any story that sends data off the device must state what is sent and confirm it 
 ```
 
 ### Client (iOS app)
+
 - **Decided:** Barcode scan or manual title search; library stored on device; no account.
 - **Proposed:** All personal matching (library vs. available editions, alert rules) happens on device. Notifications are local notifications, triggered after the app pulls new data.
 
 ### Backend
-- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is not chosen yet.
+
+- **Decided:** Written in **NestJS v12** and hosted on **Railway** (RMSTR-55). Third-party API keys live in Railway service variables, never in the repo. The datastore is **PostgreSQL**, accessed through **TypeORM**, with normalized edition fields stored as columns (not a JSON document); raw source JSON sits alongside them.
 - **Decided:** A hosted service that queries TMDB, a UPC lookup service (UPCMDB), and possibly scrapes Blu-ray.com. The edition database is filled **on demand** over time rather than enumerated up front; it will later be crowdsourced. The server runs in the background filling in upgrade data, and clients receive it as it comes in.
+- **Decided:** **Cache-style lookup.** The first scan of a UPC resolves it upstream and stores the normalized result; later scans of that UPC are served from the edition database with no UPCMDB call.
+- **Decided:** **Keep raw JSON** alongside each normalized record so it can be re-normalized when the mapping improves, without calling upstream again.
+- **Decided:** **Fast path on a miss.** Return the basic match (title, poster, scanned format) immediately; fetch upgrade editions in the background and update when ready.
 - **Proposed:**
-  - **Normalization on the server.** Raw source responses are mapped into the app's own edition schema once, server-side. Clients only ever see the normalized schema. Keep the raw JSON alongside each normalized record so it can be reprocessed when mapping improves.
-  - **Cache-style lookup.** First scan of a UPC triggers resolution and stores the result; later scans are instant hits.
-  - **Fast path on a miss.** Return the basic match (title, poster, scanned format) immediately; fetch upgrade editions in the background and update when ready.
+  - **Normalization on the server.** Raw source responses are mapped into the app's own edition schema once, server-side. Clients only ever see the normalized schema.
   - **Seed before launch.** Pre-populate editions for the most popular few thousand titles (TMDB popularity lists) so early users mostly hit cache.
   - **Log every lookup outcome**, including unresolved UPCs ("wanted" list) and records missing key fields (`hdr`, `format`). This log drives the enrichment worker and crowdsourcing priorities.
   - **Enrichment worker** re-checks titles periodically (sooner for frequently scanned titles) and watches release listings for new 4K / DV / steelbook announcements, limited to titles already in the database.
@@ -193,14 +214,14 @@ Any story that sends data off the device must state what is sent and confirm it 
 
 ## 4. Data sources
 
-| Source | Used for | Notes |
-|---|---|---|
-| **TMDB** | Canonical movie/show identity (TMDB ID), posters, metadata, manual search, popularity lists for seeding | Free API. No disc-edition or HDR data. |
-| **UPCMDB** (upcmdb.com) | UPC → physical release lookup | REST API for DVD / Blu-ray / 4K. Returns IMDb IDs, so map to TMDB with `/find/{imdb_id}?external_source=imdb_id`. Called by the backend's `/upc` endpoint (`backend/src/upc/upc.service.ts`). |
-| **Blu-ray.com** | Richest edition data: HDR format, steelbooks, region, distributor, release dates | No public API. Scraping may violate terms of service, risks IP blocks, and breaks when HTML changes. Proposed: ask about a data license first; if scraping, do it centrally with aggressive caching. Third-party paid wrappers exist. |
-| **FlatpanelsHD UHD database** | 4K titles with HDR format and 4K vs. 2K digital intermediate | Strong seed for the 4K/HDR upgrade layer. Ask permission before use. |
-| **TheDiscDB** | Cross-reference only | Open, community-run, ripper-oriented (disc hashes, track layouts), not retail editions. Treat as a possible partner, not an automated source. |
-| **Crowdsourcing** (later) | Filling gaps, corrections | See section 6. |
+| Source                        | Used for                                                                                                | Notes                                                                                                                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TMDB**                      | Canonical movie/show identity (TMDB ID), posters, metadata, manual search, popularity lists for seeding | Free API. No disc-edition or HDR data. IMDb ID → Title lookup in `backend/src/upc/tmdb.service.ts`; matching rules in `backend/docs/edition-schema.md`.                                                                               |
+| **UPCMDB** (upcmdb.com)       | UPC → physical release lookup                                                                           | REST API for DVD / Blu-ray / 4K. Returns IMDb IDs, so map to TMDB with `/find/{imdb_id}?external_source=imdb_id`. Called by the backend's `/upc` endpoint (`backend/src/upc/upc.service.ts`).                                         |
+| **Blu-ray.com**               | Richest edition data: HDR format, steelbooks, region, distributor, release dates                        | No public API. Scraping may violate terms of service, risks IP blocks, and breaks when HTML changes. Proposed: ask about a data license first; if scraping, do it centrally with aggressive caching. Third-party paid wrappers exist. |
+| **FlatpanelsHD UHD database** | 4K titles with HDR format and 4K vs. 2K digital intermediate                                            | Strong seed for the 4K/HDR upgrade layer. Ask permission before use.                                                                                                                                                                  |
+| **TheDiscDB**                 | Cross-reference only                                                                                    | Open, community-run, ripper-oriented (disc hashes, track layouts), not retail editions. Treat as a possible partner, not an automated source.                                                                                         |
+| **Crowdsourcing** (later)     | Filling gaps, corrections                                                                               | See section 6.                                                                                                                                                                                                                        |
 
 ### Observed UPCMDB quirks
 
@@ -215,7 +236,7 @@ Raw UPCMDB records do not share a consistent schema; fields vary record by recor
 - Movie vs. TV comes from `type`, `omdbType` or `seriesInfo`, and some records have none of them. `imdbID` is also missing on some records.
 - Misspelled keys exist (`metacricitUrl`, alongside the correct `metacriticUrl` on other records).
 
-Example records: *WandaVision: The Complete Series* 4K collector's edition (rich: HDR10, steelbook, two 4K discs), *Loki: The Complete Second Season* 4K steelbook (rich: Dolby Vision, HDR10, region free, but no `imdbID` or type), *Barnyard* Blu-ray (thin). When first scanned in the PoC, WandaVision came back thin with no `hdr` field, so UPCMDB records can gain fields over time.
+Example records: _WandaVision: The Complete Series_ 4K collector's edition (rich: HDR10, steelbook, two 4K discs), _Loki: The Complete Second Season_ 4K steelbook (rich: Dolby Vision, HDR10, region free, but no `imdbID` or type), _Barnyard_ Blu-ray (thin). When first scanned in the PoC, WandaVision came back thin with no `hdr` field, so UPCMDB records can gain fields over time.
 
 Decode defensively, key decoding off real responses rather than docs, and log any response that fails to decode. The normalized schema and the full mapping rules are in `backend/docs/edition-schema.md`.
 
@@ -226,7 +247,7 @@ Decode defensively, key decoding off real responses rather than docs, and log an
 **Proposed:** Model editions, not just titles. Upgrades happen at the edition level (e.g., a 2017 4K in HDR10 only vs. a 2024 remaster with Dolby Vision vs. a steelbook).
 
 ```
-Title (keyed by TMDB ID; movie or TV)
+Title (keyed by kind + TMDB ID, since TMDB IDs are only unique per kind; movie or TV)
  └── Edition
       ├── upc / ean (one or more)
       ├── format: DVD | Blu-ray | 4K UHD          (enum, normalized)
@@ -244,6 +265,7 @@ On-device library entries reference an Edition (or a Title + format when the exa
 **Upgrade check (on device):** for each owned title, compare the owned edition against available editions and flag anything with a higher format, a better HDR type, or (if the user wants it) premium packaging.
 
 ### Open modelling questions
+
 - **Combo packs:** a 4K + Blu-ray set means the user owns both formats; upgrade logic must account for this.
 - **TV:** complete-series box sets vs. individual seasons (WandaVision was a complete series, Hawkeye a single season).
 - **Unknown HDR:** how to present an edition whose HDR type is not yet known.
@@ -253,11 +275,16 @@ On-device library entries reference an Edition (or a Title + format when the exa
 
 ## 6. Crowdsourcing (later release)
 
-**Decided:** After initial data collection, future information can be crowdsourced.
+**Decided:**
+
+- After initial data collection, future information can be crowdsourced.
+- When a lookup comes back thin (missing HDR, packaging, disc details, etc.), the user can fill in the missing fields. Those edits are stored **on the device** with their library entry. Ships in **MVP**.
+- An **opt-in setting** forwards those user-supplied edition facts to the backend datastore. It is off by default. Submissions are anonymous and contain only UPC + edition facts, never anything about the user's library. Ships in **R2**, alongside failed-scan submissions.
+- **Conflicts:** if the server later has data for a field the user filled in, the user's value stays. The app offers the server's value as an update the user can accept.
 
 **Proposed:**
-- The natural trigger is a failed scan: when a UPC doesn't resolve, ask the user to confirm title, format, and packaging, and submit the mapping.
-- Submissions are opt-in and anonymous and contain only UPC + edition facts, never anything about the user's library.
+
+- A failed scan is also a trigger: when a UPC doesn't resolve, ask the user to confirm title, format, and packaging, and (if opted in) submit the mapping.
 - An edit is accepted only after several independent submissions agree.
 - Users can report wrong data.
 
@@ -268,6 +295,7 @@ On-device library entries reference an Edition (or a Title + format when the exa
 **Decided:** Alerts when new editions come out, including steelbook availability.
 
 **Proposed:**
+
 - Users can keep an on-device **watchlist** of titles they don't own yet.
 - Alert filters: only 4K, only Dolby Vision, only steelbooks, only my region.
 - Steelbooks sell out fast (often retailer-exclusive, region-locked), so they need more frequent scraping and prompt delivery. iOS background refresh is unreliable for this; a silent push to all devices when the feed updates wakes the app promptly without revealing anything.
@@ -281,50 +309,53 @@ The story map backbone (user activities, left to right): **Catalog my collection
 
 ### MVP — scan, catalog, see upgrades
 
-| Activity | Step | Tasks |
-|---|---|---|
-| Catalog my collection | Scan a disc | Scan barcode with camera · ⚙ Look up UPC via UPCMDB, normalize & cache · Confirm match and save to library |
-| | Add without a barcode | Search title manually (TMDB) · Pick the format I own |
-| | Browse my library | Grid of posters, stored on device · Filter by format (DVD / BD / 4K) |
-| Find upgrades | See what's better | Upgrade badge when a higher format exists · ⚙ Seed editions for popular titles |
-| | Review my upgrade list | List of every upgradeable title |
-| Decide and upgrade | Record the upgrade | Replace owned edition with the new one |
-| Keep my data right | Handle a failed scan | Fall back to manual search · ⚙ Log unresolved UPCs |
+| Activity              | Step                   | Tasks                                                                                                      |
+| --------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Catalog my collection | Scan a disc            | Scan barcode with camera · ⚙ Look up UPC via UPCMDB, normalize & cache · Confirm match and save to library |
+|                       | Add without a barcode  | Search title manually (TMDB) · Pick the format I own                                                       |
+|                       | Browse my library      | Grid of posters, stored on device · Filter by format (DVD / BD / 4K)                                       |
+| Find upgrades         | See what's better      | Upgrade badge when a higher format exists · ⚙ Seed editions for popular titles                             |
+|                       | Review my upgrade list | List of every upgradeable title                                                                            |
+| Decide and upgrade    | Record the upgrade     | Replace owned edition with the new one                                                                     |
+| Keep my data right    | Handle a failed scan   | Fall back to manual search · ⚙ Log unresolved UPCs                                                         |
+|                       | Fix thin data          | Fill in missing edition details on device                                                                  |
 
 ### Release 2 — editions, alerts, contributions
 
-| Activity | Step | Tasks |
-|---|---|---|
-| Catalog my collection | Scan a disc | Batch scan mode for a whole shelf |
-| | Add without a barcode | Pick the exact edition (steelbook, collector's) |
-| | Browse my library | Search & sort; group TV seasons · Collection stats |
-| Find upgrades | See what's better | Show HDR type (Dolby Vision / HDR10+) · Show steelbook availability |
-| | Review my upgrade list | Filter by upgrade type (4K, DV, steelbook) |
-| Decide and upgrade | Compare editions | Edition detail: discs, audio, HDR, packaging |
-| | Buy the upgrade | Link out to retailer |
-| | Record the upgrade | Mark old copy kept / sold / donated |
-| Track new releases | Build a watchlist | Add titles I don't own yet |
-| | Set alert preferences | Choose alert types (4K, DV, steelbook) · Set my region |
-| | Get notified | ⚙ Publish new-editions feed · On-device match + local notification |
-| Keep my data right | Handle a failed scan | Submit UPC → edition anonymously (opt-in) |
-| | Protect my library | Export / back up library (JSON) |
+| Activity              | Step                   | Tasks                                                               |
+| --------------------- | ---------------------- | ------------------------------------------------------------------- |
+| Catalog my collection | Scan a disc            | Batch scan mode for a whole shelf                                   |
+|                       | Add without a barcode  | Pick the exact edition (steelbook, collector's)                     |
+|                       | Browse my library      | Search & sort; group TV seasons · Collection stats                  |
+| Find upgrades         | See what's better      | Show HDR type (Dolby Vision / HDR10+) · Show steelbook availability |
+|                       | Review my upgrade list | Filter by upgrade type (4K, DV, steelbook)                          |
+| Decide and upgrade    | Compare editions       | Edition detail: discs, audio, HDR, packaging                        |
+|                       | Buy the upgrade        | Link out to retailer                                                |
+|                       | Record the upgrade     | Mark old copy kept / sold / donated                                 |
+| Track new releases    | Build a watchlist      | Add titles I don't own yet                                          |
+|                       | Set alert preferences  | Choose alert types (4K, DV, steelbook) · Set my region              |
+|                       | Get notified           | ⚙ Publish new-editions feed · On-device match + local notification  |
+| Keep my data right    | Handle a failed scan   | Submit UPC → edition anonymously (opt-in)                           |
+|                       | Fix thin data          | Share my filled-in details anonymously (opt-in)                     |
+|                       | Protect my library     | Export / back up library (JSON)                                     |
 
 ### Future — nice to have
 
-| Activity | Step | Tasks |
-|---|---|---|
-| Catalog my collection | Scan a disc | Identify disc from cover photo |
-| | Add without a barcode | Import from CLZ / other apps (CSV) |
-| | Browse my library | Shelf / location tags |
-| Find upgrades | See what's better | Filter by my region · Flag native 4K vs. 2K upscale |
-| | Review my upgrade list | Rank by how big the upgrade is |
-| Decide and upgrade | Compare editions | Current prices across retailers |
-| | Buy the upgrade | Price-drop alerts |
-| Track new releases | Get notified | ⚙ Silent push for preorders & sell-outs |
-| Keep my data right | Handle a failed scan | Report wrong data · ⚙ Accept edits when submissions agree |
-| | Protect my library | iCloud sync via CloudKit private DB |
+| Activity              | Step                   | Tasks                                                     |
+| --------------------- | ---------------------- | --------------------------------------------------------- |
+| Catalog my collection | Scan a disc            | Identify disc from cover photo                            |
+|                       | Add without a barcode  | Import from CLZ / other apps (CSV)                        |
+|                       | Browse my library      | Shelf / location tags                                     |
+| Find upgrades         | See what's better      | Filter by my region · Flag native 4K vs. 2K upscale       |
+|                       | Review my upgrade list | Rank by how big the upgrade is                            |
+| Decide and upgrade    | Compare editions       | Current prices across retailers                           |
+|                       | Buy the upgrade        | Price-drop alerts                                         |
+| Track new releases    | Get notified           | ⚙ Silent push for preorders & sell-outs                   |
+| Keep my data right    | Handle a failed scan   | Report wrong data · ⚙ Accept edits when submissions agree |
+|                       | Protect my library     | iCloud sync via CloudKit private DB                       |
 
 ### Known gaps to consider
+
 - **First-run experience** with an empty library; batch scan may belong in MVP so a first session of scanning a shelf feels fast.
 - **Combo packs** and **TV box sets vs. seasons** (see section 5).
 
@@ -332,7 +363,7 @@ The story map backbone (user activities, left to right): **Catalog my collection
 
 ## 9. Guidance for writing stories
 
-- Write stories from the collector's point of view: *As a collector, I want …, so that …*
+- Write stories from the collector's point of view: _As a collector, I want …, so that …_
 - Each story gets testable acceptance criteria (Given / When / Then is fine).
 - Tag each story with its **release** (MVP / R2 / Future), its **activity** and **step** from the map, and whether it is **client**, **server**, or both.
 - Split server work (⚙) into its own stories or sub-tasks rather than hiding it inside a UI story.

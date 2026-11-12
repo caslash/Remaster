@@ -12,9 +12,9 @@ public struct Edition: Codable, Identifiable {
     var barcodes: Barcodes
     var asin: String?
     var imdbId: String?
-    var title: String
+    var upcTitle: String
     var enrichedTitle: String?
-    var kind: EditionKind?
+    var kind: Kind?
     var year: Int?
     var format: DiscFormat?
     var discContents: [DiscContent]?
@@ -30,6 +30,8 @@ public struct Edition: Codable, Identifiable {
     var audio: String?
     var subtitles: [String]?
     var hasDigital: Bool?
+    var title: Title?
+    var unmatchedTitle: Bool
 }
 
 struct Barcodes: Codable {
@@ -90,7 +92,7 @@ struct EditionFlags: Codable {
     var boxset: Bool?
 }
 
-enum EditionKind: String, Codable {
+enum Kind: String, Codable {
     case movie = "movie", tv = "tv"
 }
 
