@@ -1,9 +1,11 @@
+import { TimingInterceptor } from '@/common/app.interceptor';
 import { Edition } from '@/upc/types/edition';
 import { Title } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { UpcModule } from '@/upc/upc.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { z } from 'zod';
@@ -44,6 +46,11 @@ export type Env = z.infer<typeof envSchema>;
     UpcModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimingInterceptor,
+    },
+  ],
 })
 export class AppModule {}

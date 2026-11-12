@@ -12,7 +12,9 @@ import {
   DataSource,
   DeleteQueryBuilder,
   InsertQueryBuilder,
+  LessThan,
   SelectQueryBuilder,
+  UpdateQueryBuilder,
 } from 'typeorm';
 import databaseZootopia from '../mock/database-zootopia.json';
 import zootopia from '../mock/movie4kdv.json';
@@ -51,9 +53,43 @@ const realPosterURL = (path: string, size: PosterSize) =>
 const body = (value: unknown): Record<string, unknown> =>
   JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 
+type NormalizedFields = Parameters<
+  EditionStore['updateEditionNormalizedFields']
+>[1];
+
+// RMSTR-70: what a newer normalizer might return for the stored Zootopia
+// record. The undefined fields are ones the new mapping no longer fills, so
+// the rebuild has to clear them, not leave the old values in place. The
+// Blu-ray disc's region is undefined too: it sits inside the discContents
+// jsonb, where absent means unknown and must stay absent, not become null.
+const rebuiltFields = (): NormalizedFields =>
+  ({
+    ...databaseZootopia,
+    asin: undefined,
+    releaseDate: undefined,
+    barcodes: { upc: undefined, ean: databaseZootopia.barcodes.ean },
+    packaging: {
+      steelbook: true,
+      slipcover: undefined,
+      memorabilia: undefined,
+    },
+    editionFlags: {
+      limited: undefined,
+      collector: true,
+      special: false,
+      anniversary: undefined,
+      boxset: undefined,
+    },
+    discContents: [
+      { format: '4K UHD', region: 'Region free' },
+      { format: 'Blu-ray', region: undefined },
+    ],
+  }) as unknown as NormalizedFields;
+
 const mockEditionRepository = {
   findOne: jest.fn(),
   upsert: jest.fn(),
+  update: jest.fn(),
 };
 
 const mockTitleRepository = {
@@ -436,6 +472,169 @@ describe('TypeORMEditionStore', () => {
     );
     expect((row.lastSeenAt as Date).getTime()).toBeLessThanOrEqual(Date.now());
   });
+
+  // RMSTR-70. TypeORM's update skips undefined values, so a field the new
+  // normalizer leaves out would keep its old value unless it's written as null.
+  describe('updateEditionNormalizedFields (rebuild)', () => {
+    // `affected` defaults to 1 only when it isn't passed at all, so a test can
+    // pass `affected: undefined` for a driver that gives no count.
+    const update = async (
+      options: {
+        fields?: NormalizedFields;
+        version?: number;
+        affected?: number;
+      } = {},
+    ) => {
+      const { fields = rebuiltFields(), version = 2 } = options;
+      mockEditionRepository.update.mockResolvedValue({
+        raw: [],
+        affected: 'affected' in options ? options.affected : 1,
+        generatedMaps: [],
+      });
+
+      const result = await store.updateEditionNormalizedFields(
+        fields.id,
+        fields,
+        version,
+      );
+
+      expect(mockEditionRepository.update).toHaveBeenCalledTimes(1);
+      const [[criteria, written]] = mockEditionRepository.update.mock.calls as [
+        [Record<string, unknown>, Record<string, unknown>],
+      ];
+      return { result, criteria, written };
+    };
+
+    it('should update by edition ID, only while the row is still below the new version', async () => {
+      const { criteria } = await update({ version: 2 });
+
+      expect(criteria).toEqual({
+        id: databaseZootopia.id,
+        normalizerVersion: LessThan(2),
+      });
+    });
+
+    it('should stamp the new normalizer version', async () => {
+      const { written } = await update({ version: 2 });
+
+      expect(written.normalizerVersion).toBe(2);
+    });
+
+    it('should write null for top-level fields the new mapping leaves out', async () => {
+      const { written } = await update();
+
+      expect(written).toHaveProperty('asin', null);
+      expect(written).toHaveProperty('releaseDate', null);
+      expect(written.upcTitle).toBe(databaseZootopia.upcTitle);
+      expect(written.runtime).toBe(databaseZootopia.runtime);
+    });
+
+    it('should write null for embedded sub-fields the new mapping leaves out, and keep the rest', async () => {
+      const { written } = await update();
+
+      expect(written.barcodes).toStrictEqual({
+        upc: null,
+        ean: databaseZootopia.barcodes.ean,
+      });
+      expect(written.packaging).toStrictEqual({
+        steelbook: true,
+        slipcover: null,
+        memorabilia: null,
+      });
+      expect(written.editionFlags).toStrictEqual({
+        limited: null,
+        collector: true,
+        special: false,
+        anniversary: null,
+        boxset: null,
+      });
+    });
+
+    it('should leave no undefined value anywhere TypeORM would skip it', async () => {
+      const { written } = await update();
+
+      const skipped = Object.entries(written).flatMap(([key, value]) => {
+        if (value === undefined) return [key];
+        if (['barcodes', 'packaging', 'editionFlags'].includes(key))
+          return Object.entries(value as Record<string, unknown>)
+            .filter(([, sub]) => sub === undefined)
+            .map(([sub]) => `${key}.${sub}`);
+        return [];
+      });
+      expect(skipped).toEqual([]);
+    });
+
+    it('should clear a whole field to null, including a list column', async () => {
+      const { written } = await update({
+        fields: {
+          ...rebuiltFields(),
+          hdr: undefined,
+          discContents: undefined,
+          subtitles: undefined,
+        },
+      });
+
+      expect(written).toHaveProperty('hdr', null);
+      expect(written).toHaveProperty('discContents', null);
+      expect(written).toHaveProperty('subtitles', null);
+    });
+
+    it('should pass list fields through as lists, unchanged', async () => {
+      const fields = rebuiltFields();
+
+      const { written } = await update({ fields });
+
+      expect(written.hdr).toStrictEqual(['Dolby Vision', 'HDR10']);
+      expect(written.subtitles).toStrictEqual(databaseZootopia.subtitles);
+      expect(Array.isArray(written.discContents)).toBe(true);
+      expect(written.discContents).toStrictEqual(fields.discContents);
+    });
+
+    // discContents is jsonb: a null region would be stored as "region": null,
+    // breaking "absent means unknown" (docs/edition-schema.md).
+    it('should not write null inside discContents', async () => {
+      const { written } = await update();
+
+      const [, bluRay] = written.discContents as Record<string, unknown>[];
+      expect(bluRay.region).toBeUndefined();
+    });
+
+    it('should leave the title link, raw JSON and fetch time out of the write', async () => {
+      const { written } = await update();
+
+      expect(written).not.toHaveProperty('title');
+      expect(written).not.toHaveProperty('unmatchedTitle');
+      expect(written).not.toHaveProperty('raw');
+      expect(written).not.toHaveProperty('fetchedAt');
+    });
+
+    it('should not change the fields it was given', async () => {
+      const fields = rebuiltFields();
+      const before = { ...fields, packaging: { ...fields.packaging } };
+
+      await update({ fields });
+
+      expect(fields).toStrictEqual(before);
+    });
+
+    it('should report true when the row was updated', async () => {
+      const { result } = await update({ affected: 1 });
+
+      expect(result).toBe(true);
+    });
+
+    it('should report false when no row matched (refreshed meanwhile or already current)', async () => {
+      const { result } = await update({ affected: 0 });
+
+      expect(result).toBe(false);
+    });
+
+    it('should report false when the driver gives no affected count', async () => {
+      const { result } = await update({ affected: undefined });
+
+      expect(result).toBe(false);
+    });
+  });
 });
 
 // Builds the SQL TypeORM would send, from the real entity metadata, without a
@@ -446,6 +645,8 @@ describe('TypeORMEditionStore SQL', () => {
   let dataSource: DataSource;
   let queries: string[];
   let deletes: { sql: string; parameters: unknown[] }[];
+  let selects: { sql: string; parameters: unknown[] }[];
+  let updates: { sql: string; parameters: unknown[] }[];
 
   const normalize = (sql: string) => sql.replace(/\s+/g, ' ').trim();
 
@@ -507,6 +708,22 @@ describe('TypeORMEditionStore SQL', () => {
         const [sql, parameters] = this.getQueryAndParameters();
         deletes.push({ sql: normalize(sql), parameters });
         return Promise.resolve({ raw: [], affected: 0 });
+      });
+    selects = [];
+    jest
+      .spyOn(SelectQueryBuilder.prototype, 'getMany')
+      .mockImplementation(function (this: SelectQueryBuilder<object>) {
+        const [sql, parameters] = this.getQueryAndParameters();
+        selects.push({ sql: normalize(sql), parameters });
+        return Promise.resolve([]);
+      });
+    updates = [];
+    jest
+      .spyOn(UpdateQueryBuilder.prototype, 'execute')
+      .mockImplementation(function (this: UpdateQueryBuilder<object>) {
+        const [sql, parameters] = this.getQueryAndParameters();
+        updates.push({ sql: normalize(sql), parameters });
+        return Promise.resolve({ raw: [], affected: 1, generatedMaps: [] });
       });
   });
 
@@ -617,5 +834,150 @@ describe('TypeORMEditionStore SQL', () => {
     const updateSet = sql.slice(sql.indexOf('DO UPDATE SET'));
     expect(updateSet).toContain('"last_seen_at" = EXCLUDED."last_seen_at"');
     expect(updateSet).not.toContain('"first_seen_at"');
+  });
+
+  // RMSTR-70: the rebuild's read and write, checked in the SQL itself.
+  describe('rebuild', () => {
+    // Column → bound value for an UPDATE's SET clause.
+    const setValues = ({
+      sql,
+      parameters,
+    }: {
+      sql: string;
+      parameters: unknown[];
+    }): Record<string, unknown> => {
+      const set = sql.slice(sql.indexOf(' SET '), sql.indexOf(' WHERE '));
+      return Object.fromEntries(
+        [...set.matchAll(/"(\w+)" = \$(\d+)/g)].map(([, column, index]) => [
+          column,
+          parameters[Number(index) - 1],
+        ]),
+      );
+    };
+
+    it('should load raw JSON and the normalizer version for editions below the version it is given', async () => {
+      await store.findOutOfDateEditions(2);
+
+      expect(selects).toHaveLength(1);
+      const [{ sql, parameters }] = selects;
+      expect(sql).toMatch(/FROM "editions" "edition"/);
+      expect(sql).toContain('"edition"."raw"');
+      expect(sql).toContain('"edition"."normalizer_version"');
+      expect(sql).toMatch(/WHERE "edition"\."normalizer_version" < \$1$/);
+      expect(parameters).toEqual([2]);
+    });
+
+    it('should not join titles when loading editions to rebuild', async () => {
+      await store.findOutOfDateEditions(2);
+
+      const [{ sql }] = selects;
+      expect(sql).not.toContain('JOIN "titles"');
+    });
+
+    it('should update one edition, only while it is still below the new version', async () => {
+      const fields = rebuiltFields();
+
+      await store.updateEditionNormalizedFields(fields.id, fields, 2);
+
+      expect(updates).toHaveLength(1);
+      const [{ sql, parameters }] = updates;
+      expect(sql).toMatch(/^UPDATE "editions" SET /);
+      const where = sql.slice(sql.indexOf(' WHERE '));
+      const whereValue = (column: string) => {
+        const match = where.match(new RegExp(`"${column}" (=|<) \\$(\\d+)`));
+        return match && [match[1], parameters[Number(match[2]) - 1]];
+      };
+      expect(whereValue('edition_id')).toEqual(['=', databaseZootopia.id]);
+      expect(whereValue('normalizer_version')).toEqual(['<', 2]);
+    });
+
+    it('should set cleared columns to NULL, including embedded ones', async () => {
+      const fields = rebuiltFields();
+
+      await store.updateEditionNormalizedFields(fields.id, fields, 2);
+
+      const values = setValues(updates[0]);
+      for (const column of [
+        'asin',
+        'release_date',
+        'upc',
+        'slipcover',
+        'memorabilia',
+        'limited',
+        'anniversary',
+        'boxset',
+      ])
+        expect([column, values[column]]).toEqual([column, null]);
+      expect(values.steelbook).toBe(true);
+      expect(values.collector).toBe(true);
+      expect(values.special).toBe(false);
+      expect(values.normalizer_version).toBe(2);
+    });
+
+    it('should set every normalized column', async () => {
+      const fields = rebuiltFields();
+
+      await store.updateEditionNormalizedFields(fields.id, fields, 2);
+
+      expect(Object.keys(setValues(updates[0])).sort()).toEqual(
+        [
+          'upc',
+          'ean',
+          'asin',
+          'imdb_id',
+          'upc_title',
+          'enriched_title',
+          'kind',
+          'year',
+          'format',
+          'disc_contents',
+          'hdr',
+          'steelbook',
+          'slipcover',
+          'memorabilia',
+          'limited',
+          'collector',
+          'special',
+          'anniversary',
+          'boxset',
+          'master_resolution',
+          'release_date',
+          'distributor',
+          'country',
+          'cover_image_url',
+          'runtime',
+          'audio',
+          'subtitles',
+          'has_digital',
+          'normalizer_version',
+        ].sort(),
+      );
+    });
+
+    it('should leave the title link, raw JSON and fetch time untouched', async () => {
+      const fields = rebuiltFields();
+
+      await store.updateEditionNormalizedFields(fields.id, fields, 2);
+
+      const set = Object.keys(setValues(updates[0]));
+      expect(set).not.toContain('title_tmdb_id');
+      expect(set).not.toContain('title_kind');
+      expect(set).not.toContain('raw');
+      expect(set).not.toContain('fetched_at');
+    });
+
+    it('should store list columns as lists, and leave an unknown disc region absent in the jsonb', async () => {
+      const fields = rebuiltFields();
+
+      await store.updateEditionNormalizedFields(fields.id, fields, 2);
+
+      const values = setValues(updates[0]);
+      expect(values.hdr).toEqual(['Dolby Vision', 'HDR10']);
+      expect(values.subtitles).toEqual(databaseZootopia.subtitles);
+      expect(JSON.parse(values.disc_contents as string)).toStrictEqual([
+        { format: '4K UHD', region: 'Region free' },
+        { format: 'Blu-ray' },
+      ]);
+    });
   });
 });

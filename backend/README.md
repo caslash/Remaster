@@ -54,6 +54,26 @@ Rules for writing migrations:
 
 The pool allows up to 20 connections, closes idle ones after 30 seconds, and gives up on opening a connection after 5 seconds. Query logging is off (`logging: false`) in every environment so the logs never contain queries or the UPCs in them (section 2 of [`AGENTS.md`](../AGENTS.md)). If you turn it on temporarily while debugging locally, don't commit that change.
 
+### Rebuilding editions (RMSTR-70)
+
+When the UPCMDB mapping changes, stored editions are rebuilt from their raw JSON, with no UPCMDB or TMDB calls. The rules (when to bump the version, what's rewritten, how failures are handled) are in [`docs/edition-schema.md`](docs/edition-schema.md), Normalizer versions and rebuilds.
+
+1. Bump `NORMALIZER_VERSION` in `src/upc/utils/upc.utils.ts`.
+2. From `backend/`, run `pnpm rebuild:editions`. This runs `nest start --entryFile cli`, which builds and runs `src/cli.ts`.
+
+The script starts the app without its HTTP server, rebuilds every edition below the current version, logs a summary and exits. Exit codes:
+
+- **0:** the run finished. Records that failed to normalize are listed in the summary, but don't change the exit code.
+- **1:** the app couldn't start, or the database failed during the run.
+
+Things to know:
+
+- **It runs pending migrations first,** because it starts from `AppModule` and `migrationsRun` is on.
+- **It needs the full `.env`,** including the UPCMDB and TMDB variables, even though it doesn't use them, because the env validation requires them. Run it from `backend/` so `.env` is found.
+- **It always targets the current `NORMALIZER_VERSION`.** There's no version argument, on purpose.
+- **Don't lower `NORMALIZER_VERSION` after a run,** even locally. The rebuilt rows keep the higher number, and the next real bump to that number would skip them.
+- **Running it twice is safe.** The second run finds nothing to do.
+
 ### Railway
 
 1. In the Railway project, add a PostgreSQL database service.

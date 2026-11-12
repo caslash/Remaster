@@ -225,6 +225,49 @@ Thin TV records give the runtime of one episode (Rick and Morty S1: "23 min"), w
 
 Not part of the contract. They stay in the raw JSON stored with each record (RMSTR-13): `plot`, `actors`, `writer`, `director`, `genre`, `rated`, `awards`, `imdbRating`, `rottenTomatoesId`, `metacriticUrl`, `metacricitUrl` (sic), `fandangoId`, `traktId`, `netflixId`, `wikiQid`, `allMovieId`, `wikiAllMovieId`, `videoCodec`, `videoSpecs`, `aspect_ratio`, `originalAspectRatio`, UPCMDB's own `digital` string ("Digital 4K | Movies Anywhere, Vudu"; the contract's `hasDigital` comes from `has_digital_copy`), `special_features` (except as a steelbook signal), `blu_ray_included`.
 
+## Normalizer versions and rebuilds (RMSTR-70)
+
+The server stores each edition's raw UPCMDB JSON next to its normalized columns, so a better mapping can be applied to stored records without calling UPCMDB again. The `normalizer_version` column records which version of the mapping in this document produced a row. The current version is `NORMALIZER_VERSION` in `src/upc/utils/upc.utils.ts`. The normalizer itself is `NormalizationService` (`src/upc/normalization/normalization.service.ts`). It's synchronous and has no side effects, so it gives the same result for a fresh response and for a stored one.
+
+### When to bump the version
+
+- **Bump it** when you change a rule above in a way that changes the output for at least one stored record: a new or renamed field, a different mapping, or a value that's now absent or newly filled in. Update this document in the same change.
+- **Don't bump it** for a refactor that leaves every output the same.
+- **Only ever go up, by one.** Never lower the number or reuse an old one, even locally. A record stamped with a number counts as up to date for that number, so the next real bump to it would skip the record.
+
+After bumping it, run `pnpm rebuild:editions` (see [`README.md`](../README.md), Rebuilding editions). Fresh lookups are stamped with the current version as soon as the new code is running, whether or not the rebuild has run yet.
+
+### What the rebuild does
+
+`RebuildService` (`src/upc/normalization/rebuild.service.ts`) loads every edition whose `normalizer_version` is below the current version, along with its raw JSON. It goes through them one at a time:
+
+1. It normalizes `raw` with the stored edition ID (the canonical GTIN-13), the same code a fresh lookup uses.
+2. It writes every normalized column and the new version.
+   - A field the new mapping no longer fills is cleared to `NULL`, not left at its old value. That includes the sub-fields of `barcodes`, `packaging` and `editionFlags`.
+   - Inside `discContents` (a `jsonb` column), an unknown `region` stays absent rather than becoming `null` ("absent means unknown", see [Conventions](#conventions)).
+3. It leaves `raw`, `fetched_at` and the Title link (`title_tmdb_id`, `title_kind`) unchanged. It never calls UPCMDB or TMDB, and never writes to `titles` or `unresolved_upcs`.
+
+### Rules (decided 2026-11-11)
+
+- **A record that fails to normalize is skipped.** That covers a record with no usable title, `raw` that isn't a JSON object, and any error the normalizer throws. It's logged with its edition ID and the reason, nothing is written, and it stays at its old version. The next run tries it again.
+- **A changed `imdbId` keeps the Title link.** The new `imdbId` is stored and the Title link is left alone. The mismatch is logged with the old and new IDs, and the edition is listed in the summary. Until the enrichment worker re-matches it, the edition's `imdbId` can differ from its nested `title.imdbId` in the response. A stored `null` and an absent `imdbId` count as the same, not as a change.
+- **A record changed during the run isn't overwritten.** An update applies only while the row is still below the new version. If a lookup saved fresh data for the same edition during the run, the rebuild leaves it alone and counts it as "changed meanwhile".
+- **A database error stops the run.** If loading or updating fails, the rebuild stops and returns no summary. Each update is a single row, so the records already rebuilt keep their new version, and a rerun picks up the rest.
+
+### Run summary
+
+At the end, the rebuild returns:
+
+- the target version;
+- the number of editions found;
+- the numbers rebuilt and changed meanwhile;
+- the failed edition IDs;
+- the edition IDs whose `imdbId` changed.
+
+Found = rebuilt + failed + changed meanwhile. The `imdbId` list is always a subset of the rebuilt records. There's no "already current" count, because the rebuild never loads records that are already up to date.
+
+The rebuild's logs and summary contain only edition IDs (catalog barcodes) and details about the records themselves. Nothing about any client is involved.
+
 ## Fixtures
 
 Recorded UPCMDB responses in [`src/upc/mock/`](../src/upc/mock/), with the expected normalized values that matter most:

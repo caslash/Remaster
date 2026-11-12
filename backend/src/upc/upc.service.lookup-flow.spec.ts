@@ -29,6 +29,7 @@
 //   cache-hit response; the service builds the cache-miss one.
 // - A UPCMDB record with no title is a 404 and is recorded as unresolved.
 
+import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TMDBService } from '@/upc/tmdb.service';
 import { PosterSize } from '@/upc/types/poster-size';
@@ -203,6 +204,7 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UpcService,
+        NormalizationService,
         { provide: TMDBService, useValue: mockTMDBService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: EditionStore, useValue: auto.store },

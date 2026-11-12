@@ -215,3 +215,9 @@ export function parseYear(value: unknown): number | undefined {
 
   return;
 }
+
+export function castUndefinedToNull<T>(obj: T): unknown {
+  if (obj === undefined) return null;
+
+  return obj;
+}

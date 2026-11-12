@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { EditionStore } from './storage/upc.storage.store';
 import { EditionResponse } from './types/edition';
 import { NORMALIZER_VERSION, StoreRangeReason } from './utils/upc.utils';
@@ -78,6 +79,7 @@ describe('UpcService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UpcService,
+        NormalizationService,
         { provide: TMDBService, useValue: mockTMDBService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: EditionStore, useValue: mockEditionStore },

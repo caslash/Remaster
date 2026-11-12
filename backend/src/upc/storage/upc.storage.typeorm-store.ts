@@ -4,9 +4,10 @@ import { Edition, EditionResponse } from '@/upc/types/edition';
 import { POSTER_SIZES } from '@/upc/types/poster-size';
 import { Title, TitleResponse } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
+import { castUndefinedToNull } from '@/upc/utils/upc.utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
 
 @Injectable()
 export class TypeORMEditionStore extends EditionStore {
@@ -97,5 +98,64 @@ export class TypeORMEditionStore extends EditionStore {
       .addSelect('edition.normalizerVersion')
       .leftJoinAndSelect('edition.title', 'title')
       .getOne();
+  }
+
+  async findOutOfDateEditions(version: number): Promise<Edition[]> {
+    return await this.editionRepository
+      .createQueryBuilder('edition')
+      .where('edition.normalizerVersion < :version', {
+        version,
+      })
+      .addSelect('edition.normalizerVersion')
+      .addSelect('edition.raw')
+      .getMany();
+  }
+
+  async updateEditionNormalizedFields(
+    id: string,
+    updatedFields: Omit<EditionResponse, 'title' | 'unmatchedTitle'>,
+    version: number,
+  ): Promise<boolean> {
+    const { id: leftOutId, ...normalizedFields } =
+      this.normalizeUndefinedFields(updatedFields);
+
+    const numberAffected = (
+      await this.editionRepository.update(
+        { id, normalizerVersion: LessThan(version) },
+        {
+          ...normalizedFields,
+          normalizerVersion: version,
+        },
+      )
+    ).affected;
+
+    return !!numberAffected;
+  }
+
+  private normalizeUndefinedFields(
+    obj: Omit<EditionResponse, 'title' | 'unmatchedTitle'>,
+  ): Omit<EditionResponse, 'title' | 'unmatchedTitle'> {
+    return Object.fromEntries(
+      Object.entries(obj).map(([key, value]) => {
+        if (
+          key === 'barcodes' ||
+          key === 'packaging' ||
+          key === 'editionFlags'
+        ) {
+          if (typeof value != 'object') return [key, null];
+
+          return [
+            key,
+            Object.fromEntries(
+              Object.entries(value).map(([key, value]) => {
+                return [key, castUndefinedToNull(value)];
+              }),
+            ),
+          ];
+        }
+
+        return [key, castUndefinedToNull(value)];
+      }),
+    ) as unknown as Omit<EditionResponse, 'title' | 'unmatchedTitle'>;
   }
 }

@@ -23,7 +23,8 @@
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "migration:generate": "node -r tsconfig-paths/register -r ts-node/register ./node_modules/typeorm/cli.js migration:generate --esm -d src/database/data-source.ts",
     "migration:run": "node -r tsconfig-paths/register -r ts-node/register ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
-    "migration:revert": "node -r tsconfig-paths/register -r ts-node/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts"
+    "migration:revert": "node -r tsconfig-paths/register -r ts-node/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
+    "rebuild:editions": "nest start --entryFile cli"
   },
   "dependencies": {
     "@nestjs/common": "^12.3.2",

@@ -1,3 +1,5 @@
+import { NormalizationService } from '@/upc/normalization/normalization.service';
+import { RebuildService } from '@/upc/normalization/rebuild.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TypeORMEditionStore } from '@/upc/storage/upc.storage.typeorm-store';
 import { TMDBService } from '@/upc/tmdb.service';
@@ -16,6 +18,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     UpcService,
     TMDBService,
     { provide: EditionStore, useClass: TypeORMEditionStore },
+    NormalizationService,
+    RebuildService,
   ],
 })
 export class UpcModule {}
