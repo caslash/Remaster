@@ -9,17 +9,18 @@ import SwiftUI
 import Vision
 import VisionKit
 
-struct BarcodeScanner: View {
+struct BarcodeScanner<Content: View>: View {
     var symbologies: [VNBarcodeSymbology] = []
     let isPresented: Bool
     let onScanned: (String, VNBarcodeSymbology?) -> Void
+    let fallbackContent: () -> Content
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
             DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
                 .ignoresSafeArea()
         } else {
-            ManualEntryView(isPresented: isPresented, onSubmit: onScanned)
+            fallbackContent()
         }
     }
 }
@@ -85,7 +86,8 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 }
 
 #Preview {
-    BarcodeScanner (isPresented: true, onScanned: { payload, _ in
-        print("Scanned: \(payload)")
-    })
+    let onSubmit: (String, VNBarcodeSymbology?) -> Void = { _,_ in }
+    BarcodeScanner (isPresented: true, onScanned: onSubmit) {
+        ManualEntryView(isEnabled: true, onSubmit: onSubmit)
+    }
 }

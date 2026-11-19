@@ -1,10 +1,10 @@
 //
-//  ContentViewModelTests.swift
+//  ScanningViewModelTests.swift
 //  RemasterTests
 //
-//  The lookup flow on the main screen (RMSTR-11 AC 3, 4 and 5).
+//  The lookup flow on the scanning screen (RMSTR-11 AC 3, 4 and 5).
 //
-//  ContentViewModel resolves its BarcodeServicing from Container.shared when it's
+//  ScanningViewModel resolves its BarcodeServicing from Container.shared when it's
 //  created, so each test registers a stub first. The suite is serialized because
 //  Container.shared is global.
 //
@@ -17,8 +17,8 @@ import Vision
 @testable import Remaster
 
 @MainActor
-@Suite("ContentViewModel", .serialized)
-final class ContentViewModelTests {
+@Suite("ScanningViewModel", .serialized)
+final class ScanningViewModelTests {
     private let stub = StubBarcodeService()
 
     // Each test starts from a fresh container. There's no deinit reset because
@@ -30,7 +30,7 @@ final class ContentViewModelTests {
 
     @Test("Starts idle, so the scanner is running")
     func startsIdle() {
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         #expect(viewModel.isIdle)
         #expect(viewModel.edition == nil)
@@ -39,7 +39,7 @@ final class ContentViewModelTests {
     @Test("A successful lookup shows the edition and pauses the scanner")
     func successShowsEdition() async throws {
         stub.result = .success(try Fixtures.decode(Fixtures.comboPack))
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("0786936900001", shape: .ean13)
         #expect(viewModel.isFetching)
@@ -57,7 +57,7 @@ final class ContentViewModelTests {
     @Test("The scanned barcode and shape are what get looked up")
     func passesBarcodeAndShape() async throws {
         stub.result = .success(try Fixtures.decode(Fixtures.minimal))
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("04252614", shape: .upce)
         try await waitForLookup(viewModel)
@@ -70,7 +70,7 @@ final class ContentViewModelTests {
     @Test("Not found shows a not-found error, not an edition")
     func notFound() async throws {
         stub.result = .failure(NetworkError.notFound)
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("0786936900378", shape: .ean13)
         try await waitForLookup(viewModel)
@@ -87,7 +87,7 @@ final class ContentViewModelTests {
     ])
     func retryableFailure(_ failure: NetworkError) async throws {
         stub.result = .failure(failure)
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("0786936900378", shape: .ean13)
         try await waitForLookup(viewModel)
@@ -100,7 +100,7 @@ final class ContentViewModelTests {
     @Test("A failure that isn't a NetworkError goes to the general error")
     func otherFailure() async throws {
         stub.result = .failure(CancellationError())
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("0786936900378", shape: .ean13)
         try await waitForLookup(viewModel)
@@ -113,7 +113,7 @@ final class ContentViewModelTests {
     @Test("A second scan while a lookup is running is ignored")
     func ignoresScanWhileFetching() async throws {
         stub.result = .success(try Fixtures.decode(Fixtures.minimal))
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.processBarcode("0786936900378", shape: .ean13)
         viewModel.processBarcode("0097361180047", shape: .ean13)
@@ -126,7 +126,7 @@ final class ContentViewModelTests {
     @Test("Retry looks up the same barcode and shape again")
     func retryRepeatsLookup() async throws {
         stub.result = .failure(NetworkError.serverError(statusCode: 504))
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
         viewModel.processBarcode("04252614", shape: .upce)
         try await waitForLookup(viewModel)
 
@@ -143,7 +143,7 @@ final class ContentViewModelTests {
 
     @Test("Retry before any scan does nothing")
     func retryWithoutScan() {
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
 
         viewModel.retry()
 
@@ -154,7 +154,7 @@ final class ContentViewModelTests {
     @Test("Starting a new lookup clears the previous error")
     func newLookupClearsErrors() async throws {
         stub.result = .failure(NetworkError.notFound)
-        let viewModel = ContentViewModel()
+        let viewModel = ScanningViewModel()
         viewModel.processBarcode("0786936900378", shape: .ean13)
         try await waitForLookup(viewModel)
         try #require(viewModel.networkError != nil)
@@ -168,7 +168,7 @@ final class ContentViewModelTests {
     }
 
     /// processBarcode starts its own Task, so wait for isFetching to clear.
-    private func waitForLookup(_ viewModel: ContentViewModel, timeout: Duration = .seconds(3)) async throws {
+    private func waitForLookup(_ viewModel: ScanningViewModel, timeout: Duration = .seconds(3)) async throws {
         let deadline = ContinuousClock.now + timeout
         while viewModel.isFetching {
             guard ContinuousClock.now < deadline else {

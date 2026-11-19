@@ -1,7 +1,7 @@
 # AGENTS.md — Remaster
 
 > Working name: TBD (candidates discussed: Double Dip, Remaster, Shelf Life, Next Pressing, Spine). The repo and Xcode project are named **Remaster**.
-> Status: proof of concept, running on iPhone. Barcode scan or manual UPC entry → Remaster backend `GET /upc/{code}` → UPCMDB lookup, normalized server-side → edition details on screen. No library storage yet.
+> Status: proof of concept, running on iPhone. A tab shell (Library, Upgrades, Watchlist, Settings, plus a Scan action) wraps the scan flow: barcode scan or manual UPC entry → Remaster backend `GET /upc/{code}` → UPCMDB lookup, normalized server-side → edition details on screen. The tabs other than Scan are placeholders; no library storage yet.
 
 This file is the shared context for agents working in this repo: how to build and work in the code, and the product context for planning and building the app. Items in the product context are labelled **Decided** (the product owner has committed to them) or **Proposed** (suggested, not yet confirmed). Treat Proposed items as defaults that may change, and flag any story or change that depends on one.
 
@@ -56,11 +56,11 @@ Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore
 - `ios/Remaster.xcodeproj` — Xcode project; targets `Remaster` (app), `RemasterTests` (unit tests) and `RemasterUITests` (UI tests)
 - `ios/Remaster/RemasterApp.swift` — app entry point
 - `ios/Remaster/App+Injection.swift` — FactoryKit `Container` registrations (dependency injection)
-- `ios/Remaster/ContentView.swift` — main screen
-- `ios/Remaster/ContentViewModel.swift` — `@Observable` view model; runs the barcode lookup through the injected `BarcodeServicing`
-- `ios/Remaster/BarcodeScanner.swift` — camera barcode scanner (Vision)
-- `ios/Remaster/ManualEntryView.swift` — type-in UPC fallback
-- `ios/Remaster/Models/` — `Edition` (the backend's normalized schema), `Errors/NetworkError`, `Extensions/VNBarcodeSymbology+String` (maps Vision symbologies to the backend's `shape` values)
+- `ios/Remaster/ContentView.swift` — app shell (RMSTR-58): a `TabView` with Library, Upgrades, Watchlist and Settings tabs, and a prominent Scan tab that presents `ScanningView` as a full-screen cover and returns to the previous tab when it closes
+- `ios/Remaster/Pages/` — one view per screen: `LibraryView` and `UpgradesView` (each with its own `NavigationStack`; Upgrades carries the tab badge), `WatchlistView` and `SettingsView` (placeholders), and `ScanningView` (the scan flow: scanner, lookup alerts, edition sheet, Close)
+- `ios/Remaster/ViewModels/` — `ScanningViewModel`, the `@Observable` view model that runs the barcode lookup through the injected `BarcodeServicing`
+- `ios/Remaster/Components/` — reusable views: `BarcodeScanner` (camera barcode scanner, VisionKit `DataScannerViewController`; takes fallback content for devices without a camera scanner) and `ManualEntryView` (inline type-in UPC field, used as that fallback in the Simulator)
+- `ios/Remaster/Models/` — `Edition` (the backend's normalized schema), `Title` (the nested TMDB title), `Errors/NetworkError`, `Extensions/VNBarcodeSymbology+String` (maps Vision symbologies to the backend's `shape` values)
 - `ios/Remaster/Services/` — `BarcodeService` (calls the backend over `URLSession` async/await), `SimulatedBarcodeService` (DEBUG only), and protocols in `Interfaces/`
 - `ios/Mocks/Editions.bundle` — sample edition JSON read by `SimulatedBarcodeService`; excluded from device builds
 - `ios/RemasterTests/` — Swift Testing unit tests; JSON fixtures in `Fixtures/`
@@ -85,7 +85,11 @@ Two shared schemes:
 Two test targets, both included in both schemes:
 
 - `RemasterTests` — Swift Testing unit tests. Normalized-edition JSON fixtures live in `ios/RemasterTests/Fixtures/` and are copied into the test bundle; load them with `Fixtures.load(_:)`.
-- `RemasterUITests` — XCTest UI tests (Swift Testing can't drive UI). They launch the app with `SIMULATED_SERVICES` themselves, so they need no backend, and type barcodes into the manual entry alert because the camera scanner isn't available in the Simulator.
+- `RemasterUITests` — XCTest UI tests (Swift Testing can't drive UI). They launch the app with `SIMULATED_SERVICES` themselves, so they need no backend. `EditionLookupUITests` opens Scan and types barcodes into the manual entry field, because the camera scanner isn't available in the Simulator; `AppShellUITests` covers the tab shell. Things that bite:
+  - Elements are found by `accessibilityIdentifier` (`tab.*`, `page.scanning.*`). An identifier on a container view is applied to every element inside it and overwrites their own, so put identifiers on leaf elements only.
+  - iOS 27.0 doesn't expose identifiers set on a `Tab`, and 27.1 does, so the shell tests match tabs by identifier or label.
+  - On iPhone Duo the tabs are a vertical rail that isn't a `TabBar` element; don't query through `app.tabBars`.
+  - An alert button with an identifier appears twice in the accessibility tree; tap it through `firstMatch`.
 
 From the repo root, run all tests:
 
@@ -101,7 +105,7 @@ Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one 
 - Default actor isolation is `MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION`). Services that do network or file work are marked `nonisolated`.
 - Use Swift concurrency (`async`/`await`, `Task`) for asynchronous work.
 - Dependencies are injected with FactoryKit: register them on `Container` in `App+Injection.swift`, and in an `@Observable` type, inject them with `@ObservationIgnored @Injected(...)`. Put services behind a protocol in `Services/Interfaces/` so they can be swapped for simulated or test doubles.
-- Keep new source files in `ios/Remaster/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
+- Keep new source files in `ios/Remaster/`: screens in `Pages/`, reusable views in `Components/`, view models in `ViewModels/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
 
 ### Backend
 
