@@ -2,26 +2,36 @@ import SwiftUI
 import Vision
 
 struct ManualEntryView: View {
-    let isPresented: Bool
+    let isEnabled: Bool
     let onSubmit: (String, VNBarcodeSymbology?) -> Void
     
-    @State private var searchText: String = ""
+    @State private var upc: String = ""
+    @FocusState private var isFocused: Bool
     
     var body: some View {
-        VStack { }
-            .alert("Search a UPC", isPresented: Binding(get: { isPresented }, set: { _ in })) {
-                TextField("UPC", text: $searchText)
-                
-                Button("OK") {
-                    self.onSubmit(searchText, nil)
-                    searchText = ""
-                }
+        HStack {
+            TextField("Search a UPC", text: $upc)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .focused($isFocused)
+                .accessibilityIdentifier("page.scanning.manualEntry.field")
+            
+            Button("Search") {
+                onSubmit(upc, nil)
+                upc = ""
+                isFocused = false
             }
+            .buttonStyle(.borderedProminent)
+            .disabled(upc.isEmpty)
+            .accessibilityIdentifier("page.scanning.manualEntry.search")
+        }
+        .disabled(!isEnabled)
+        .padding()
     }
 }
 
 #Preview {
-    ManualEntryView(isPresented: true, onSubmit: { string, _ in
+    ManualEntryView(isEnabled: true, onSubmit: { string, _ in
         print(string)
     })
 }

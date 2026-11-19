@@ -1,5 +1,5 @@
 //
-//  ContentViewModel.swift
+//  ScanningViewModel.swift
 //  Remaster
 //
 //  Created by Cameron Slash on 9/24/26.
@@ -11,7 +11,7 @@ import Observation
 import Vision
 
 @Observable
-public class ContentViewModel {
+public class ScanningViewModel {
     private static let MINIMUM_WAIT: Duration = .milliseconds(500)
     
     @ObservationIgnored @Injected(\.barcodeService) private var barcodeService: any BarcodeServicing
