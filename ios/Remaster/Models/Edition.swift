@@ -84,6 +84,12 @@ struct Packaging: Codable {
     var memorabilia: Bool?
 }
 
+extension Packaging {
+    var allNil: Bool {
+        Mirror(reflecting: self).children.allSatisfy { ($0.value as? Bool) == nil }
+    }
+}
+
 struct EditionFlags: Codable {
     var limited: Bool?
     var collector: Bool?
@@ -92,12 +98,43 @@ struct EditionFlags: Codable {
     var boxset: Bool?
 }
 
-enum Kind: String, Codable {
-    case movie = "movie", tv = "tv"
+extension EditionFlags {
+    var allFalse: Bool {
+        Mirror(reflecting: self).children.allSatisfy { ($0.value as? Bool) == false }
+    }
 }
 
-enum DiscFormat: String, Codable {
+enum Kind: String, Codable {
+    case movie = "movie", tv = "tv"
+    
+    var displayName: String {
+        switch self {
+        case .movie: return "Movie"
+        case .tv: return "TV"
+        }
+    }
+}
+
+public enum DiscFormat: String, Codable, CaseIterable, Identifiable {
     case dvd = "DVD", bluray = "Blu-ray", uhd = "4K UHD"
+    
+    public var id: Self { self }
+    
+    var displayString: String {
+        switch self {
+        case .dvd: return "DVD"
+        case .bluray: return "BR"
+        case .uhd: return "4K"
+        }
+    }
+    
+    var upgradeOrder: Int {
+        switch self {
+        case .dvd: return 0
+        case .bluray: return 1
+        case .uhd: return 2
+        }
+    }
 }
 
 enum HDRFormat: String, Codable {
