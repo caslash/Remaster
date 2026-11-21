@@ -6,72 +6,116 @@
 //
 
 import SwiftUI
+
+#if DEBUG && canImport(Vision)
 import Vision
+#endif
 
 struct EditionSummaryCard: View {
-    @State var edition: Edition
+    let edition: Edition
+    
+    let titleNotConfirmed: Bool
+    let someDetailsMissing: Bool
+    
+    var chipText: String? {
+        if titleNotConfirmed {
+            return "Title not confirmed"
+        } else if someDetailsMissing {
+            return "Some details missing"
+        }
+        
+        return nil
+    }
 
     var body: some View {
-        HStack {
-            AsyncImage(url: edition.title?.posterURL){ phase in
-                if let image = phase.image {
-                    image
-                        .resizable()
-                        .scaledToFit()
-                } else if phase.error != nil {
-                    
+        HStack(spacing: 16) {
+            AsyncImage(url: edition.title?.posterURL ?? edition.coverImageURL) { phase in
+                if let url = (edition.title?.posterURL ?? edition.coverImageURL) {
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else if phase.error != nil {
+                        fallbackImage
+                    } else {
+                        ProgressView()
+                    }
                 } else {
-                    ProgressView()
+                    fallbackImage
                 }
             }
-            .frame(height: 114)
+            .frame(width: 76, height: 114)
             .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .bottomLeading) {
+                if let format = edition.format?.displayString {
+                    Text(format)
+                        .font(.caption2.weight(.heavy))
+                        .padding(2)
+                        .background(in: RoundedRectangle(cornerRadius: 4))
+                        .backgroundStyle(.ultraThickMaterial)
+                        .padding(4)
+                }
+            }
             
-            Spacer()
-            
-            VStack {
-                Text(edition.upcTitle)
-                    .font(.title2)
-                    .fontWeight(.heavy)
+            VStack(alignment: .leading) {
+                Text(edition.title?.name ?? edition.upcTitle)
+                    .multilineTextAlignment(.leading)
+                    .font(.title2.weight(.heavy))
                 
-                EditionSubtitleView(edition: edition)
-                
-                Text("UPC \(edition.barcodes.upc ?? "")")
+                Text(getSubtitleText())
                     .font(.caption.weight(.regular))
                     .foregroundStyle(.secondary)
+                
+                
+                Text("UPC \(edition.barcodes.upc ?? edition.barcodes.ean ?? "")")
+                    .font(.caption.weight(.regular))
+                    .foregroundStyle(.secondary)
+                
+                if let chipText {
+                    Text(chipText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .padding(4)
+                        .background(in: RoundedRectangle(cornerRadius: 6))
+                        .backgroundStyle(.orange.opacity(0.15))
+                }
             }
-            
-            Spacer()
         }
     }
-}
-
-private struct EditionSubtitleView: View {
-    @State var edition: Edition
     
-    var body: some View {
-        HStack(spacing: 2) {
-            if let kind = edition.kind {
-                Text(kind.displayName)
-            }
+    init(edition: Edition, titleNotConfirmed: Bool = false, someDetailsMissing: Bool = false) {
+        self.edition = edition
+        self.titleNotConfirmed = titleNotConfirmed
+        self.someDetailsMissing = someDetailsMissing
+    }
+    
+    private var fallbackImage: some View {
+        VStack {
+            Image(systemName: "opticaldisc")
+                .resizable()
+                .frame(width: 30, height: 30)
             
-            if let year = edition.year {
-                Text("·")
-                
-                Text(year, format: .number.grouping(.never))
-            }
-            
-            if let distributor = edition.distributor {
-                Text("·")
-                
-                Text(distributor)
-            }
+            Text("No cover")
+                .font(.caption.bold())
         }
-        .font(.caption.weight(.regular))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.gray)
+        .frame(width: 76, height: 114)
+        .background(Color(uiColor: .systemGray3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func getSubtitleText() -> String {
+        var entries: [String] = []
+        
+        if let kind = edition.title?.kind ?? edition.kind { entries.append(kind.displayName) }
+        if let year = edition.title?.year ?? edition.year { entries.append(year.formatted(.number.grouping(.never))) }
+        if let distributor = edition.distributor { entries.append(distributor) }
+        
+        return entries.joined(separator: " · ")
     }
 }
 
+#if DEBUG && canImport(Vision)
 #Preview {
     @Previewable @State var edition: Edition?
     
@@ -88,3 +132,4 @@ private struct EditionSubtitleView: View {
         edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
     }
 }
+#endif
