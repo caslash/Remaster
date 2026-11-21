@@ -21,7 +21,7 @@ struct ConfirmView: View {
                 EditionSummaryCard(edition: viewModel.edition, titleNotConfirmed: viewModel.titleNotConfirmed, someDetailsMissing: viewModel.someDetailsMissing)
                 
                 Section {
-                    Picker("Format You Own", selection: $viewModel.ownedFormat) {
+                    Picker("Format You Own", selection: $viewModel.discFormat) {
                         ForEach(DiscFormat.allCases) { format in
                             Text(format.rawValue).tag(format)
                         }
@@ -36,8 +36,8 @@ struct ConfirmView: View {
                 }
                 
                 Section {
-                    if let secondFormat = viewModel.secondFormatName, viewModel.hasMultipleFormats {
-                        Toggle(isOn: $viewModel.includesSecondFormat) {
+                    if let secondFormat = viewModel.secondFormatName, viewModel.selectedFormatIncludedAndHasLeftover {
+                        Toggle(isOn: $viewModel.includesOtherFormats) {
                             Text("Also includes \(secondFormat)")
                             Text("Combo pack - you own both formats")
                         }
@@ -57,7 +57,7 @@ struct ConfirmView: View {
                     Button("Add to Library") {
                         
                     }
-                    .disabled(viewModel.ownedFormat == nil)
+                    .disabled(viewModel.discFormat == nil)
                     .padding()
                     .fontWeight(.heavy)
                     .buttonSizing(.flexible)
