@@ -94,7 +94,7 @@ Two test targets, both included in both schemes:
 From the repo root, run all tests:
 
 ```sh
-xcodebuild test -project ios/Remaster.xcodeproj -scheme Remaster -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+xcodebuild test -project ios/Remaster.xcodeproj -scheme Remaster -destination 'platform=iOS Simulator,name=iPhone 18 Pro'
 ```
 
 Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one target. Tests need a concrete simulator; list them with `xcrun simctl list devices available`. Inside Xcode, use the `mcp__xcode-tools__*` test tools instead.
