@@ -167,6 +167,7 @@ Existing apps (CLZ Movies, iCollect Movies, Disc Bin, Slipcover, Libib) are inve
 **Decided**
 
 - The user's library is stored locally on the device. No account is required.
+- The on-device library store is **SwiftData**. Decided 2026-11-19 (RMSTR-14).
 - The backend accepts anonymous requests from any client. Requests carry no user or device identifier.
 - The server does not group or correlate requests from the same client.
 - The server drops client IP addresses and does not read or log them.
