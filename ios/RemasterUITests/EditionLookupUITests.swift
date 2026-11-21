@@ -2,7 +2,8 @@
 //  EditionLookupUITests.swift
 //  RemasterUITests
 //
-//  What the user sees after a lookup (RMSTR-11 AC 3, 4 and 5).
+//  What the user sees after a lookup (RMSTR-11 AC 3, 4 and 5), and the confirm
+//  sheet a found edition opens (RMSTR-14).
 //
 //  The app launches with SIMULATED_SERVICES, so SimulatedBarcodeService answers
 //  from ios/Mocks/Editions.bundle and fakes errors for 000 (offline), 400, 404
@@ -26,13 +27,56 @@ final class EditionLookupUITests: XCTestCase {
 
     // MARK: AC 3: the app shows the title and format
 
+    // A found edition opens the confirm sheet (RMSTR-14) with the title and the
+    // lookup's format already picked. The card shows the matched TMDB name, not
+    // the retail upcTitle ("WandaVision: The Complete Series").
     func testFoundEditionShowsTitleAndFormat() {
         lookUp("786936900378")
 
-        let title = app.staticTexts["page.scanning.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 5), "Edition sheet didn't appear")
-        XCTAssertEqual(title.label, "WandaVision: The Complete Series")
-        XCTAssertEqual(app.staticTexts["page.scanning.format"].label, "4K UHD")
+        let title = app.staticTexts["page.confirm.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "Confirm sheet didn't appear")
+        XCTAssertEqual(title.label, "WandaVision")
+        XCTAssertTrue(formatSegment("4K UHD").isSelected, "The lookup's format isn't picked")
+        XCTAssertTrue(app.buttons["page.confirm.add"].isEnabled, "Add to Library is disabled with a format picked")
+    }
+
+    // MARK: RMSTR-14: combo packs
+
+    // WandaVision has two 4K discs, which is one format, not a combo pack.
+    func testSingleFormatSetOffersNoComboToggle() {
+        lookUp("786936900378")
+        XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForExistence(timeout: 5), "Confirm sheet didn't appear")
+
+        XCTAssertFalse(comboToggle.exists, "Combo toggle shown for a single-format set")
+    }
+
+    // Hoppers is 4K + Blu-ray. The toggle offers the other format, and goes away
+    // when the picked format isn't in the set.
+    func testComboToggleFollowsThePickedFormat() {
+        lookUp("043396648654")
+        XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForExistence(timeout: 5), "Confirm sheet didn't appear")
+
+        XCTAssertTrue(comboToggle.exists, "Combo toggle missing for a 4K + Blu-ray set")
+        XCTAssertTrue(comboToggle.label.contains("Also includes Blu-ray"), "Toggle offers the wrong format: \(comboToggle.label)")
+
+        formatSegment("Blu-ray").tap()
+        XCTAssertTrue(comboToggle.label.contains("Also includes 4K UHD"), "Toggle didn't follow the picker: \(comboToggle.label)")
+
+        formatSegment("DVD").tap()
+        XCTAssertFalse(comboToggle.exists, "Combo toggle shown for a format that isn't in the set")
+    }
+
+    // MARK: RMSTR-14: closing the sheet
+
+    func testClosingConfirmReturnsToScanner() {
+        lookUp("786936900378")
+        let title = app.staticTexts["page.confirm.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "Confirm sheet didn't appear")
+
+        app.navigationBars["Is this right?"].buttons.firstMatch.tap()
+
+        XCTAssertTrue(title.waitForNonExistence(timeout: 5), "Confirm sheet stayed up after Close")
+        assertManualEntryIsReady()
     }
 
     // MARK: AC 4: not found shows a not-found message
@@ -119,6 +163,14 @@ final class EditionLookupUITests: XCTestCase {
 
     private var manualEntrySearch: XCUIElement {
         app.buttons["page.scanning.manualEntry.search"]
+    }
+
+    private var comboToggle: XCUIElement {
+        app.switches.matching(NSPredicate(format: "label BEGINSWITH 'Also includes'")).firstMatch
+    }
+
+    private func formatSegment(_ name: String) -> XCUIElement {
+        app.segmentedControls["page.confirm.format"].buttons[name]
     }
 
     private func openScanner(file: StaticString = #filePath, line: UInt = #line) {
