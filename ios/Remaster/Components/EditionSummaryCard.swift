@@ -61,6 +61,7 @@ struct EditionSummaryCard: View {
                 Text(edition.title?.name ?? edition.upcTitle)
                     .multilineTextAlignment(.leading)
                     .font(.title2.weight(.heavy))
+                    .accessibilityIdentifier("page.confirm.title")
                 
                 Text(getSubtitleText())
                     .font(.caption.weight(.regular))

@@ -29,6 +29,7 @@ struct ConfirmView: View {
                     .pickerStyle(.segmented)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
+                    .accessibilityIdentifier("page.confirm.format")
                 } header: {
                     Text("Format you own")
                         .textCase(.uppercase)
@@ -63,10 +64,12 @@ struct ConfirmView: View {
                     .buttonSizing(.flexible)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .accessibilityIdentifier("page.confirm.add")
                     
                     Button("Not this title? Search instead") {
                         
                     }
+                    .accessibilityIdentifier("page.confirm.notThis")
                 }
                 .safeAreaPadding(.horizontal)
             }
