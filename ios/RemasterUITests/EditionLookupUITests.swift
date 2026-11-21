@@ -28,14 +28,14 @@ final class EditionLookupUITests: XCTestCase {
     // MARK: AC 3: the app shows the title and format
 
     // A found edition opens the confirm sheet (RMSTR-14) with the title and the
-    // lookup's format already picked. The card shows the matched TMDB name, not
-    // the retail upcTitle ("WandaVision: The Complete Series").
+    // lookup's format already picked. The card shows the retail upcTitle, which
+    // keeps the season or series scope that the TMDB name drops.
     func testFoundEditionShowsTitleAndFormat() {
         lookUp("786936900378")
 
         let title = app.staticTexts["page.confirm.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "Confirm sheet didn't appear")
-        XCTAssertEqual(title.label, "WandaVision")
+        XCTAssertEqual(title.label, "WandaVision: The Complete Series")
         XCTAssertTrue(formatSegment("4K UHD").isSelected, "The lookup's format isn't picked")
         XCTAssertTrue(app.buttons["page.confirm.add"].isEnabled, "Add to Library is disabled with a format picked")
     }
