@@ -58,7 +58,7 @@ struct EditionSummaryCard: View {
             }
             
             VStack(alignment: .leading) {
-                Text(edition.title?.name ?? edition.upcTitle)
+                Text(edition.upcTitle)
                     .multilineTextAlignment(.leading)
                     .font(.title2.weight(.heavy))
                     .accessibilityIdentifier("page.confirm.title")
