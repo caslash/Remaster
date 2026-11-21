@@ -38,29 +38,7 @@ struct ScanningView: View {
                         .accessibilityIdentifier("page.scanning.alert.message")
                 }
                 .sheet(item: $viewModel.edition) { edition in
-                    VStack {
-                        AsyncImage(url: edition.coverImageURL) { phase in
-                            if let image = phase.image {
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } else if phase.error != nil {
-                                
-                            } else {
-                                ProgressView()
-                            }
-                        }
-                        .frame(height: 200)
-                        .accessibilityIdentifier("page.scanning.coverImage")
-                        
-                        Text(edition.upcTitle)
-                            .font(.title2)
-                            .accessibilityIdentifier("page.scanning.title")
-                        
-                        Text(edition.format?.rawValue ?? "Unknown Format")
-                            .font(.subheadline)
-                            .accessibilityIdentifier("page.scanning.format")
-                    }
+                    ConfirmView(edition: edition)
                 }
                 
                 if (viewModel.isFetching) {
