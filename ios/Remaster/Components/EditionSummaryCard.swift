@@ -30,7 +30,7 @@ struct EditionSummaryCard: View {
     var body: some View {
         HStack(spacing: 16) {
             AsyncImage(url: edition.title?.posterURL ?? edition.coverImageURL) { phase in
-                if let url = (edition.title?.posterURL ?? edition.coverImageURL) {
+                if (edition.title?.posterURL ?? edition.coverImageURL) != nil {
                     if let image = phase.image {
                         image
                             .resizable()
