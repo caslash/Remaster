@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2EF85AAF3093956100FE9847 /* FactoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2EF85AAE3093956100FE9847 /* FactoryKit */; };
+		2EE5679530B1FE3700FC71A7 /* FactoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2EE5679430B1FE3700FC71A7 /* FactoryKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,7 +67,7 @@
 		2E5098F330660D1500D79250 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				2EF85AAF3093956100FE9847 /* FactoryKit in Frameworks */,
+				2EE5679530B1FE3700FC71A7 /* FactoryKit in Frameworks */,
 			);
 		};
 		2E5824603095544600C1A8C8 /* Frameworks */ = {
@@ -149,7 +149,7 @@
 			);
 			name = Remaster;
 			packageProductDependencies = (
-				2EF85AAE3093956100FE9847 /* FactoryKit */,
+				2EE5679430B1FE3700FC71A7 /* FactoryKit */,
 			);
 			productName = Remaster;
 			productReference = 2E5098F630660D1500D79250 /* Remaster.app */;
@@ -208,7 +208,7 @@
 			mainGroup = 2E5098ED30660D1500D79250;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				2EF85AAD3093956100FE9847 /* XCRemoteSwiftPackageReference "Factory" */,
+				2EE5679330B1FE3700FC71A7 /* XCRemoteSwiftPackageReference "Factory" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E5098F730660D1500D79250 /* Products */;
@@ -608,20 +608,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		2EF85AAD3093956100FE9847 /* XCRemoteSwiftPackageReference "Factory" */ = {
+		2EE5679330B1FE3700FC71A7 /* XCRemoteSwiftPackageReference "Factory" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/hmlongco/Factory";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.5.2;
+				minimumVersion = 3.5.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		2EF85AAE3093956100FE9847 /* FactoryKit */ = {
+		2EE5679430B1FE3700FC71A7 /* FactoryKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 2EF85AAD3093956100FE9847 /* XCRemoteSwiftPackageReference "Factory" */;
+			package = 2EE5679330B1FE3700FC71A7 /* XCRemoteSwiftPackageReference "Factory" */;
 			productName = FactoryKit;
 		};
 /* End XCSwiftPackageProductDependency section */
