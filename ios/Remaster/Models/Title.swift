@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Title: Codable {
+public nonisolated struct Title: Codable {
     var tmdbId: String
     var kind: Kind
     var name: String

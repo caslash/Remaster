@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Edition: Codable, Identifiable {
+public nonisolated struct Edition: Codable, Identifiable {
     public var id: String
     var barcodes: Barcodes
     var asin: String?
@@ -34,12 +34,12 @@ public struct Edition: Codable, Identifiable {
     var unmatchedTitle: Bool
 }
 
-struct Barcodes: Codable {
+nonisolated struct Barcodes: Codable {
     var upc: String?
     var ean: String?
 }
 
-struct DiscContent: Codable {
+nonisolated struct DiscContent: Codable {
     var format: DiscFormat
     var regionFree: Bool?
     var regions: [String]?
@@ -78,7 +78,7 @@ struct DiscContent: Codable {
     }
 }
 
-struct Packaging: Codable {
+nonisolated struct Packaging: Codable {
     var steelbook: Bool?
     var slipcover: Bool?
     var memorabilia: Bool?
@@ -90,7 +90,7 @@ extension Packaging {
     }
 }
 
-struct EditionFlags: Codable {
+nonisolated struct EditionFlags: Codable {
     var limited: Bool?
     var collector: Bool?
     var special: Bool?
@@ -104,7 +104,7 @@ extension EditionFlags {
     }
 }
 
-enum Kind: String, Codable {
+public nonisolated enum Kind: String, Codable {
     case movie = "movie", tv = "tv"
     
     var displayName: String {
@@ -115,7 +115,7 @@ enum Kind: String, Codable {
     }
 }
 
-public enum DiscFormat: String, Codable, CaseIterable, Identifiable {
+public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable {
     case dvd = "DVD", bluray = "Blu-ray", uhd = "4K UHD"
     
     public var id: Self { self }
@@ -137,10 +137,10 @@ public enum DiscFormat: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum HDRFormat: String, Codable {
+nonisolated enum HDRFormat: String, Codable {
     case hdr10 = "HDR10", hdr10plus = "HDR10+", dolbyvision = "Dolby Vision"
 }
 
-enum Resolution: String, Codable {
+nonisolated enum Resolution: String, Codable {
     case native = "native", upscaled = "upscaled"
 }
