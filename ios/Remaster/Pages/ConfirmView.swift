@@ -56,9 +56,9 @@ struct ConfirmView: View {
             .safeAreaBar(edge: .bottom) {
                 VStack {
                     Button("Add to Library") {
-                        
+                        viewModel.saveToLibrary()
                     }
-                    .disabled(viewModel.discFormat == nil)
+                    .disabled(viewModel.discFormat == nil || viewModel.isSaving)
                     .padding()
                     .fontWeight(.heavy)
                     .buttonSizing(.flexible)
@@ -78,6 +78,20 @@ struct ConfirmView: View {
                     Button(role: .close) {
                         dismiss()
                     }
+                }
+            }
+            .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, presenting: viewModel.libraryError) { error in
+                Button(error == .duplicate ? "Add Another Copy" : "Add as Another Copy") { viewModel.saveToLibrary(isRetry: true) }
+                Button("Cancel", role: .cancel) {}
+            } message: { error in
+                Text(error.recoverySuggestion ?? "")
+            }
+            .alert(error: $viewModel.error) {
+                Button("OK") { }
+            }
+            .onChange(of: viewModel.saved) { _, saved in
+                if saved {
+                    dismiss()
                 }
             }
         }

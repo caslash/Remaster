@@ -5,6 +5,7 @@
 //  Created by Cameron Slash on 11/19/26.
 //
 
+import FactoryKit
 import Foundation
 import Observation
 
@@ -29,9 +30,45 @@ public class ConfirmViewModel {
     
     public var ownedFormats: [DiscFormat] { getOwnedFormats() }
     
+    public var libraryError: LibraryError?
+    public var isDuplicate: Bool = false
+    public var error: any Error?
+    public var isSaving: Bool = false
+    public var saved: Bool = false
+    
+    @ObservationIgnored @Injected(\.libraryService) private var libraryService: any LibraryManaging
+    
     public init(edition: Edition) {
         self.edition = edition
         self.discFormat = edition.format
+    }
+    
+    public func saveToLibrary(isRetry: Bool = false) {
+        self.isSaving = true
+        
+        Task {
+            let item: LibraryItem = .init(upc: self.edition.barcodes.upc, ean: self.edition.barcodes.ean, kind: self.edition.title?.kind.rawValue, tmdbId: self.edition.title?.tmdbId, ownedFormats: self.ownedFormats.map { $0.rawValue }, edition: self.edition)
+            var failure: Error?
+            
+            do {
+                try await self.libraryService.addToLibrary(item, forceDuplicate: isRetry)
+            } catch {
+                failure = error
+            }
+            
+            if failure == nil {
+                self.saved = true
+            }
+            
+            if let libraryFailure = failure as? LibraryError {
+                self.libraryError = libraryFailure
+                self.isDuplicate = true
+            } else if let failure {
+                self.error = failure
+            }
+            
+            self.isSaving = false
+        }
     }
     
     private func getEditionHDRText() -> String {
