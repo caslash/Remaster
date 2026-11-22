@@ -21,6 +21,12 @@ struct ConfirmView: View {
         NavigationStack {
             Form {
                 EditionSummaryCard(edition: viewModel.edition, titleNotConfirmed: viewModel.titleNotConfirmed, someDetailsMissing: viewModel.someDetailsMissing)
+                    .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, titleVisibility: .visible, presenting: viewModel.libraryError) { error in
+                        Button(error == .duplicate ? "Add Another Copy" : "Add as Another Copy") { viewModel.saveToLibrary(isRetry: true) }
+                        Button("Cancel", role: .cancel) {}
+                    } message: { error in
+                        Text(error.recoverySuggestion ?? "")
+                    }
                 
                 Section {
                     Picker("Format You Own", selection: $viewModel.discFormat) {
@@ -81,12 +87,6 @@ struct ConfirmView: View {
                         dismiss()
                     }
                 }
-            }
-            .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, titleVisibility: .visible, presenting: viewModel.libraryError) { error in
-                Button(error == .duplicate ? "Add Another Copy" : "Add as Another Copy") { viewModel.saveToLibrary(isRetry: true) }
-                Button("Cancel", role: .cancel) {}
-            } message: { error in
-                Text(error.recoverySuggestion ?? "")
             }
             .alert(error: $viewModel.error) {
                 Button("OK") { }
