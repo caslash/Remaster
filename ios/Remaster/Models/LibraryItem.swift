@@ -29,7 +29,7 @@ public final class LibraryItem {
         do {
             return try decoder.decode(Edition.self, from: data)
         } catch {
-            Self.logger.error("Failed to decode saved LibraryItem's edition: \(error.localizedDescription)")
+            Self.logger.error("Failed to decode saved LibraryItem's edition: \(error)")
             return nil
         }
     }
@@ -47,7 +47,7 @@ public final class LibraryItem {
             self.editionData = try encoder.encode(edition)
         } catch {
             Self.logger.error("Failed to encode LibraryItem's edition: \(error)")
-            assertionFailure()
+            assertionFailure("Failed to encode LibraryItem's edition: \(error)")
         }
     }
 }

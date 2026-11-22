@@ -28,7 +28,8 @@ public class LibraryService: LibraryManaging {
     private func checkForDuplicate(item: LibraryItem, skipCheck: Bool) async throws {
         guard !skipCheck else { return }
         
-        if (try await findCopyWithBarcode(item.upc) != nil), (try await findCopyWithBarcode(item.ean) != nil) { throw LibraryError.duplicate }
+        if try await findCopyWithBarcode(item.upc) != nil { throw LibraryError.duplicate }
+        if try await findCopyWithBarcode(item.ean) != nil { throw LibraryError.duplicate }
         if let duplicate = try await findCopyByTitle(item.edition?.title) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
     }
 
