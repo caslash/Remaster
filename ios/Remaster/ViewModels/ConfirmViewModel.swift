@@ -34,7 +34,7 @@ public class ConfirmViewModel {
     public var isDuplicate: Bool = false
     public var error: any Error?
     public var isSaving: Bool = false
-    public var saved: Bool = false
+    public var savedItem: LibraryItem?
     
     @ObservationIgnored @Injected(\.libraryService) private var libraryService: any LibraryManaging
     
@@ -57,7 +57,7 @@ public class ConfirmViewModel {
             }
             
             if failure == nil {
-                self.saved = true
+                self.savedItem = item
             }
             
             if let libraryFailure = failure as? LibraryError {

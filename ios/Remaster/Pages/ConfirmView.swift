@@ -14,6 +14,8 @@ import Vision
 struct ConfirmView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ConfirmViewModel
+    
+    let onSuccess: (LibraryItem) -> Void
 
     var body: some View {
         NavigationStack {
@@ -80,7 +82,7 @@ struct ConfirmView: View {
                     }
                 }
             }
-            .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, presenting: viewModel.libraryError) { error in
+            .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, titleVisibility: .visible, presenting: viewModel.libraryError) { error in
                 Button(error == .duplicate ? "Add Another Copy" : "Add as Another Copy") { viewModel.saveToLibrary(isRetry: true) }
                 Button("Cancel", role: .cancel) {}
             } message: { error in
@@ -89,16 +91,18 @@ struct ConfirmView: View {
             .alert(error: $viewModel.error) {
                 Button("OK") { }
             }
-            .onChange(of: viewModel.saved) { _, saved in
-                if saved {
+            .onChange(of: viewModel.savedItem) { _, savedItem in
+                if let savedItem {
                     dismiss()
+                    onSuccess(savedItem)
                 }
             }
         }
     }
     
-    init(edition: Edition) {
+    init(edition: Edition, onSuccess: @escaping (LibraryItem) -> Void) {
         self.viewModel = ConfirmViewModel(edition: edition)
+        self.onSuccess = onSuccess
     }
 }
 
@@ -108,7 +112,7 @@ struct ConfirmView: View {
     
     Group {
         if let edition {
-            ConfirmView(edition: edition)
+            ConfirmView(edition: edition) { _ in }
         } else {
             ProgressView("Loading preview data...")
         }

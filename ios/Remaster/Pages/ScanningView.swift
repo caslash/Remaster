@@ -13,6 +13,8 @@ struct ScanningView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ScanningViewModel = .init()
     
+    let onSuccess: (LibraryItem) -> Void
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -38,7 +40,7 @@ struct ScanningView: View {
                         .accessibilityIdentifier("page.scanning.alert.message")
                 }
                 .sheet(item: $viewModel.edition) { edition in
-                    ConfirmView(edition: edition)
+                    ConfirmView(edition: edition, onSuccess: onSuccess)
                 }
                 
                 if (viewModel.isFetching) {
@@ -69,5 +71,5 @@ struct ScanningView: View {
 }
 
 #Preview {
-    ScanningView()
+    ScanningView() { _ in }
 }
