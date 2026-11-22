@@ -59,7 +59,7 @@ Agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) and `.gitignore
 - `ios/Remaster/ContentView.swift` — app shell (RMSTR-58): a `TabView` with Library, Upgrades, Watchlist and Settings tabs, and a prominent Scan tab that presents `ScanningView` as a full-screen cover and returns to the previous tab when it closes
 - `ios/Remaster/Pages/` — one view per screen: `LibraryView` and `UpgradesView` (each with its own `NavigationStack`; Upgrades carries the tab badge), `WatchlistView` and `SettingsView` (placeholders), and `ScanningView` (the scan flow: scanner, lookup alerts, edition sheet, Close)
 - `ios/Remaster/ViewModels/` — `ScanningViewModel`, the `@Observable` view model that runs the barcode lookup through the injected `BarcodeServicing`
-- `ios/Remaster/Components/` — reusable views: `BarcodeScanner` (camera barcode scanner, VisionKit `DataScannerViewController`; takes fallback content for devices without a camera scanner) and `ManualEntryView` (inline type-in UPC field, used as that fallback in the Simulator)
+- `ios/Remaster/Components/` — reusable views: `BarcodeScanner` (camera barcode scanner, VisionKit `DataScannerViewController`; takes fallback content for devices without a camera scanner), `ManualEntryView` (inline type-in UPC field, used as that fallback in the Simulator) and `AddedToLibraryView` (the "Added to Library" banner shown after a save)
 - `ios/Remaster/Models/` — `Edition` (the backend's normalized schema), `Title` (the nested TMDB title), `Errors/NetworkError`, `Extensions/VNBarcodeSymbology+String` (maps Vision symbologies to the backend's `shape` values)
 - `ios/Remaster/Services/` — `BarcodeService` (calls the backend over `URLSession` async/await), `SimulatedBarcodeService` (DEBUG only), and protocols in `Interfaces/`
 - `ios/Mocks/Editions.bundle` — sample edition JSON read by `SimulatedBarcodeService`; excluded from device builds
@@ -105,6 +105,7 @@ Add `-only-testing:RemasterTests` or `-only-testing:RemasterUITests` to run one 
 - Default actor isolation is `MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION`). Services that do network or file work are marked `nonisolated`.
 - Use Swift concurrency (`async`/`await`, `Task`) for asynchronous work.
 - Dependencies are injected with FactoryKit: register them on `Container` in `App+Injection.swift`, and in an `@Observable` type, inject them with `@ObservationIgnored @Injected(...)`. Put services behind a protocol in `Services/Interfaces/` so they can be swapped for simulated or test doubles.
+- Transient banners (toasts) are shown with PopupView (`exyte/PopupView`, Swift package): attach `.popup(item:)` at the app shell in `ContentView.swift`, customized as a top `.floater()`, with the banner's own view in `Components/` (e.g. `AddedToLibraryView`). Its default display mode is `.window`, so a popup appears above sheets and full-screen covers; PopupView draws no background of its own, so the banner view supplies its own.
 - Keep new source files in `ios/Remaster/`: screens in `Pages/`, reusable views in `Components/`, view models in `ViewModels/`. The project uses synchronized folders, so new files there are picked up automatically; no `project.pbxproj` edit needed. Don't put `Info.plist` or `.xcconfig` files in `ios/Remaster/` (they'd be copied into the bundle as resources).
 
 ### Backend
