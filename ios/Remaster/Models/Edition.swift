@@ -128,6 +128,14 @@ public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable 
         }
     }
     
+    var chipString: String {
+        switch self {
+        case .dvd: return "DVD"
+        case .bluray: return "BD"
+        case .uhd: return "4K"
+        }
+    }
+    
     var upgradeOrder: Int {
         switch self {
         case .dvd: return 0

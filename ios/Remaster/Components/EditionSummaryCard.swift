@@ -36,12 +36,12 @@ struct EditionSummaryCard: View {
                             .resizable()
                             .scaledToFill()
                     } else if phase.error != nil {
-                        fallbackImage
+                        PosterFallbackImage()
                     } else {
                         ProgressView()
                     }
                 } else {
-                    fallbackImage
+                    PosterFallbackImage()
                 }
             }
             .frame(width: 76, height: 114)
@@ -88,21 +88,6 @@ struct EditionSummaryCard: View {
         self.edition = edition
         self.titleNotConfirmed = titleNotConfirmed
         self.someDetailsMissing = someDetailsMissing
-    }
-    
-    private var fallbackImage: some View {
-        VStack {
-            Image(systemName: "opticaldisc")
-                .resizable()
-                .frame(width: 30, height: 30)
-            
-            Text("No cover")
-                .font(.caption.bold())
-        }
-        .foregroundStyle(.gray)
-        .frame(width: 76, height: 114)
-        .background(Color(uiColor: .systemGray3))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
     
     private func getSubtitleText() -> String {

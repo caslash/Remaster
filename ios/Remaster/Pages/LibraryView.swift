@@ -14,18 +14,40 @@ struct LibraryView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(items) { item in
-                    if let edition = item.edition {
-                        Text(edition.upcTitle)
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 111), spacing: 16)], spacing: 16) {
+                    ForEach(items, id: \.id) { item in
+                        if let edition = item.edition {
+                            LibraryCardView(edition: edition, formats: item.ownedFormats?.unique())
+                                .padding(4)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(.background))
+                                .contentShape(RoundedRectangle(cornerRadius: 6))
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        withAnimation {
+                                            do {
+                                                self.modelContext.delete(item)
+                                                try self.modelContext.save()
+                                            } catch {
+                                                print(error)
+                                            }
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                        }
                     }
                 }
+                .padding(.horizontal)
             }
             .navigationTitle("Library")
         }
     }
 }
 
-#Preview {
+#if DEBUG
+#Preview(traits: .modifier(PreviewLibraryItems())) {
     LibraryView()
 }
+#endif

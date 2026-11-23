@@ -46,7 +46,7 @@ extension Container {
         }
         .singleton
 #if DEBUG
-        .onArg("SIMULATED_SERVICES", factory: {
+        .context(.arg("SIMULATED_SERVICES"), .preview, factory: {
             return self.createModelContainer(isStoredInMemoryOnly: true)
         })
 #endif
