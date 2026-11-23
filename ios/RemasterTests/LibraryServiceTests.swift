@@ -145,6 +145,165 @@ final class LibraryServiceTests {
         #expect(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).count == 1)
     }
 
+    // MARK: - Rescanning with a format the copy doesn't have (RMSTR-14)
+
+    @Test("The same disc with its formats in another order is still a plain duplicate")
+    func formatOrderDoesNotMatter() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.bluray.rawValue, DiscFormat.uhd.rawValue]
+
+        await #expect(throws: LibraryError.duplicate) {
+            try await self.service.addToLibrary(rescan)
+        }
+    }
+
+    @Test("Rescanning with fewer formats than the copy has is a plain duplicate")
+    func subsetOfFormatsIsDuplicate() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+
+        await #expect(throws: LibraryError.duplicate) {
+            try await self.service.addToLibrary(rescan)
+        }
+    }
+
+    @Test("Rescanning with a new format offers only the format the copy is missing")
+    func newFormatIsOffered() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+
+        await #expect(throws: LibraryError.extraFormat(formats: ["Blu-ray"])) {
+            try await self.service.addToLibrary(rescan)
+        }
+    }
+
+    @Test("A saved copy with no formats counts as owning none of them")
+    func copyWithNoFormatsIsOfferedAll() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = nil
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+
+        await #expect(throws: LibraryError.extraFormat(formats: ["4K UHD"])) {
+            try await self.service.addToLibrary(rescan)
+        }
+    }
+
+    @Test("A rescan with no formats is still matched by its barcode")
+    func rescanWithNoFormatsIsDuplicate() async throws {
+        try seed(item(upc: "043396648654", ean: nil, title: nil))
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = nil
+
+        await #expect(throws: LibraryError.duplicate) {
+            try await self.service.addToLibrary(rescan)
+        }
+    }
+
+    // MARK: - Adding formats to the existing copy
+
+    @Test("Adding a format updates the saved copy instead of adding a second one")
+    func addsMissingFormatToCopy() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try await service.addFormatsToExistingCopy(rescan)
+
+        // A separate context only sees what the main context actually saved.
+        let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
+        #expect(saved.count == 1, "Adding a format saved another copy")
+        #expect(Set(saved.first?.ownedFormats ?? []) == ["4K UHD", "Blu-ray"])
+    }
+
+    @Test("A copy saved with no formats gets the missing ones")
+    func fillsCopyWithNoFormats() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = nil
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+        try await service.addFormatsToExistingCopy(rescan)
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.ownedFormats == ["4K UHD"])
+    }
+
+    @Test("Adding a format the copy already has changes nothing")
+    func nothingMissingChangesNothing() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+        try await service.addFormatsToExistingCopy(rescan)
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.ownedFormats == ["4K UHD", "Blu-ray"])
+    }
+
+    @Test("Adding a format keeps the copy's saved edition snapshot")
+    func addingFormatKeepsSnapshot() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: zootopia)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue]
+        try seed(owned)
+        let snapshot = owned.editionData
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: zootopia)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try await service.addFormatsToExistingCopy(rescan)
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.editionData == snapshot, "Adding a format rewrote the saved edition")
+    }
+
+    @Test("With two copies of the disc, only one of them gets the format")
+    func onlyOneCopyGetsTheFormat() async throws {
+        for _ in 0..<2 {
+            let copy = try item(upc: "043396648654", ean: nil, title: nil)
+            copy.ownedFormats = [DiscFormat.uhd.rawValue]
+            try seed(copy)
+        }
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        try await service.addFormatsToExistingCopy(rescan)
+
+        let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
+        #expect(saved.count == 2)
+        #expect(saved.filter { $0.ownedFormats?.contains("Blu-ray") == true }.count == 1, "The format went to more or fewer than one copy")
+    }
+
+    @Test("Adding a format when no copy matches fails instead of pretending it worked")
+    func noCopyToUpdateThrows() async throws {
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+
+        await #expect(throws: LibraryError.duplicateNotFound) {
+            try await self.service.addFormatsToExistingCopy(rescan)
+        }
+        #expect(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).isEmpty, "A copy was saved when there was nothing to update")
+    }
+
     // MARK: - Finding by barcode
 
     @Test("Finds a copy by its UPC")
