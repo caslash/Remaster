@@ -1,13 +1,22 @@
 {
-  "originHash" : "11128a2ceba3c42f2a6d1104b1f856442b35faff72d0f19d98d37345f7c6d324",
+  "originHash" : "d2f47250b9045b8565c08fd5c1c936e4fd0bec6e1d3518f996b292f04e370b0f",
   "pins" : [
     {
       "identity" : "factory",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hmlongco/Factory",
       "state" : {
-        "revision" : "ab10ce2786f18c66e551afe61fa0b650f0b6e55b",
-        "version" : "3.5.2"
+        "revision" : "5f4ea2bf876fd08db3442af96270424120bd2c70",
+        "version" : "3.5.3"
+      }
+    },
+    {
+      "identity" : "popupview",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/exyte/PopupView",
+      "state" : {
+        "revision" : "38fe3de1d9b455a77dd119794e2fa22bdea3ba7f",
+        "version" : "5.0.9"
       }
     }
   ],

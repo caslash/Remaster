@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+import PopupView
+
+#if DEBUG && canImport(Vision)
+import Vision
+#endif
 
 enum RemasterTab: String, Hashable {
     case library, upgrades, watchlist, settings, scanner
@@ -15,6 +20,9 @@ struct ContentView: View {
     @State private var selection: RemasterTab = .library
     @State private var lastSelection: RemasterTab = .library
     @State private var isScannerPresented = false
+    
+    @State private var newestLibraryItem: LibraryItem?
+    @State private var newestLibraryItemType: SaveType
 
     var body: some View {
         TabView(selection: $selection) {
@@ -43,10 +51,22 @@ struct ContentView: View {
                 Color.clear
             }
         }
+        .popup(item: $newestLibraryItem) { item in
+            AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
+        } customize: {
+            $0
+                .type(.floater())
+                .position(.top)
+                .animation(.spring)
+        }
         .fullScreenCover(isPresented: $isScannerPresented, onDismiss: {
             selection = lastSelection
         }) {
-            ScanningView()
+            ScanningView() { item, saveType in
+                isScannerPresented = false
+                self.newestLibraryItem = item
+                self.newestLibraryItemType = saveType
+            }
         }
         .onChange(of: selection) {oldValue, newValue in
             if (newValue == .scanner) {
@@ -55,8 +75,30 @@ struct ContentView: View {
             }
         }
     }
+    
+    init(libraryItem: LibraryItem? = nil) {
+        self._newestLibraryItem = State(initialValue: libraryItem)
+        self._newestLibraryItemType = State(initialValue: .new)
+    }
 }
 
+#if DEBUG && canImport(Vision)
 #Preview {
-    ContentView()
+    @Previewable @State var edition: Edition?
+    
+    var item: LibraryItem? {
+        return .init(upc: edition?.barcodes.upc, ean: edition?.barcodes.ean, kind: edition?.title?.kind.rawValue, tmdbId: edition?.title?.tmdbId, ownedFormats: edition?.discContents?.map { $0.format.rawValue }, edition: edition)
+    }
+    
+    Group {
+        if let item, edition != nil {
+            ContentView(libraryItem: item)
+        } else {
+            ProgressView("Loading preview data...")
+        }
+    }
+    .task {
+        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
+    }
 }
+#endif
