@@ -18,7 +18,7 @@ public class LibraryService: LibraryManaging {
             try await self.checkForDuplicate(item: item, skipCheck: forceDuplicate)
             
             if item.ownedFormats != nil {
-                item.ownedFormats = sortFormats(item.ownedFormats!)
+                item.ownedFormats = DiscFormat.sortList(item.ownedFormats!)
             }
             
             self.modelContainer.mainContext.insert(item)
@@ -35,10 +35,8 @@ public class LibraryService: LibraryManaging {
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
 
-    func findCopyByTitle(_ title: Title?) async throws -> LibraryItem? {
-        guard let title else { return nil }
-        let kind: String? = title.kind.rawValue
-        let tmdbId: String? = title.tmdbId
+    func findCopyByTitle(kind: String?, tmdbId: String?) async throws -> LibraryItem? {
+        guard let kind, let tmdbId else { return nil }
         let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.kind == kind && $0.tmdbId == tmdbId })
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
@@ -51,11 +49,11 @@ public class LibraryService: LibraryManaging {
             
             do {
                 if match.ownedFormats == nil {
-                    match.ownedFormats = sortFormats(extraFormats)
+                    match.ownedFormats = DiscFormat.sortList(extraFormats)
                 } else {
                     var formatsList = match.ownedFormats!
                     formatsList.append(contentsOf: extraFormats)
-                    match.ownedFormats = sortFormats(formatsList)
+                    match.ownedFormats = DiscFormat.sortList(formatsList)
                 }
                 
                 try self.modelContainer.mainContext.save()
@@ -69,15 +67,6 @@ public class LibraryService: LibraryManaging {
         }
     }
     
-    private func sortFormats(_ formats: [DiscFormat.RawValue]) -> [DiscFormat.RawValue] {
-        return formats.sorted(by: { lhs,rhs in
-            let lFormat = DiscFormat(rawValue: lhs)
-            let rFormat = DiscFormat(rawValue: rhs)
-            
-            return lFormat?.upgradeOrder ?? Int.min > rFormat?.upgradeOrder ?? Int.min
-        })
-    }
-    
     private func checkForDuplicate(item: LibraryItem, skipCheck: Bool) async throws {
         guard !skipCheck else { return }
         
@@ -87,7 +76,7 @@ public class LibraryService: LibraryManaging {
             throw LibraryError.extraFormat(formats: extraFormats)
         }
         
-        if let duplicate = try await findCopyByTitle(item.edition?.title) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
+        if let duplicate = try await findCopyByTitle(kind: item.kind, tmdbId: item.tmdbId) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
     }
     
     private func findDuplicateAndExtraFormats(item: LibraryItem) async throws -> (match: LibraryItem, extraFormats: [DiscFormat.RawValue])? {

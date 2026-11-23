@@ -115,7 +115,26 @@ public nonisolated enum Kind: String, Codable {
     }
 }
 
-public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable {
+public nonisolated enum DiscFormat: String, Comparable, Codable, CaseIterable, Identifiable {
+    public static func < (lhs: DiscFormat, rhs: DiscFormat) -> Bool {
+        return lhs.upgradeOrder < rhs.upgradeOrder
+    }
+    
+    public static func sortList(_ list: [DiscFormat.RawValue]) -> [DiscFormat.RawValue] {
+        return list.sorted(by: { lhs, rhs in
+            switch (DiscFormat(rawValue: lhs), DiscFormat(rawValue: rhs)) {
+            case let (lFormat?, rFormat?):
+                return lFormat > rFormat
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                return false
+            }
+        })
+    }
+    
     case dvd = "DVD", bluray = "Blu-ray", uhd = "4K UHD"
     
     public var id: Self { self }
@@ -136,7 +155,7 @@ public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable 
         }
     }
     
-    var upgradeOrder: Int {
+    private var upgradeOrder: Int {
         switch self {
         case .dvd: return 0
         case .bluray: return 1

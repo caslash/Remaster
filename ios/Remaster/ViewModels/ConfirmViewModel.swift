@@ -128,7 +128,7 @@ public class ConfirmViewModel {
     }
     
     private func getDiscContentFormats() -> [DiscFormat] {
-        return (edition.discContents ?? []).map { $0.format }.unique().sorted(sortedBy: \.upgradeOrder)
+        return (edition.discContents ?? []).map { $0.format }.unique().sorted()
     }
     
     private func getLeftoverFormats() -> [DiscFormat] {

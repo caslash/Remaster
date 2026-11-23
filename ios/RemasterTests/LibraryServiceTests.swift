@@ -72,8 +72,28 @@ final class LibraryServiceTests {
 
         let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
         #expect(saved.ownedFormats == ["4K UHD", "Blu-ray"])
-        #expect(saved.edition?.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
-        #expect(saved.edition?.hdr?.count == 2)
+        #expect(saved.getEdition()?.upcTitle == "Zootopia 2 (4K Ultra HD + Blu-ray) SteelBook")
+        #expect(saved.getEdition()?.hdr?.count == 2)
+    }
+
+    @Test("The fields the library grid shows are saved with the copy (RMSTR-18)")
+    func addSavesGridFields() async throws {
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+        try await service.addToLibrary(LibraryItem(
+            upc: edition.barcodes.upc,
+            ean: edition.barcodes.ean,
+            kind: edition.title?.kind.rawValue,
+            tmdbId: edition.title?.tmdbId,
+            ownedFormats: [DiscFormat.uhd.rawValue],
+            edition: edition
+        ))
+
+        // Read back from a separate context, so this checks what was stored,
+        // not the values still sitting on the inserted object.
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.displayTitle == "Zootopia 2")
+        #expect(saved.posterURL == URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
+        #expect(saved.year == 2025)
     }
 
     // MARK: - Duplicate rules (RMSTR-14)
@@ -427,7 +447,8 @@ final class LibraryServiceTests {
     func findsByTitle() async throws {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
-        let found = try await service.findCopyByTitle(zootopia)
+        let zootopia = try zootopia
+        let found = try await service.findCopyByTitle(kind: zootopia.kind.rawValue, tmdbId: zootopia.tmdbId)
 
         #expect(found?.upc == "786936900001")
     }
@@ -437,7 +458,7 @@ final class LibraryServiceTests {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
         // TMDB IDs are only unique per kind (AGENTS.md §5).
-        let found = try await service.findCopyByTitle(try title(tmdbId: "1084242", kind: "tv"))
+        let found = try await service.findCopyByTitle(kind: "tv", tmdbId: "1084242")
 
         #expect(found == nil)
     }
@@ -446,7 +467,7 @@ final class LibraryServiceTests {
     func unknownTitle() async throws {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
-        let found = try await service.findCopyByTitle(try title(tmdbId: "85271", kind: "tv"))
+        let found = try await service.findCopyByTitle(kind: "tv", tmdbId: "85271")
 
         #expect(found == nil)
     }
@@ -455,9 +476,20 @@ final class LibraryServiceTests {
     func nilTitleFindsNothing() async throws {
         try seed(item(upc: "0191329282809", ean: nil, title: nil))
 
-        let found = try await service.findCopyByTitle(nil)
+        let found = try await service.findCopyByTitle(kind: nil, tmdbId: nil)
 
         #expect(found == nil, "A missing title matched a saved copy that also has no TMDB match")
+    }
+
+    @Test("Half a title key never matches a copy that's missing the same half")
+    func partialTitleKeyFindsNothing() async throws {
+        let unmatched = try item(upc: "0191329282809", ean: nil, title: nil)
+        unmatched.kind = "movie"
+        try seed(unmatched)
+
+        let found = try await service.findCopyByTitle(kind: "movie", tmdbId: nil)
+
+        #expect(found == nil, "A kind with no TMDB ID matched a copy that also has no TMDB ID")
     }
 
     // MARK: - Helpers
@@ -509,9 +541,5 @@ final class LibraryServiceTests {
           "unmatchedTitle": \(title == nil)
         }
         """)
-    }
-
-    private func title(tmdbId: String, kind: String) throws -> Title {
-        try JSONDecoder().decode(Title.self, from: Data(#"{ "tmdbId": "\#(tmdbId)", "kind": "\#(kind)", "name": "Other" }"#.utf8))
     }
 }

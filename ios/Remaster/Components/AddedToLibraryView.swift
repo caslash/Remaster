@@ -16,7 +16,7 @@ struct AddedToLibraryView: View {
     let saveType: SaveType
     
     var detail: String? {
-        guard let edition = libraryItem.edition, let ownedFormats = libraryItem.ownedFormats else { return nil }
+        guard let edition = libraryItem.getEdition(), let ownedFormats = libraryItem.ownedFormats else { return nil }
         
         return "\(edition.upcTitle) · \(ownedFormats.joined(separator: " + "))"
     }

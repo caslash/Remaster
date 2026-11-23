@@ -9,6 +9,8 @@ import SwiftData
 import SwiftUI
 
 struct LibraryView: View {
+    @State private var viewModel: LibraryViewModel
+    
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     
@@ -17,32 +19,29 @@ struct LibraryView: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 111), spacing: 16)], spacing: 16) {
                     ForEach(items, id: \.id) { item in
-                        if let edition = item.edition {
-                            LibraryCardView(edition: edition, formats: item.ownedFormats?.unique())
-                                .padding(4)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(.background))
-                                .contentShape(RoundedRectangle(cornerRadius: 6))
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        withAnimation {
-                                            do {
-                                                self.modelContext.delete(item)
-                                                try self.modelContext.save()
-                                            } catch {
-                                                print(error)
-                                            }
-                                        }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                        LibraryCardView(item: item)
+                            .padding(4)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(.background))
+                            .contentShape(RoundedRectangle(cornerRadius: 6))
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    withAnimation {
+                                        self.viewModel.deleteItem(item)
                                     }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
-                        }
+                            }
                     }
                 }
                 .padding(.horizontal)
             }
             .navigationTitle("Library")
         }
+    }
+    
+    init() {
+        self.viewModel = LibraryViewModel()
     }
 }
 

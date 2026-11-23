@@ -12,55 +12,59 @@ import Vision
 #endif
 
 struct LibraryCardView: View {
-    let edition: Edition
+    let item: LibraryItem?
     let formats: [DiscFormat?]?
 
     var body: some View {
-        VStack(alignment: .leading) {
-            AsyncImage(url: edition.title?.posterURL ?? edition.coverImageURL) { phase in
-                if (edition.title?.posterURL ?? edition.coverImageURL) != nil {
-                    if let image = phase.image {
-                        image.resizable()
-                            .scaledToFill()
-                    } else if phase.error != nil {
-                        PosterFallbackImage()
-                    } else {
-                        ProgressView()
-                    }
-                } else {
-                    PosterFallbackImage()
-                }
-            }
-            .frame(width: 111, height: 167)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .bottomLeading) {
-                if let formats {
-                    ChipStackLayout(peek: 8) {
-                        ForEach(Array(formats.compactMap { $0 }.enumerated()), id: \.offset) { index, format in
-                            FormatChip(format: format)
-                                .zIndex(-Double(index))
+        if let item {
+            VStack(alignment: .leading) {
+                AsyncImage(url: item.posterURL) { phase in
+                    if item.posterURL != nil {
+                        if let image = phase.image {
+                            image.resizable()
+                                .scaledToFill()
+                        } else if phase.error != nil {
+                            PosterFallbackImage()
+                        } else {
+                            ProgressView()
                         }
+                    } else {
+                        PosterFallbackImage()
                     }
-                    .padding(4)
                 }
-            }
-            
-            Text(edition.upcTitle)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .bold()
-            
-            if let year = edition.title?.year ?? edition.year {
-                Text(year.formatted(.number.grouping(.never)))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .frame(width: 111, height: 167)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .bottomLeading) {
+                    if let formats {
+                        ChipStackLayout(peek: 8) {
+                            ForEach(Array(formats.compactMap { $0 }.enumerated()), id: \.offset) { index, format in
+                                FormatChip(format: format)
+                                    .zIndex(-Double(index))
+                            }
+                        }
+                        .padding(4)
+                    }
+                }
+                
+                if let displayTitle = item.displayTitle {
+                    Text(displayTitle)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .bold()
+                }
+                
+                if let year = item.year {
+                    Text(year.formatted(.number.grouping(.never)))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
     
-    init(edition: Edition, formats: [DiscFormat.RawValue]?) {
-        self.edition = edition
-        self.formats = formats?.map { DiscFormat(rawValue: $0) }
+    init(item: LibraryItem?) {
+        self.item = item
+        self.formats = item?.ownedFormats?.map { DiscFormat(rawValue: $0) }
     }
     
     struct FormatChip: View {
@@ -120,9 +124,13 @@ struct LibraryCardView: View {
 #Preview {
     @Previewable @State var edition: Edition?
     
+    var item: LibraryItem? {
+        return .init(upc: edition?.barcodes.upc, ean: edition?.barcodes.ean, kind: edition?.title?.kind.rawValue, tmdbId: edition?.title?.tmdbId, ownedFormats: edition?.discContents?.map { $0.format.rawValue }, edition: edition)
+    }
+    
     Group {
-        if let edition {
-            LibraryCardView(edition: edition, formats: [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue, DiscFormat.dvd.rawValue])
+        if let item {
+            LibraryCardView(item: item)
         } else {
             ProgressView("Loading preview data...")
         }

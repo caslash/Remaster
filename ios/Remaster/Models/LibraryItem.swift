@@ -20,8 +20,36 @@ public final class LibraryItem {
     var ownedFormats: [DiscFormat.RawValue]?
     var editionData: Data?
     var dateAdded: Date = Date.now
+    var displayTitle: String?
+    var posterURL: URL?
+    var year: Int?
     
-    var edition: Edition? {
+    public init(upc: String?, ean: String?, kind: Kind.RawValue?, tmdbId: String?, ownedFormats: [DiscFormat.RawValue]?, edition: Edition?) {
+        let encoder = JSONEncoder()
+        
+        self.upc = upc
+        self.ean = ean
+        self.kind = kind
+        self.tmdbId = tmdbId
+        self.displayTitle = edition?.title?.name ?? edition?.upcTitle
+        self.posterURL = edition?.title?.posterURL ?? edition?.coverImageURL
+        self.year = edition?.title?.year ?? edition?.year
+        
+        if let ownedFormats {
+            self.ownedFormats = DiscFormat.sortList(ownedFormats.unique())
+        }
+        
+        if let edition {
+            do {
+                self.editionData = try encoder.encode(edition)
+            } catch {
+                Self.logger.error("Failed to encode LibraryItem's edition: \(error)")
+                assertionFailure("Failed to encode LibraryItem's edition: \(error)")
+            }
+        }
+    }
+    
+    public func getEdition() -> Edition? {
         guard let data = editionData else { return nil }
         
         let decoder = JSONDecoder()
@@ -31,23 +59,6 @@ public final class LibraryItem {
         } catch {
             Self.logger.error("Failed to decode saved LibraryItem's edition: \(error)")
             return nil
-        }
-    }
-    
-    public init(upc: String?, ean: String?, kind: Kind.RawValue?, tmdbId: String?, ownedFormats: [DiscFormat.RawValue]?, edition: Edition?) {
-        let encoder = JSONEncoder()
-        
-        self.upc = upc
-        self.ean = ean
-        self.kind = kind
-        self.tmdbId = tmdbId
-        self.ownedFormats = ownedFormats
-        
-        do {
-            self.editionData = try encoder.encode(edition)
-        } catch {
-            Self.logger.error("Failed to encode LibraryItem's edition: \(error)")
-            assertionFailure("Failed to encode LibraryItem's edition: \(error)")
         }
     }
 }
