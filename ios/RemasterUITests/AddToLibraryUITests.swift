@@ -134,7 +134,74 @@ final class AddToLibraryUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForNonExistence(timeout: 5), "Confirm sheet stayed up after Add Another Copy")
     }
 
+    // MARK: Adding a format to the copy you own
+
+    // Hoppers saved as 4K only, then rescanned with the combo toggle on: the
+    // dialog offers to add Blu-ray to the saved copy instead of a second copy.
+    func testRescanWithANewFormatOffersToUpdateTheCopy() {
+        saveHoppersAs4KOnly()
+        openConfirm("043396648654")
+        XCTAssertEqual(comboToggle.value as? String, "1", "Combo toggle didn't start on")
+
+        app.buttons["page.confirm.add"].tap()
+
+        XCTAssertTrue(app.staticTexts["Already in your library"].waitForExistence(timeout: 5), "No duplicate warning for the same disc")
+        XCTAssertTrue(app.staticTexts["Add Blu-ray to your copy?"].exists, "Warning doesn't name the missing format")
+        XCTAssertTrue(addToYourCopy.exists, "No button to add the format to your copy")
+        XCTAssertFalse(addToYourCopy.label.isEmpty, "The add-to-your-copy button has no label")
+        XCTAssertTrue(addAnotherCopy.exists || app.buttons["Add as Another Copy"].exists, "Adding another copy is no longer offered")
+    }
+
+    func testAddingTheFormatUpdatesTheCopy() {
+        saveHoppersAs4KOnly()
+        openConfirm("043396648654")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(addToYourCopy.waitForExistence(timeout: 5), "No button to add the format to your copy")
+
+        addToYourCopy.tap()
+
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No banner within 1 s of updating the copy")
+        XCTAssertTrue(banner.label.contains("Updated your copy"), "Banner label: \(banner.label)")
+        XCTAssertFalse(banner.label.contains("Added to Library"), "Banner says Added for an update: \(banner.label)")
+        XCTAssertTrue(banner.label.contains("Hoppers · 4K UHD + Blu-ray"), "Banner label: \(banner.label)")
+        XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForNonExistence(timeout: 5), "Confirm sheet stayed up after updating the copy")
+    }
+
+    // After the update, the same rescan is a plain duplicate: the copy now has both formats.
+    func testUpdatedCopyIsThenAPlainDuplicate() {
+        saveHoppersAs4KOnly()
+        openConfirm("043396648654")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(addToYourCopy.waitForExistence(timeout: 5), "No button to add the format to your copy")
+        addToYourCopy.tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 5), "Copy wasn't updated")
+        banner.tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Banner didn't dismiss")
+
+        openConfirm("043396648654")
+        app.buttons["page.confirm.add"].tap()
+
+        XCTAssertTrue(app.staticTexts["Own a second copy? Add it so your library count stays right."].waitForExistence(timeout: 5), "Rescan after the update isn't a plain duplicate")
+        XCTAssertFalse(addToYourCopy.exists, "Still offering to add a format the copy now has")
+    }
+
     // MARK: Helpers
+
+    private var addToYourCopy: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'your copy'")).firstMatch
+    }
+
+    /// Saves Hoppers (4K + Blu-ray) with the combo toggle off, so the copy only has 4K UHD.
+    private func saveHoppersAs4KOnly(file: StaticString = #filePath, line: UInt = #line) {
+        openConfirm("043396648654", file: file, line: line)
+        comboToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        XCTAssertEqual(comboToggle.value as? String, "0", "Combo toggle didn't turn off", file: file, line: line)
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 5), "Hoppers wasn't saved", file: file, line: line)
+        XCTAssertTrue(banner.label.contains("Hoppers · 4K UHD"), "Banner label: \(banner.label)", file: file, line: line)
+        banner.tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Banner didn't dismiss", file: file, line: line)
+    }
 
     private var banner: XCUIElement {
         app.descendants(matching: .any)["banner.added"].firstMatch

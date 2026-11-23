@@ -47,6 +47,17 @@ final class LibraryServiceTests {
         #expect(saved.first?.upc == "786936900001")
     }
 
+    @Test("A new copy's formats are saved highest first, whatever order they were picked in")
+    func addSortsFormats() async throws {
+        let combo = try item(upc: "043396648654", ean: nil, title: nil)
+        combo.ownedFormats = [DiscFormat.dvd.rawValue, DiscFormat.bluray.rawValue, DiscFormat.uhd.rawValue]
+
+        try await service.addToLibrary(combo)
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.ownedFormats == ["4K UHD", "Blu-ray", "DVD"])
+    }
+
     @Test("A saved copy keeps the edition snapshot and the owned formats")
     func addKeepsSnapshot() async throws {
         let edition = try Fixtures.decode(Fixtures.comboPack)
@@ -225,12 +236,28 @@ final class LibraryServiceTests {
 
         let rescan = try item(upc: "043396648654", ean: nil, title: nil)
         rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
-        try await service.addFormatsToExistingCopy(rescan)
+        let updated = try await service.addFormatsToExistingCopy(rescan)
 
         // A separate context only sees what the main context actually saved.
         let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
         #expect(saved.count == 1, "Adding a format saved another copy")
         #expect(Set(saved.first?.ownedFormats ?? []) == ["4K UHD", "Blu-ray"])
+        #expect(Set(updated.ownedFormats ?? []) == ["4K UHD", "Blu-ray"], "The returned copy doesn't have the merged formats")
+    }
+
+    @Test("Adding a format returns the saved copy, not the rescanned item")
+    func returnsTheSavedCopy() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.dvd.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
+        let updated = try await service.addFormatsToExistingCopy(rescan)
+
+        // The banner shows these formats, so they must be the copy's (DVD kept), not the rescan's.
+        #expect(updated.persistentModelID == owned.persistentModelID, "Returned an object other than the saved copy")
+        #expect(Set(updated.ownedFormats ?? []) == ["4K UHD", "DVD", "Blu-ray"])
     }
 
     @Test("A copy saved with no formats gets the missing ones")
@@ -241,10 +268,23 @@ final class LibraryServiceTests {
 
         let rescan = try item(upc: "043396648654", ean: nil, title: nil)
         rescan.ownedFormats = [DiscFormat.uhd.rawValue]
-        try await service.addFormatsToExistingCopy(rescan)
+        _ = try await service.addFormatsToExistingCopy(rescan)
 
         let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
         #expect(saved.ownedFormats == ["4K UHD"])
+    }
+
+    @Test("A copy with no formats gets the missing ones highest first")
+    func fillsCopyWithNoFormatsSorted() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = nil
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.bluray.rawValue, DiscFormat.uhd.rawValue]
+        let updated = try await service.addFormatsToExistingCopy(rescan)
+
+        #expect(updated.ownedFormats == ["4K UHD", "Blu-ray"])
     }
 
     @Test("Adding a format the copy already has changes nothing")
@@ -255,10 +295,39 @@ final class LibraryServiceTests {
 
         let rescan = try item(upc: "043396648654", ean: nil, title: nil)
         rescan.ownedFormats = [DiscFormat.uhd.rawValue]
-        try await service.addFormatsToExistingCopy(rescan)
+        _ = try await service.addFormatsToExistingCopy(rescan)
 
         let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
         #expect(saved.ownedFormats == ["4K UHD", "Blu-ray"])
+    }
+
+    @Test("A copy with nothing missing keeps its formats in the order they were saved")
+    func nothingMissingKeepsSavedOrder() async throws {
+        // New saves are sorted highest first, but a copy from before that (or
+        // seeded directly, as here) can still be in another order.
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = [DiscFormat.bluray.rawValue, DiscFormat.uhd.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+        _ = try await service.addFormatsToExistingCopy(rescan)
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        #expect(saved.ownedFormats == ["Blu-ray", "4K UHD"], "A copy with nothing to add was rewritten")
+    }
+
+    @Test("A saved format the app doesn't recognise is kept, after the known ones")
+    func unknownSavedFormatIsKeptLast() async throws {
+        let owned = try item(upc: "043396648654", ean: nil, title: nil)
+        owned.ownedFormats = ["BluRay", DiscFormat.dvd.rawValue]
+        try seed(owned)
+
+        let rescan = try item(upc: "043396648654", ean: nil, title: nil)
+        rescan.ownedFormats = [DiscFormat.uhd.rawValue]
+        let updated = try await service.addFormatsToExistingCopy(rescan)
+
+        #expect(updated.ownedFormats == ["4K UHD", "DVD", "BluRay"])
     }
 
     @Test("Adding a format keeps the copy's saved edition snapshot")
@@ -270,7 +339,7 @@ final class LibraryServiceTests {
 
         let rescan = try item(upc: "043396648654", ean: nil, title: zootopia)
         rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
-        try await service.addFormatsToExistingCopy(rescan)
+        _ = try await service.addFormatsToExistingCopy(rescan)
 
         let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
         #expect(saved.editionData == snapshot, "Adding a format rewrote the saved edition")
@@ -286,7 +355,7 @@ final class LibraryServiceTests {
 
         let rescan = try item(upc: "043396648654", ean: nil, title: nil)
         rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
-        try await service.addFormatsToExistingCopy(rescan)
+        _ = try await service.addFormatsToExistingCopy(rescan)
 
         let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
         #expect(saved.count == 2)
@@ -299,7 +368,7 @@ final class LibraryServiceTests {
         rescan.ownedFormats = [DiscFormat.uhd.rawValue, DiscFormat.bluray.rawValue]
 
         await #expect(throws: LibraryError.duplicateNotFound) {
-            try await self.service.addFormatsToExistingCopy(rescan)
+            _ = try await self.service.addFormatsToExistingCopy(rescan)
         }
         #expect(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).isEmpty, "A copy was saved when there was nothing to update")
     }
