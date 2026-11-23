@@ -13,7 +13,7 @@ struct ScanningView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ScanningViewModel = .init()
     
-    let onSuccess: (LibraryItem) -> Void
+    let onSuccess: (LibraryItem, SaveType) -> Void
     
     var body: some View {
         NavigationStack {
@@ -71,5 +71,5 @@ struct ScanningView: View {
 }
 
 #Preview {
-    ScanningView() { _ in }
+    ScanningView() { _, _ in }
 }

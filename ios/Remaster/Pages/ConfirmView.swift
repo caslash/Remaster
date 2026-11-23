@@ -15,15 +15,20 @@ struct ConfirmView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ConfirmViewModel
     
-    let onSuccess: (LibraryItem) -> Void
+    let onSuccess: (LibraryItem, SaveType) -> Void
 
     var body: some View {
         NavigationStack {
             Form {
                 EditionSummaryCard(edition: viewModel.edition, titleNotConfirmed: viewModel.titleNotConfirmed, someDetailsMissing: viewModel.someDetailsMissing)
                     .confirmationDialog(viewModel.libraryError?.errorDescription ?? "", isPresented: $viewModel.isDuplicate, titleVisibility: .visible, presenting: viewModel.libraryError) { error in
+                        
+                        if case .extraFormat(let formats) = error {
+                            Button("Add \(formats.joined(separator: " + ")) to Your Copy") { viewModel.addFormatsToExistingCopy() }
+                        }
                         Button(error == .duplicate ? "Add Another Copy" : "Add as Another Copy") { viewModel.saveToLibrary(isRetry: true) }
                         Button("Cancel", role: .cancel) {}
+                        
                     } message: { error in
                         Text(error.recoverySuggestion ?? "")
                     }
@@ -94,13 +99,19 @@ struct ConfirmView: View {
             .onChange(of: viewModel.savedItem) { _, savedItem in
                 if let savedItem {
                     dismiss()
-                    onSuccess(savedItem)
+                    onSuccess(savedItem, .new)
+                }
+            }
+            .onChange(of: viewModel.updatedItem) { _, updatedItem in
+                if let updatedItem {
+                    dismiss()
+                    onSuccess(updatedItem, .update)
                 }
             }
         }
     }
     
-    init(edition: Edition, onSuccess: @escaping (LibraryItem) -> Void) {
+    init(edition: Edition, onSuccess: @escaping (LibraryItem, SaveType) -> Void) {
         self.viewModel = ConfirmViewModel(edition: edition)
         self.onSuccess = onSuccess
     }
@@ -112,7 +123,7 @@ struct ConfirmView: View {
     
     Group {
         if let edition {
-            ConfirmView(edition: edition) { _ in }
+            ConfirmView(edition: edition) { _, _ in }
         } else {
             ProgressView("Loading preview data...")
         }

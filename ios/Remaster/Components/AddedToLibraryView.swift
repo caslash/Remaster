@@ -13,6 +13,7 @@ import Vision
 
 struct AddedToLibraryView: View {
     let libraryItem: LibraryItem
+    let saveType: SaveType
     
     var detail: String? {
         guard let edition = libraryItem.edition, let ownedFormats = libraryItem.ownedFormats else { return nil }
@@ -29,7 +30,7 @@ struct AddedToLibraryView: View {
                 .foregroundStyle(.green)
             
             VStack(alignment: .leading) {
-                Text("Added to Library")
+                Text(saveType == .new ? "Added to Library" : "Updated your copy")
                     .font(.subheadline.bold())
                 
                 if let detail {
@@ -65,7 +66,7 @@ struct AddedToLibraryView: View {
     
     Group {
         if let item {
-            AddedToLibraryView(libraryItem: item)
+            AddedToLibraryView(libraryItem: item, saveType: .new)
         } else {
             ProgressView("Loading preview data...")
         }

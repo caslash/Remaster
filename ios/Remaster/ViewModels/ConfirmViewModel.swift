@@ -35,6 +35,7 @@ public class ConfirmViewModel {
     public var error: any Error?
     public var isSaving: Bool = false
     public var savedItem: LibraryItem?
+    public var updatedItem: LibraryItem?
     
     @ObservationIgnored @Injected(\.libraryService) private var libraryService: any LibraryManaging
     
@@ -47,7 +48,8 @@ public class ConfirmViewModel {
         self.isSaving = true
         
         Task {
-            let item: LibraryItem = .init(upc: self.edition.barcodes.upc, ean: self.edition.barcodes.ean, kind: self.edition.title?.kind.rawValue, tmdbId: self.edition.title?.tmdbId, ownedFormats: self.ownedFormats.map { $0.rawValue }, edition: self.edition)
+            let item = buildLibraryItem()
+            
             var failure: Error?
             
             do {
@@ -69,6 +71,40 @@ public class ConfirmViewModel {
             
             self.isSaving = false
         }
+    }
+    
+    public func addFormatsToExistingCopy() {
+        self.isSaving = true
+        
+        Task {
+            let item = buildLibraryItem()
+            
+            var failure: Error?
+            
+            var updatedCopy: LibraryItem? = nil
+            
+            do {
+                updatedCopy = try await self.libraryService.addFormatsToExistingCopy(item)
+            } catch {
+                failure = error
+            }
+            
+            if failure == nil {
+                self.updatedItem = updatedCopy
+            }
+            
+            if let failure {
+                self.error = failure
+            }
+            
+            self.isSaving = false
+        }
+    }
+    
+    private func buildLibraryItem() -> LibraryItem {
+        let item: LibraryItem = .init(upc: self.edition.barcodes.upc, ean: self.edition.barcodes.ean, kind: self.edition.title?.kind.rawValue, tmdbId: self.edition.title?.tmdbId, ownedFormats: self.ownedFormats.map { $0.rawValue }, edition: self.edition)
+        
+        return item
     }
     
     private func getEditionHDRText() -> String {

@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var isScannerPresented = false
     
     @State private var newestLibraryItem: LibraryItem?
+    @State private var newestLibraryItemType: SaveType
 
     var body: some View {
         TabView(selection: $selection) {
@@ -51,7 +52,7 @@ struct ContentView: View {
             }
         }
         .popup(item: $newestLibraryItem) { item in
-            AddedToLibraryView(libraryItem: item)
+            AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
         } customize: {
             $0
                 .type(.floater())
@@ -61,9 +62,10 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $isScannerPresented, onDismiss: {
             selection = lastSelection
         }) {
-            ScanningView() { item in
+            ScanningView() { item, saveType in
                 isScannerPresented = false
                 self.newestLibraryItem = item
+                self.newestLibraryItemType = saveType
             }
         }
         .onChange(of: selection) {oldValue, newValue in
@@ -76,6 +78,7 @@ struct ContentView: View {
     
     init(libraryItem: LibraryItem? = nil) {
         self._newestLibraryItem = State(initialValue: libraryItem)
+        self._newestLibraryItemType = State(initialValue: .new)
     }
 }
 
