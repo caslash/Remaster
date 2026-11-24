@@ -21,34 +21,11 @@ struct LibraryCardView: View {
     
     let item: LibraryItem?
     let formats: [DiscFormat?]?
-    
-    @ViewBuilder
-    private var poster: some View {
-        if let posterImage {
-            Image(uiImage: posterImage)
-                .resizable()
-                .scaledToFill()
-        } else if item?.posterURL != nil {
-            AsyncImage(url: item?.posterURL) { phase in
-                if let image = phase.image {
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } else if phase.error != nil {
-                    PosterFallbackImage(item: item)
-                } else {
-                    ProgressView()
-                }
-            }
-        } else {
-            PosterFallbackImage(item: item)
-        }
-    }
 
     var body: some View {
         if let item {
             VStack(alignment: .leading) {
-                poster
+                Poster(title: item.displayTitle, posterURL: item.posterURL, posterImage: posterImage)
                     .frame(width: Self.POSTER_WIDTH, height: (Self.POSTER_WIDTH*3)/2)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(alignment: .bottomLeading) {
@@ -92,21 +69,13 @@ struct LibraryCardView: View {
     struct FormatChip: View {
         let format: DiscFormat
         
-        var backgroundColor: Color {
-            switch format {
-            case .dvd: return .gray
-            case .bluray: return .blue
-            case .uhd: return .black
-            }
-        }
-        
         var body: some View {
             Text(format.chipString)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 5).fill(backgroundColor))
+                .background(RoundedRectangle(cornerRadius: 5).fill(format.backgroundColor))
         }
     }
     
@@ -138,6 +107,16 @@ struct LibraryCardView: View {
                 let trailing = front.width + CGFloat(index) * peek
                 return CGRect(x: trailing - size.width, y: 0, width: size.width, height: size.height)
             }
+        }
+    }
+}
+
+extension DiscFormat {
+    var backgroundColor: Color {
+        switch self {
+        case .dvd: return .gray
+        case .bluray: return .blue
+        case .uhd: return .black
         }
     }
 }

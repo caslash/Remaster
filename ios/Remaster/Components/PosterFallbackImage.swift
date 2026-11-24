@@ -12,11 +12,11 @@ import Vision
 #endif
 
 struct PosterFallbackImage: View {
-    let item: LibraryItem?
+    let title: String?
     
     @ViewBuilder
     var fallbackPoster: some View {
-        if let item, let title = item.displayTitle {
+        if let title {
             Text(title)
                 .multilineTextAlignment(.center)
                 .truncationMode(.tail)
@@ -40,8 +40,8 @@ struct PosterFallbackImage: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
     
-    init(item: LibraryItem? = nil) {
-        self.item = item
+    init(title: String? = nil) {
+        self.title = title
     }
 }
 
@@ -60,7 +60,7 @@ struct PosterFallbackImage: View {
     
     Group {
         if let item {
-            PosterFallbackImage(item: item)
+            PosterFallbackImage(title: item.displayTitle)
                 .frame(width: LibraryCardView.POSTER_WIDTH, height: (LibraryCardView.POSTER_WIDTH*3)/2)
         } else {
             ProgressView("Loading preview data...")

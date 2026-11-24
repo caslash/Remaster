@@ -170,4 +170,11 @@ nonisolated enum HDRFormat: String, Codable {
 
 nonisolated enum Resolution: String, Codable {
     case native = "native", upscaled = "upscaled"
+    
+    var displayName: String {
+        switch self {
+        case .native: return "Native 4K"
+        case .upscaled: return "Upscaled 4K"
+        }
+    }
 }

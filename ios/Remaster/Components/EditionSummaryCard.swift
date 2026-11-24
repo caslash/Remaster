@@ -29,33 +29,19 @@ struct EditionSummaryCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            AsyncImage(url: edition.title?.posterURL ?? edition.coverImageURL) { phase in
-                if (edition.title?.posterURL ?? edition.coverImageURL) != nil {
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } else if phase.error != nil {
-                        PosterFallbackImage()
-                    } else {
-                        ProgressView()
+            Poster(posterURL: edition.title?.posterURL ?? edition.coverImageURL)
+                .frame(width: 76, height: 114)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .bottomLeading) {
+                    if let format = edition.format?.displayString {
+                        Text(format)
+                            .font(.caption2.weight(.heavy))
+                            .padding(2)
+                            .background(in: RoundedRectangle(cornerRadius: 4))
+                            .backgroundStyle(.ultraThickMaterial)
+                            .padding(4)
                     }
-                } else {
-                    PosterFallbackImage()
                 }
-            }
-            .frame(width: 76, height: 114)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .bottomLeading) {
-                if let format = edition.format?.displayString {
-                    Text(format)
-                        .font(.caption2.weight(.heavy))
-                        .padding(2)
-                        .background(in: RoundedRectangle(cornerRadius: 4))
-                        .backgroundStyle(.ultraThickMaterial)
-                        .padding(4)
-                }
-            }
             
             VStack(alignment: .leading) {
                 Text(edition.upcTitle)

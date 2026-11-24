@@ -43,13 +43,19 @@ public class LibraryService: LibraryManaging {
         }
     }
 
-    func findCopyWithBarcode(_ barcode: String?) async throws -> LibraryItem? {
+    func findCopyWithBarcode(_ barcode: String?) throws -> LibraryItem? {
         guard let barcode else { return nil }
         let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.upc == barcode || $0.ean == barcode })
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
+    
+    func findAmountOfCopiesWithBarcode(_ barcode: String?) throws -> Int {
+        guard let barcode else { return 0 }
+        let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.upc == barcode || $0.ean == barcode })
+        return try self.modelContainer.mainContext.fetchCount(descriptor)
+    }
 
-    func findCopyByTitle(kind: String?, tmdbId: String?) async throws -> LibraryItem? {
+    func findCopyByTitle(kind: String?, tmdbId: String?) throws -> LibraryItem? {
         guard let kind, let tmdbId else { return nil }
         let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.kind == kind && $0.tmdbId == tmdbId })
         return try self.modelContainer.mainContext.fetch(descriptor).first
@@ -81,6 +87,16 @@ public class LibraryService: LibraryManaging {
         }
     }
     
+    func deleteFromLibrary(_ item: LibraryItem) throws {
+        do {
+            self.modelContainer.mainContext.delete(item)
+            try self.modelContainer.mainContext.save()
+        } catch {
+            self.modelContainer.mainContext.rollback()
+            throw error
+        }
+    }
+    
     private func checkForDuplicate(item: LibraryItem, skipCheck: Bool) async throws {
         guard !skipCheck else { return }
         
@@ -90,14 +106,14 @@ public class LibraryService: LibraryManaging {
             throw LibraryError.extraFormat(formats: extraFormats)
         }
         
-        if let duplicate = try await findCopyByTitle(kind: item.kind, tmdbId: item.tmdbId) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
+        if let duplicate = try findCopyByTitle(kind: item.kind, tmdbId: item.tmdbId) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
     }
     
     private func findDuplicateAndExtraFormats(item: LibraryItem) async throws -> (match: LibraryItem, extraFormats: [DiscFormat.RawValue])? {
-        let match: LibraryItem? = if let upcMatch = try await findCopyWithBarcode(item.upc) {
+        let match: LibraryItem? = if let upcMatch = try findCopyWithBarcode(item.upc) {
             upcMatch
         } else {
-            try await findCopyWithBarcode(item.ean)
+            try findCopyWithBarcode(item.ean)
         }
         
         if let match {
