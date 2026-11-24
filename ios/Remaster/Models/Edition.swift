@@ -32,6 +32,21 @@ public nonisolated struct Edition: Codable, Identifiable {
     var hasDigital: Bool?
     var title: Title?
     var unmatchedTitle: Bool
+    
+    var editionText: String? { getEditionText() }
+    
+    private func getEditionText() -> String? {
+        if self.packaging?.steelbook == false && self.editionFlags.allFalse { return "Standard" }
+
+        if self.packaging?.steelbook ?? false { return "Steelbook" }
+        if self.editionFlags.collector ?? false { return "Collector's" }
+        if self.editionFlags.limited ?? false { return "Limited" }
+        if self.editionFlags.boxset ?? false { return "Boxset" }
+        if self.editionFlags.special ?? false { return "Special" }
+        if self.editionFlags.anniversary ?? false { return "Anniversary" }
+            
+        return nil
+    }
 }
 
 nonisolated struct Barcodes: Codable {
@@ -98,7 +113,7 @@ nonisolated struct EditionFlags: Codable {
     var boxset: Bool?
 }
 
-extension EditionFlags {
+nonisolated extension EditionFlags {
     var allFalse: Bool {
         Mirror(reflecting: self).children.allSatisfy { ($0.value as? Bool) == false }
     }

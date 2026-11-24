@@ -21,7 +21,11 @@ struct LibraryView: View {
         if hSizeClass == .regular {
             NavigationSplitView {
                 LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
-                .navigationTitle("Library")
+                    .alert(error: self.$viewModel.error) {
+                        Button("OK") { }
+                    }
+                    .navigationTitle("Library")
+                
             } detail: {
                 if let selection {
                     LibraryItemDetailView(item: selection) {
@@ -35,6 +39,9 @@ struct LibraryView: View {
         } else {
             NavigationStack {
                 LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+                    .alert(error: self.$viewModel.error) {
+                        Button("OK") { }
+                    }
                     .navigationTitle("Library")
                     .navigationDestination(item: $selection) { item in
                         LibraryItemDetailView(item: item) {
@@ -68,6 +75,7 @@ struct LibraryView: View {
                                     Button(role: .destructive) {
                                         withAnimation {
                                             self.onDelete(item)
+                                            self.selection = nil
                                         }
                                     } label: {
                                         Label("Delete", systemImage: "trash")

@@ -59,7 +59,9 @@ struct ConfirmView: View {
                     
                     LabeledContent("HDR", value: viewModel.hdrFormats)
                     
-                    LabeledContent("Edition", value: viewModel.editionText)
+                    if let editionText = viewModel.edition.editionText {
+                        LabeledContent("Edition", value: editionText)
+                    }
                 } footer: {
                     Text("Details come from the barcode. You can change them later.")
                 }

@@ -12,16 +12,17 @@ import SwiftData
 
 @Observable
 public class LibraryViewModel {
-    @ObservationIgnored @Injected(\.modelContainer) private var modelContainer
+    @ObservationIgnored @Injected(\.libraryService) private var libraryService: any LibraryManaging
+    
+    public var error: Error?
     
     init() { }
     
     func deleteItem(_ item: LibraryItem) {
         do {
-            self.modelContainer.mainContext.delete(item)
-            try self.modelContainer.mainContext.save()
+            try self.libraryService.deleteFromLibrary(item)
         } catch {
-            self.modelContainer.mainContext.rollback()
+            self.error = error
         }
     }
 }

@@ -3,8 +3,9 @@
 //  RemasterTests
 //
 //  The confirm sheet's logic (RMSTR-14): the "Format you own" picker, the
-//  combo-pack toggle and the formats that get saved, plus the HDR and Edition
-//  rows and the summary card's chip.
+//  combo-pack toggle and the formats that get saved, plus the HDR row and the
+//  summary card's chip. The Edition row's text is Edition.editionText, tested in
+//  EditionTextTests.
 //
 //  Editions are built from small JSON bodies so each test states exactly the
 //  fields it depends on. Absent means unknown (backend/docs/edition-schema.md).
@@ -180,52 +181,6 @@ struct ConfirmViewModelTests {
         #expect(viewModel.hdrFormats == testCase.expected)
     }
 
-    // MARK: - Edition row
-
-    @Test("The Edition row names the packaging only when it's known", arguments: [
-        EditionCase("Every field an explicit false is Standard",
-                    packaging: #"{ "steelbook": false, "slipcover": false }"#,
-                    flags: #"{ "limited": false, "collector": false, "special": false, "anniversary": false, "boxset": false }"#,
-                    expected: "Standard"),
-        EditionCase("Nothing known is Unknown, not Standard",
-                    packaging: "{}", flags: "{}", expected: "Unknown"),
-        EditionCase("No packaging object at all is Unknown",
-                    packaging: nil, flags: "{}", expected: "Unknown"),
-        EditionCase("Standard needs every flag known, not just some",
-                    packaging: #"{ "steelbook": false }"#, flags: #"{ "limited": false }"#,
-                    expected: "Unknown"),
-        EditionCase("A steelbook",
-                    packaging: #"{ "steelbook": true }"#, flags: "{}", expected: "Steelbook"),
-        EditionCase("Steelbook wins over a collector's flag",
-                    packaging: #"{ "steelbook": true }"#, flags: #"{ "collector": true }"#,
-                    expected: "Steelbook"),
-        EditionCase("A flag is shown even with no packaging object",
-                    packaging: nil, flags: #"{ "collector": true }"#, expected: "Collector's"),
-        EditionCase("A flag is shown when packaging is empty",
-                    packaging: "{}", flags: #"{ "anniversary": true }"#, expected: "Anniversary"),
-        EditionCase("Limited",
-                    packaging: #"{ "steelbook": false }"#, flags: #"{ "limited": true }"#, expected: "Limited"),
-        EditionCase("Box set",
-                    packaging: "{}", flags: #"{ "boxset": true }"#, expected: "Boxset"),
-        EditionCase("Special",
-                    packaging: "{}", flags: #"{ "special": true }"#, expected: "Special"),
-    ])
-    func editionText(_ testCase: EditionCase) throws {
-        let viewModel = ConfirmViewModel(edition: try edition(
-            packaging: testCase.packaging,
-            flags: testCase.flags
-        ))
-
-        #expect(viewModel.editionText == testCase.expected)
-    }
-
-    @Test("Black Panther, with every flag false, reads as Standard")
-    func explicitFalseFixtureIsStandard() throws {
-        let viewModel = ConfirmViewModel(edition: try Fixtures.decode(Fixtures.explicitFalse))
-
-        #expect(viewModel.editionText == "Standard")
-    }
-
     // MARK: - Summary card chip
 
     @Test("An unmatched title shows Title not confirmed, never Some details missing")
@@ -303,21 +258,6 @@ nonisolated struct HDRCase: Sendable, CustomTestStringConvertible {
     let json: String?
     let expected: String
     var testDescription: String { "\(json ?? "absent") → \(expected)" }
-}
-
-nonisolated struct EditionCase: Sendable, CustomTestStringConvertible {
-    let name: String
-    let packaging: String?
-    let flags: String
-    let expected: String
-    var testDescription: String { name }
-
-    init(_ name: String, packaging: String?, flags: String, expected: String) {
-        self.name = name
-        self.packaging = packaging
-        self.flags = flags
-        self.expected = expected
-    }
 }
 
 nonisolated struct DetailsCase: Sendable, CustomTestStringConvertible {

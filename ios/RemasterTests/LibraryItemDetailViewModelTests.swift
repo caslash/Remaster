@@ -2,8 +2,9 @@
 //  LibraryItemDetailViewModelTests.swift
 //  RemasterTests
 //
-//  The library item detail screen (RMSTR-18 AC 5 and 6): the edition text it
-//  shows, the copy count, and Delete.
+//  The library item detail screen (RMSTR-18 AC 5 and 6): the saved edition it
+//  shows, the copy count, and Delete. The Edition row's wording is
+//  Edition.editionText, tested in EditionTextTests.
 //
 //  The view model resolves LibraryManaging and PosterStore from Container.shared
 //  when it's created, so each test registers a real LibraryService on a fresh
@@ -33,66 +34,31 @@ final class LibraryItemDetailViewModelTests {
         let posters = RecordingPosterStore()
         Container.shared.modelContainer.register { container }
         Container.shared.posterService.register { posters }
+        // Registered explicitly: the test host app has already created a
+        // LibraryService singleton on its real store, and .container copies the
+        // singleton cache into each test.
+        Container.shared.libraryService.register { LibraryService() }
     }
 
-    // MARK: - Edition text (AC 5: edition info if known)
+    // MARK: - Edition (AC 5: edition info if known)
 
-    struct EditionCase: Sendable, CustomTestStringConvertible {
-        let name: String
-        let packaging: String
-        let flags: String
-        let expected: String
-        var testDescription: String { name }
-    }
-
-    @Test("The edition row names the edition", arguments: [
-        EditionCase(
-            name: "Steelbook false and every flag false is Standard",
-            packaging: #"{ "steelbook": false }"#,
-            flags: #"{ "limited": false, "collector": false, "special": false, "anniversary": false, "boxset": false }"#,
-            expected: "Standard"),
-        EditionCase(
-            name: "A collector's edition that isn't a steelbook is Collector's, not Standard",
-            packaging: #"{ "steelbook": false }"#,
-            flags: #"{ "limited": false, "collector": true, "special": false, "anniversary": false, "boxset": false }"#,
-            expected: "Collector's"),
-        EditionCase(
-            name: "A limited edition that isn't a steelbook is Limited, not Standard",
-            packaging: #"{ "steelbook": false }"#,
-            flags: #"{ "limited": true }"#,
-            expected: "Limited"),
-        EditionCase(
-            name: "A steelbook is Steelbook, even when it's also a collector's edition",
-            packaging: #"{ "steelbook": true }"#,
-            flags: #"{ "collector": true }"#,
-            expected: "Steelbook"),
-        EditionCase(
-            name: "An anniversary edition with unknown packaging is Anniversary",
-            packaging: "{}",
-            flags: #"{ "anniversary": true }"#,
-            expected: "Anniversary"),
-        EditionCase(
-            name: "Nothing known about packaging or flags is Unknown",
-            packaging: "{}",
-            flags: "{}",
-            expected: "Unknown"),
-    ])
-    func editionText(_ testCase: EditionCase) throws {
-        let item = try item(upc: "786936900001", ean: nil, packaging: testCase.packaging, flags: testCase.flags)
+    @Test("The saved edition snapshot is what the screen shows")
+    func showsSavedEdition() throws {
+        let item = try item(upc: "786936900001", ean: nil, packaging: #"{ "steelbook": true }"#)
 
         let viewModel = makeViewModel(for: item)
 
-        #expect(viewModel.editionText == testCase.expected)
+        #expect(viewModel.edition?.upcTitle == "Test edition")
+        #expect(viewModel.edition?.editionText == "Steelbook")
     }
 
-    @Test("A copy saved without an edition has no edition row")
-    func noEditionNoText() {
+    @Test("A copy saved without an edition has no edition to show")
+    func noEdition() {
         let item = LibraryItem(upc: "786936900001", ean: nil, kind: nil, tmdbId: nil, ownedFormats: nil, edition: nil)
 
         let viewModel = makeViewModel(for: item)
 
         #expect(viewModel.edition == nil)
-        #expect(viewModel.editionText == nil)
     }
 
     // MARK: - Copies

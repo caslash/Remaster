@@ -59,7 +59,7 @@ struct LibraryItemDetailView: View {
                     LabeledContent("HDR", value: hdrFormats.map { $0.rawValue }.joined(separator: ", "))
                 }
                 
-                if let editionText = viewModel.editionText {
+                if let editionText = viewModel.edition?.editionText {
                     LabeledContent("Edition", value: editionText)
                         .accessibilityIdentifier("page.libraryDetail.edition")
                 }
@@ -138,7 +138,7 @@ struct LibraryItemDetailView: View {
     }
     
     Group {
-        if let edition {
+        if edition != nil {
             LibraryItemDetailView(item: item) { }
         } else {
             ProgressView("Loading preview data...")
