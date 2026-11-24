@@ -52,22 +52,13 @@ struct PosterFallbackImage: View {
 
 #if DEBUG && canImport(Vision)
 #Preview("With Item") {
-    @Previewable @State var edition: Edition?
+    let edition: Edition = Edition.hoppers
     
-    var item: LibraryItem? {
-        return .init(upc: edition?.barcodes.upc, ean: edition?.barcodes.ean, kind: edition?.title?.kind.rawValue, tmdbId: edition?.title?.tmdbId, ownedFormats: edition?.discContents?.map { $0.format.rawValue }, edition: edition)
+    var item: LibraryItem {
+        return .init(upc: edition.barcodes.upc, ean: edition.barcodes.ean, kind: edition.title?.kind.rawValue, tmdbId: edition.title?.tmdbId, ownedFormats: edition.discContents?.map { $0.format.rawValue }, edition: edition)
     }
-    
-    Group {
-        if let item {
-            PosterFallbackImage(title: item.displayTitle)
-                .frame(width: LibraryCardView.POSTER_WIDTH, height: (LibraryCardView.POSTER_WIDTH*3)/2)
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("0191329282809", shape: .ean13)
-    }
+
+    PosterFallbackImage(title: item.displayTitle)
+        .frame(width: LibraryCardView.POSTER_WIDTH, height: (LibraryCardView.POSTER_WIDTH*3)/2)
 }
 #endif

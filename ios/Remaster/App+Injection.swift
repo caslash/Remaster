@@ -51,8 +51,14 @@ extension Container {
         }
         .singleton
 #if DEBUG
-        .context(.arg("SIMULATED_SERVICES"), .preview, factory: {
-            return self.createModelContainer(isStoredInMemoryOnly: true)
+        .context(.arg("SIMULATED_SERVICES"), .arg("SEED_LIBRARY"), .preview, factory: {
+            let container = self.createModelContainer(isStoredInMemoryOnly: true)
+            
+            if ProcessInfo.processInfo.arguments.contains("SEED_LIBRARY") {
+                LibrarySeeder.seed(container)
+            }
+            
+            return container
         })
 #endif
     }

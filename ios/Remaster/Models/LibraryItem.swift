@@ -19,7 +19,7 @@ public final class LibraryItem {
     var tmdbId: String?
     var ownedFormats: [DiscFormat.RawValue]?
     var editionData: Data?
-    var dateAdded: Date = Date.now
+    var dateAdded: Date
     var displayTitle: String?
     var posterURL: URL?
     var year: Int?
@@ -28,7 +28,7 @@ public final class LibraryItem {
     @Attribute(.externalStorage)
     var imageData: Data?
     
-    public init(upc: String?, ean: String?, kind: Kind.RawValue?, tmdbId: String?, ownedFormats: [DiscFormat.RawValue]?, edition: Edition?) {
+    public init(upc: String?, ean: String?, kind: Kind.RawValue?, tmdbId: String?, ownedFormats: [DiscFormat.RawValue]?, edition: Edition?, dateAdded: Date = Date.now) {
         let encoder = JSONEncoder()
         
         self.upc = upc
@@ -38,6 +38,7 @@ public final class LibraryItem {
         self.displayTitle = edition?.title?.name ?? edition?.upcTitle
         self.posterURL = edition?.title?.posterURL ?? edition?.coverImageURL
         self.year = edition?.title?.year ?? edition?.year
+        self.dateAdded = dateAdded
         
         if let ownedFormats {
             self.ownedFormats = DiscFormat.sortList(ownedFormats.unique())

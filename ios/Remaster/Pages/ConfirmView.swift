@@ -121,17 +121,8 @@ struct ConfirmView: View {
 
 #if DEBUG && canImport(Vision)
 #Preview {
-    @Previewable @State var edition: Edition?
+    let edition: Edition = Edition.hoppers
     
-    Group {
-        if let edition {
-            ConfirmView(edition: edition) { _, _ in }
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
-    }
+    ConfirmView(edition: edition) { _, _ in }
 }
 #endif

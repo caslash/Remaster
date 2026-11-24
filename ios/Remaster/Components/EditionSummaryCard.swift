@@ -89,19 +89,8 @@ struct EditionSummaryCard: View {
 
 #if DEBUG && canImport(Vision)
 #Preview {
-    @Previewable @State var edition: Edition?
-    
-    Group {
-        if let edition {
-            Form {
-                EditionSummaryCard(edition: edition)
-            }
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
+    Form {
+        EditionSummaryCard(edition: Edition.hoppers)
     }
 }
 #endif

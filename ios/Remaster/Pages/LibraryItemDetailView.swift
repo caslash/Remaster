@@ -131,21 +131,12 @@ struct LibraryItemDetailView: View {
 
 #if DEBUG && canImport(Vision)
 #Preview {
-    @Previewable @State var edition: Edition?
+    let edition: Edition = Edition.hoppers
     
     var item: LibraryItem {
-        return .init(upc: edition?.barcodes.upc, ean: edition?.barcodes.ean, kind: edition?.title?.kind.rawValue, tmdbId: edition?.title?.tmdbId, ownedFormats: edition?.discContents?.map { $0.format.rawValue }, edition: edition)
+        return .init(upc: edition.barcodes.upc, ean: edition.barcodes.ean, kind: edition.title?.kind.rawValue, tmdbId: edition.title?.tmdbId, ownedFormats: edition.discContents?.map { $0.format.rawValue }, edition: edition)
     }
     
-    Group {
-        if edition != nil {
-            LibraryItemDetailView(item: item) { }
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
-    }
+    LibraryItemDetailView(item: item) { }
 }
 #endif
