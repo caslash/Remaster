@@ -7,11 +7,15 @@
 
 import FactoryKit
 import Foundation
+import OSLog
 import SwiftData
 
 @MainActor
 public class LibraryService: LibraryManaging {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "LibraryService")
+    
     @Injected(\.modelContainer) private var modelContainer: ModelContainer
+    @Injected(\.posterService) private var posterService: any PosterStore
 
     func addToLibrary(_ item: LibraryItem, forceDuplicate: Bool = false) async throws {
         do {
@@ -26,6 +30,16 @@ public class LibraryService: LibraryManaging {
         } catch {
             self.modelContainer.mainContext.rollback()
             throw error
+        }
+        
+        if let posterURL = item.posterURL {
+            Task {
+                do {
+                    try await self.posterService.savePoster(persistentModelID: item.persistentModelID, posterURL: posterURL)
+                } catch {
+                    Self.logger.error("Failed to save poster for \(posterURL): \(error.localizedDescription)")
+                }
+            }
         }
     }
 

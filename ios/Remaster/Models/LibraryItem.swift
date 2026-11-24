@@ -23,6 +23,10 @@ public final class LibraryItem {
     var displayTitle: String?
     var posterURL: URL?
     var year: Int?
+    var posterUpdatedAt: Date?
+    
+    @Attribute(.externalStorage)
+    var imageData: Data?
     
     public init(upc: String?, ean: String?, kind: Kind.RawValue?, tmdbId: String?, ownedFormats: [DiscFormat.RawValue]?, edition: Edition?) {
         let encoder = JSONEncoder()

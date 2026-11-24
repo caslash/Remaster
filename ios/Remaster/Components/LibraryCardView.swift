@@ -5,6 +5,8 @@
 //  Created by Cameron Slash on 11/23/26.
 //
 
+import FactoryKit
+import SwiftData
 import SwiftUI
 
 #if DEBUG && canImport(Vision)
@@ -12,39 +14,54 @@ import Vision
 #endif
 
 struct LibraryCardView: View {
+    static let POSTER_WIDTH: CGFloat = 111
+    
+    @State private var viewModel: LibraryCardViewModel
+    @State private var posterImage: UIImage?
+    
     let item: LibraryItem?
     let formats: [DiscFormat?]?
+    
+    @ViewBuilder
+    private var poster: some View {
+        if let posterImage {
+            Image(uiImage: posterImage)
+                .resizable()
+                .scaledToFill()
+        } else if item?.posterURL != nil {
+            AsyncImage(url: item?.posterURL) { phase in
+                if let image = phase.image {
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } else if phase.error != nil {
+                    PosterFallbackImage(item: item)
+                } else {
+                    ProgressView()
+                }
+            }
+        } else {
+            PosterFallbackImage(item: item)
+        }
+    }
 
     var body: some View {
         if let item {
             VStack(alignment: .leading) {
-                AsyncImage(url: item.posterURL) { phase in
-                    if item.posterURL != nil {
-                        if let image = phase.image {
-                            image.resizable()
-                                .scaledToFill()
-                        } else if phase.error != nil {
-                            PosterFallbackImage()
-                        } else {
-                            ProgressView()
-                        }
-                    } else {
-                        PosterFallbackImage()
-                    }
-                }
-                .frame(width: 111, height: 167)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(alignment: .bottomLeading) {
-                    if let formats {
-                        ChipStackLayout(peek: 8) {
-                            ForEach(Array(formats.compactMap { $0 }.enumerated()), id: \.offset) { index, format in
-                                FormatChip(format: format)
-                                    .zIndex(-Double(index))
+                poster
+                    .frame(width: Self.POSTER_WIDTH, height: (Self.POSTER_WIDTH*3)/2)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(alignment: .bottomLeading) {
+                        if let formats {
+                            ChipStackLayout(peek: 8) {
+                                ForEach(Array(formats.compactMap { $0 }.enumerated()), id: \.offset) { index, format in
+                                    FormatChip(format: format)
+                                        .zIndex(-Double(index))
+                                }
                             }
+                            .padding(4)
                         }
-                        .padding(4)
                     }
-                }
                 
                 if let displayTitle = item.displayTitle {
                     Text(displayTitle)
@@ -59,10 +76,15 @@ struct LibraryCardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(width: Self.POSTER_WIDTH)
+            .task(id: item.posterUpdatedAt) {
+                posterImage = await self.viewModel.getPoster(persistentModelID: item.persistentModelID)
+            }
         }
     }
     
     init(item: LibraryItem?) {
+        self.viewModel = LibraryCardViewModel()
         self.item = item
         self.formats = item?.ownedFormats?.map { DiscFormat(rawValue: $0) }
     }

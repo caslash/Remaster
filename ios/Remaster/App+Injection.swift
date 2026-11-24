@@ -26,6 +26,11 @@ extension Container {
             .singleton
     }
     
+    var posterService: Factory<any PosterStore> {
+        Factory(self) { PosterService() }
+            .singleton
+    }
+    
     private func createModelContainer(isStoredInMemoryOnly: Bool) -> ModelContainer {
         let schema = Schema([
             LibraryItem.self

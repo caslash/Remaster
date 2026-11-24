@@ -24,14 +24,19 @@ import Testing
 final class LibraryServiceTests {
     private let container: ModelContainer
     private let service: LibraryService
+    private let posters = RecordingPosterStore()
 
     init() throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: LibraryItem.self, configurations: configuration)
         self.container = container
 
+        // A stand-in poster store, so saving never downloads a real poster
+        // (and never hits another suite's URLProtocol stub).
+        let posters = self.posters
         Container.shared.reset()
         Container.shared.modelContainer.register { container }
+        Container.shared.posterService.register { posters }
         service = LibraryService()
     }
 
@@ -94,6 +99,73 @@ final class LibraryServiceTests {
         #expect(saved.displayTitle == "Zootopia 2")
         #expect(saved.posterURL == URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
         #expect(saved.year == 2025)
+    }
+
+    // MARK: - Posters (RMSTR-18 AC 3)
+
+    @Test("A saved copy with a poster URL has its poster stored")
+    func saveRequestsPoster() async throws {
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+        try await service.addToLibrary(LibraryItem(
+            upc: edition.barcodes.upc,
+            ean: edition.barcodes.ean,
+            kind: edition.title?.kind.rawValue,
+            tmdbId: edition.title?.tmdbId,
+            ownedFormats: [DiscFormat.uhd.rawValue],
+            edition: edition
+        ))
+
+        let saved = try #require(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).first)
+        let request = try #require(await posters.waitForSave(), "No poster was requested after saving")
+        #expect(request.id == saved.persistentModelID, "The poster was requested for another item, or with a temporary ID")
+        #expect(request.url == URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
+    }
+
+    @Test("A copy with no poster URL doesn't request a poster")
+    func noPosterURLNoRequest() async throws {
+        try await service.addToLibrary(item(upc: "043396648654", ean: nil, title: nil))
+
+        #expect(await posters.waitForSave(timeout: .milliseconds(300)) == nil)
+    }
+
+    @Test("A poster that fails to download doesn't fail the save")
+    func posterFailureDoesNotFailSave() async throws {
+        posters.failSaves = true
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+
+        // The copy is saved either way; the backfill retries the poster later.
+        // Throwing here would tell the collector the save failed when it didn't.
+        try await service.addToLibrary(LibraryItem(
+            upc: edition.barcodes.upc,
+            ean: edition.barcodes.ean,
+            kind: edition.title?.kind.rawValue,
+            tmdbId: edition.title?.tmdbId,
+            ownedFormats: [DiscFormat.uhd.rawValue],
+            edition: edition
+        ))
+
+        #expect(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).count == 1)
+    }
+
+    @Test("Saving doesn't wait for the poster to download")
+    func saveDoesNotWaitForPoster() async throws {
+        posters.saveDelay = .seconds(2)
+        let edition = try Fixtures.decode(Fixtures.comboPack)
+        let clock = ContinuousClock()
+
+        // The Added to Library banner has to appear within 1 s of Add.
+        let elapsed = try await clock.measure {
+            try await service.addToLibrary(LibraryItem(
+                upc: edition.barcodes.upc,
+                ean: edition.barcodes.ean,
+                kind: edition.title?.kind.rawValue,
+                tmdbId: edition.title?.tmdbId,
+                ownedFormats: [DiscFormat.uhd.rawValue],
+                edition: edition
+            ))
+        }
+
+        #expect(elapsed < .seconds(1), "addToLibrary took \(elapsed), waiting on the poster download")
     }
 
     // MARK: - Duplicate rules (RMSTR-14)

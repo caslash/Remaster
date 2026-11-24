@@ -17,7 +17,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 111), spacing: 16)], spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: LibraryCardView.POSTER_WIDTH), spacing: 16)], spacing: 16) {
                     ForEach(items, id: \.id) { item in
                         LibraryCardView(item: item)
                             .padding(4)
