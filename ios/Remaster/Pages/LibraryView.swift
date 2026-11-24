@@ -75,6 +75,7 @@ struct LibraryView: View {
                                 }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("page.library.card")
                     }
                 }
                 .padding(.horizontal)

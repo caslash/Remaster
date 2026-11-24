@@ -40,6 +40,7 @@ struct LibraryItemDetailView: View {
                             .font(.title.bold())
                             .multilineTextAlignment(.leading)
                             .truncationMode(.tail)
+                            .accessibilityIdentifier("page.libraryDetail.title")
                     }
                     
                     Text(getSubtitleText())
@@ -51,6 +52,7 @@ struct LibraryItemDetailView: View {
             Section {
                 if let ownedFormats = viewModel.libraryItem.ownedFormats {
                     LabeledContent("Formats", value: ownedFormats.joined(separator: " + "))
+                        .accessibilityIdentifier("page.libraryDetail.formats")
                 }
                 
                 if let hdrFormats = viewModel.edition?.hdr {
@@ -59,16 +61,19 @@ struct LibraryItemDetailView: View {
                 
                 if let editionText = viewModel.editionText {
                     LabeledContent("Edition", value: editionText)
+                        .accessibilityIdentifier("page.libraryDetail.edition")
                 }
                 
                 if viewModel.copies > 1 {
                     LabeledContent("Copies", value: viewModel.copies.formatted(.number))
+                        .accessibilityIdentifier("page.libraryDetail.copies")
                 }
                 
                 LabeledContent("Added", value: viewModel.libraryItem.dateAdded.formatted(.dateTime))
                 
                 if let upc = viewModel.libraryItem.upc ?? viewModel.libraryItem.ean {
                     LabeledContent("UPC", value: upc)
+                        .accessibilityIdentifier("page.libraryDetail.upc")
                 }
             } header: {
                 Text("Your Copy")
@@ -80,6 +85,7 @@ struct LibraryItemDetailView: View {
                 Button("Delete from Library", role: .destructive) {
                     showDeleteConfirmation = true
                 }
+                .accessibilityIdentifier("page.libraryDetail.delete")
             } footer: {
                 Text("Your library is stored only on this iPhone")
             }
@@ -90,6 +96,7 @@ struct LibraryItemDetailView: View {
                     onDelete()
                 })
             }
+            .accessibilityIdentifier("page.libraryDetail.delete.confirm")
             
             Button("Cancel", role: .cancel) { }
         } message: {

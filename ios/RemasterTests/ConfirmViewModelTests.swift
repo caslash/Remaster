@@ -9,14 +9,31 @@
 //  Editions are built from small JSON bodies so each test states exactly the
 //  fields it depends on. Absent means unknown (backend/docs/edition-schema.md).
 //
+//  None of these tests save, but creating the view model resolves a
+//  LibraryService, so each test registers an in-memory container and a stand-in
+//  poster store rather than opening the app's real store.
+//  Each test gets its own Container.shared (FactoryTesting's .container trait),
+//  so suites that register stand-ins can run in parallel without swapping each
+//  other's registrations.
+//
 
+import FactoryKit
+import FactoryTesting
 import Foundation
+import SwiftData
 import Testing
 @testable import Remaster
 
 @MainActor
-@Suite("ConfirmViewModel")
+@Suite("ConfirmViewModel", .container)
 struct ConfirmViewModelTests {
+    init() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: LibraryItem.self, configurations: configuration)
+        let posters = RecordingPosterStore()
+        Container.shared.modelContainer.register { container }
+        Container.shared.posterService.register { posters }
+    }
 
     // MARK: - Format you own and the combo-pack toggle
 

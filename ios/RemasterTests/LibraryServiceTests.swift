@@ -8,19 +8,23 @@
 //  The lookup tests seed the store directly; only the saving tests go through
 //  addToLibrary.
 //
-//  LibraryService resolves its ModelContainer from Container.shared when it's
-//  created, so each test registers a fresh in-memory container first. The suite
-//  is serialized because Container.shared is global.
+//  LibraryService resolves its ModelContainer and PosterStore from
+//  Container.shared when it's created, so each test registers a fresh in-memory
+//  container and a stand-in poster store first.
+//  Each test gets its own Container.shared (FactoryTesting's .container trait),
+//  so suites that register stand-ins can run in parallel without swapping each
+//  other's registrations.
 //
 
 import FactoryKit
+import FactoryTesting
 import Foundation
 import SwiftData
 import Testing
 @testable import Remaster
 
 @MainActor
-@Suite("LibraryService", .serialized)
+@Suite("LibraryService", .container)
 final class LibraryServiceTests {
     private let container: ModelContainer
     private let service: LibraryService
@@ -34,7 +38,6 @@ final class LibraryServiceTests {
         // A stand-in poster store, so saving never downloads a real poster
         // (and never hits another suite's URLProtocol stub).
         let posters = self.posters
-        Container.shared.reset()
         Container.shared.modelContainer.register { container }
         Container.shared.posterService.register { posters }
         service = LibraryService()
@@ -166,6 +169,104 @@ final class LibraryServiceTests {
         }
 
         #expect(elapsed < .seconds(1), "addToLibrary took \(elapsed), waiting on the poster download")
+    }
+
+    // MARK: - Deleting (RMSTR-18 AC 6)
+
+    @Test("Deleting a copy removes it from the store, not just the main context")
+    func deleteRemovesFromStore() async throws {
+        let keep = try item(upc: "786936900001", ean: nil, title: zootopia)
+        let remove = try item(upc: "043396648654", ean: nil, title: nil)
+        try seed(keep)
+        try seed(remove)
+
+        try service.deleteFromLibrary(remove)
+
+        // A separate context only sees what was actually saved.
+        let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
+        #expect(saved.count == 1, "The deleted copy is still in the store")
+        #expect(saved.first?.upc == "786936900001", "The wrong copy was deleted")
+    }
+
+    @Test("Deleting one of two copies of a disc leaves the other")
+    func deleteOneOfTwoCopies() async throws {
+        let first = try item(upc: "043396648654", ean: nil, title: nil)
+        let second = try item(upc: "043396648654", ean: nil, title: nil)
+        try seed(first)
+        try seed(second)
+
+        try service.deleteFromLibrary(first)
+
+        let saved = try ModelContext(container).fetch(FetchDescriptor<LibraryItem>())
+        #expect(saved.map(\.persistentModelID) == [second.persistentModelID])
+    }
+
+    @Test("A deleted copy is no longer a duplicate, so the disc can be added again")
+    func deletedCopyIsNotADuplicate() async throws {
+        let owned = try item(upc: "786936900001", ean: nil, title: zootopia)
+        try seed(owned)
+
+        try service.deleteFromLibrary(owned)
+
+        try await service.addToLibrary(item(upc: "786936900001", ean: nil, title: zootopia))
+        #expect(try ModelContext(container).fetch(FetchDescriptor<LibraryItem>()).count == 1)
+    }
+
+    // MARK: - Counting copies
+
+    @Test("Copies of a disc are counted by UPC, and other discs aren't")
+    func countsCopiesByUPC() async throws {
+        try seed(item(upc: "043396648654", ean: nil, title: nil))
+        try seed(item(upc: "043396648654", ean: nil, title: nil))
+        try seed(item(upc: "786936900001", ean: nil, title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: "043396648654", ean: nil) == 2)
+    }
+
+    @Test("Copies of a disc are counted by EAN")
+    func countsCopiesByEAN() async throws {
+        try seed(item(upc: nil, ean: "5051892230476", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: nil, ean: "5051892230476") == 1)
+    }
+
+    @Test("A copy saved with both barcodes counts once, not once per barcode")
+    func copyWithBothBarcodesCountsOnce() async throws {
+        try seed(item(upc: "043396648654", ean: "0043396648654", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: "043396648654", ean: "0043396648654") == 1)
+    }
+
+    @Test("Two copies saved with both barcodes count as two")
+    func twoCopiesWithBothBarcodes() async throws {
+        try seed(item(upc: "043396648654", ean: "0043396648654", title: nil))
+        try seed(item(upc: "043396648654", ean: "0043396648654", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: "043396648654", ean: "0043396648654") == 2)
+    }
+
+    @Test("Copies saved with only one of the barcodes still count")
+    func copiesWithOneBarcodeCount() async throws {
+        try seed(item(upc: "043396648654", ean: nil, title: nil))
+        try seed(item(upc: nil, ean: "0043396648654", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: "043396648654", ean: "0043396648654") == 2)
+    }
+
+    @Test("A missing barcode never matches copies that are missing the same one")
+    func missingBarcodeMatchesNothing() async throws {
+        // Neither copy has a UPC, and the query has no EAN: nil must not equal nil.
+        try seed(item(upc: nil, ean: "5051892230476", title: nil))
+        try seed(item(upc: nil, ean: "0191329282809", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: "043396648654", ean: nil) == 0)
+    }
+
+    @Test("No barcode at all counts no copies")
+    func noBarcodeCountsNothing() async throws {
+        try seed(item(upc: nil, ean: "5051892230476", title: nil))
+
+        #expect(try service.findAmountOfCopiesWithBarcode(upc: nil, ean: nil) == 0)
     }
 
     // MARK: - Duplicate rules (RMSTR-14)
@@ -471,7 +572,7 @@ final class LibraryServiceTests {
     func findsByUPC() async throws {
         try seed(item(upc: "786936900001", ean: "0786936900001", title: zootopia))
 
-        let found = try await service.findCopyWithBarcode("786936900001")
+        let found = try service.findCopyWithBarcode("786936900001")
 
         #expect(found?.tmdbId == "1084242")
     }
@@ -480,7 +581,7 @@ final class LibraryServiceTests {
     func findsByEAN() async throws {
         try seed(item(upc: "786936900001", ean: "0786936900001", title: zootopia))
 
-        let found = try await service.findCopyWithBarcode("0786936900001")
+        let found = try service.findCopyWithBarcode("0786936900001")
 
         #expect(found?.tmdbId == "1084242")
     }
@@ -489,7 +590,7 @@ final class LibraryServiceTests {
     func findsEANOnlyCopy() async throws {
         try seed(item(upc: nil, ean: "5051892230476", title: nil))
 
-        let found = try await service.findCopyWithBarcode("5051892230476")
+        let found = try service.findCopyWithBarcode("5051892230476")
 
         #expect(found != nil)
     }
@@ -498,7 +599,7 @@ final class LibraryServiceTests {
     func unknownBarcode() async throws {
         try seed(item(upc: "786936900001", ean: "0786936900001", title: zootopia))
 
-        let found = try await service.findCopyWithBarcode("043396648654")
+        let found = try service.findCopyWithBarcode("043396648654")
 
         #expect(found == nil)
     }
@@ -508,7 +609,7 @@ final class LibraryServiceTests {
         try seed(item(upc: nil, ean: "5051892230476", title: nil))
         try seed(item(upc: "043396648654", ean: nil, title: nil))
 
-        let found = try await service.findCopyWithBarcode(nil)
+        let found = try service.findCopyWithBarcode(nil)
 
         #expect(found == nil, "A missing barcode matched a copy whose UPC or EAN is also missing")
     }
@@ -520,7 +621,7 @@ final class LibraryServiceTests {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
         let zootopia = try zootopia
-        let found = try await service.findCopyByTitle(kind: zootopia.kind.rawValue, tmdbId: zootopia.tmdbId)
+        let found = try service.findCopyByTitle(kind: zootopia.kind.rawValue, tmdbId: zootopia.tmdbId)
 
         #expect(found?.upc == "786936900001")
     }
@@ -530,7 +631,7 @@ final class LibraryServiceTests {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
         // TMDB IDs are only unique per kind (AGENTS.md §5).
-        let found = try await service.findCopyByTitle(kind: "tv", tmdbId: "1084242")
+        let found = try service.findCopyByTitle(kind: "tv", tmdbId: "1084242")
 
         #expect(found == nil)
     }
@@ -539,7 +640,7 @@ final class LibraryServiceTests {
     func unknownTitle() async throws {
         try seed(item(upc: "786936900001", ean: nil, title: zootopia))
 
-        let found = try await service.findCopyByTitle(kind: "tv", tmdbId: "85271")
+        let found = try service.findCopyByTitle(kind: "tv", tmdbId: "85271")
 
         #expect(found == nil)
     }
@@ -548,7 +649,7 @@ final class LibraryServiceTests {
     func nilTitleFindsNothing() async throws {
         try seed(item(upc: "0191329282809", ean: nil, title: nil))
 
-        let found = try await service.findCopyByTitle(kind: nil, tmdbId: nil)
+        let found = try service.findCopyByTitle(kind: nil, tmdbId: nil)
 
         #expect(found == nil, "A missing title matched a saved copy that also has no TMDB match")
     }
@@ -559,7 +660,7 @@ final class LibraryServiceTests {
         unmatched.kind = "movie"
         try seed(unmatched)
 
-        let found = try await service.findCopyByTitle(kind: "movie", tmdbId: nil)
+        let found = try service.findCopyByTitle(kind: "movie", tmdbId: nil)
 
         #expect(found == nil, "A kind with no TMDB ID matched a copy that also has no TMDB ID")
     }

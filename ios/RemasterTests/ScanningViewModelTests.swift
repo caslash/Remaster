@@ -5,11 +5,14 @@
 //  The lookup flow on the scanning screen (RMSTR-11 AC 3, 4 and 5).
 //
 //  ScanningViewModel resolves its BarcodeServicing from Container.shared when it's
-//  created, so each test registers a stub first. The suite is serialized because
-//  Container.shared is global.
+//  created, so each test registers a stub first.
+//  Each test gets its own Container.shared (FactoryTesting's .container trait),
+//  so suites that register stand-ins can run in parallel without swapping each
+//  other's registrations.
 //
 
 import FactoryKit
+import FactoryTesting
 import Foundation
 import Synchronization
 import Testing
@@ -17,14 +20,11 @@ import Vision
 @testable import Remaster
 
 @MainActor
-@Suite("ScanningViewModel", .serialized)
+@Suite("ScanningViewModel", .container)
 final class ScanningViewModelTests {
     private let stub = StubBarcodeService()
 
-    // Each test starts from a fresh container. There's no deinit reset because
-    // Swift Testing can release the suite off the main actor.
     init() {
-        Container.shared.reset()
         Container.shared.barcodeService.register { [stub] in stub }
     }
 

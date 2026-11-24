@@ -49,9 +49,11 @@ public class LibraryService: LibraryManaging {
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
     
-    func findAmountOfCopiesWithBarcode(_ barcode: String?) throws -> Int {
-        guard let barcode else { return 0 }
-        let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.upc == barcode || $0.ean == barcode })
+    func findAmountOfCopiesWithBarcode(upc: String?, ean: String?) throws -> Int {
+        guard upc != nil || ean != nil else { return 0 }
+        let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate {
+            ($0.upc != nil && $0.upc == upc) || ($0.ean != nil && $0.ean == ean)
+        })
         return try self.modelContainer.mainContext.fetchCount(descriptor)
     }
 

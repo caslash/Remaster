@@ -8,8 +8,13 @@
 //
 //  PosterService uses URLSession.shared, so downloads are intercepted with
 //  PosterStubURLProtocol, which only answers requests to its own host and
-//  replies per URL. It resolves its ModelContainer from Container.shared when
-//  it's created, so each test registers a fresh container first.
+//  replies per URL. The suite stays serialized because that URLProtocol is
+//  registered globally. PosterService resolves its ModelContainer from
+//  Container.shared when it's created, so each test registers a fresh container
+//  first.
+//  Each test gets its own Container.shared (FactoryTesting's .container trait),
+//  so suites that register stand-ins can run in parallel without swapping each
+//  other's registrations.
 //
 //  The container is on disk in a temporary folder, not in memory, because
 //  imageData is an .externalStorage attribute and the backfill's
@@ -18,6 +23,7 @@
 //
 
 import FactoryKit
+import FactoryTesting
 import Foundation
 import ImageIO
 import SwiftData
@@ -26,7 +32,7 @@ import UIKit
 @testable import Remaster
 
 @MainActor
-@Suite("PosterService", .serialized)
+@Suite("PosterService", .serialized, .container)
 final class PosterServiceTests {
     private let folder: URL
     private let container: ModelContainer
@@ -40,7 +46,6 @@ final class PosterServiceTests {
         let container = try ModelContainer(for: LibraryItem.self, configurations: configuration)
         self.container = container
 
-        Container.shared.reset()
         Container.shared.modelContainer.register { container }
         service = PosterService()
 

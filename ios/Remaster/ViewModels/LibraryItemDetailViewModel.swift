@@ -37,9 +37,7 @@ public class LibraryItemDetailViewModel {
     }
     
     public func refreshCopies() {
-        let upcCopies = (try? libraryService.findAmountOfCopiesWithBarcode(libraryItem.upc)) ?? 0
-        let eanCopies = (try? libraryService.findAmountOfCopiesWithBarcode(libraryItem.ean)) ?? 0
-        copies = upcCopies + eanCopies
+        self.copies = (try? libraryService.findAmountOfCopiesWithBarcode(upc: libraryItem.upc, ean: libraryItem.ean)) ?? 0
     }
 
     public func observeLibraryChanges() async {
