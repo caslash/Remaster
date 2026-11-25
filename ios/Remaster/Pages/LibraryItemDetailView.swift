@@ -78,7 +78,7 @@ struct LibraryItemDetailView: View {
             } header: {
                 Text("Your Copy")
                     .textCase(.uppercase)
-                    .font(.footnote)
+                    .font(.footnote.weight(.regular))
             }
             
             Section {
