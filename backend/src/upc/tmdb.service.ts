@@ -22,7 +22,7 @@ export class TMDBService {
     imdbId: string,
     kind: 'tv' | 'movie' | undefined,
   ): Promise<Title | undefined> {
-    const tmdbURL = this.configService.getOrThrow<string>('TMDB_FIND_URL');
+    const tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
     const tmdbToken = this.configService.getOrThrow<string>(
       'TMDB_READ_ACCESS_TOKEN',
     );
@@ -31,11 +31,14 @@ export class TMDBService {
     let json: unknown;
 
     try {
-      response = await fetch(`${tmdbURL}${imdbId}?external_source=imdb_id`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${tmdbToken}` },
-        signal: AbortSignal.timeout(5000),
-      });
+      response = await fetch(
+        `${tmdbURL}/find/${imdbId}?external_source=imdb_id`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${tmdbToken}` },
+          signal: AbortSignal.timeout(5000),
+        },
+      );
 
       if (!response.ok) {
         this.logger.warn(
