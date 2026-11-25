@@ -1,6 +1,6 @@
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
 import { TypeORMEditionStore } from '@/upc/storage/upc.storage.typeorm-store';
-import { TMDBService } from '@/upc/tmdb.service';
 import { Edition } from '@/upc/types/edition';
 import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
@@ -47,7 +47,7 @@ const fullEdition = (title?: Title): Edition =>
 // poster URL builder (it doesn't touch `this`).
 const mockTMDBService = { getPosterURL: jest.fn() };
 const realPosterURL = (path: string, size: PosterSize) =>
-  TMDBService.prototype.getPosterURL.call(undefined, path, size);
+  TmdbService.prototype.getPosterURL.call(undefined, path, size);
 
 // What a client receives over HTTP: undefined properties dropped.
 const body = (value: unknown): Record<string, unknown> =>
@@ -136,7 +136,7 @@ describe('TypeORMEditionStore', () => {
           useValue: mockUnresolvedRepository,
         },
         { provide: DataSource, useValue: mockDataSource },
-        { provide: TMDBService, useValue: mockTMDBService },
+        { provide: TmdbService, useValue: mockTMDBService },
       ],
     }).compile();
 
@@ -675,7 +675,7 @@ describe('TypeORMEditionStore SQL', () => {
       dataSource.getRepository(Title),
       dataSource.getRepository(UnresolvedUPC),
       dataSource,
-      { getPosterURL: realPosterURL } as unknown as TMDBService,
+      { getPosterURL: realPosterURL } as unknown as TmdbService,
     );
   });
 

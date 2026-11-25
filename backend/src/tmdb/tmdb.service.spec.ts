@@ -1,4 +1,4 @@
-import { TMDBService } from '@/upc/tmdb.service';
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { PosterSize } from '@/upc/types/poster-size';
 import {
   BadGatewayException,
@@ -8,24 +8,24 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import tmdbEmpty from './mock/tmdbempty.json';
-import tmdbMovie from './mock/tmdbmovie.json';
-import tmdbTV from './mock/tmdbtv.json';
+import tmdbEmpty from '../upc/mock/tmdbempty.json';
+import tmdbMovie from '../upc/mock/tmdbmovie.json';
+import tmdbTV from '../upc/mock/tmdbtv.json';
 
-const FIND_URL = 'https://tmdb.test/3/find/';
+const BASE_URL = 'https://tmdb.test/3';
 const TOKEN = 'test-token';
 const ZOOTOPIA_IMDB = 'tt26443597';
 const WANDAVISION_IMDB = 'tt9140560';
 
 describe('TMDBService', () => {
-  let service: TMDBService;
+  let service: TmdbService;
   let warn: jest.SpyInstance;
   let error: jest.SpyInstance;
 
   const mockConfigService = {
     getOrThrow: jest.fn((key: string) => {
       const env: Record<string, string> = {
-        TMDB_FIND_URL: FIND_URL,
+        TMDB_BASE_URL: BASE_URL,
         TMDB_READ_ACCESS_TOKEN: TOKEN,
       };
 
@@ -56,12 +56,12 @@ describe('TMDBService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        TMDBService,
+        TmdbService,
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
-    service = module.get<TMDBService>(TMDBService);
+    service = module.get<TmdbService>(TmdbService);
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
   });
@@ -85,7 +85,9 @@ describe('TMDBService', () => {
         string,
         RequestInit,
       ];
-      expect(url).toBe(`${FIND_URL}${ZOOTOPIA_IMDB}?external_source=imdb_id`);
+      expect(url).toBe(
+        `${BASE_URL}/find/${ZOOTOPIA_IMDB}?external_source=imdb_id`,
+      );
       expect(init.method).toBe('GET');
       expect(init.headers).toEqual({ Authorization: `Bearer ${TOKEN}` });
       expect(init.signal).toBeInstanceOf(AbortSignal);

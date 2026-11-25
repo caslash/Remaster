@@ -1,5 +1,5 @@
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
-import { TMDBService } from '@/upc/tmdb.service';
 import { Edition, EditionResponse } from '@/upc/types/edition';
 import { POSTER_SIZES } from '@/upc/types/poster-size';
 import { Title, TitleResponse } from '@/upc/types/title';
@@ -19,7 +19,7 @@ export class TypeORMEditionStore extends EditionStore {
     @InjectRepository(UnresolvedUPC)
     private unresolvedRepository: Repository<UnresolvedUPC>,
     private readonly dataSource: DataSource,
-    private tmdbService: TMDBService,
+    private tmdbService: TmdbService,
   ) {
     super();
   }

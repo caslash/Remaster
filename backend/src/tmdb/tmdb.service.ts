@@ -14,8 +14,8 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
 
 @Injectable()
-export class TMDBService {
-  private readonly logger = new Logger(TMDBService.name);
+export class TmdbService {
+  private readonly logger = new Logger(TmdbService.name);
   constructor(private configService: ConfigService<Env, true>) {}
 
   public async getTitle(

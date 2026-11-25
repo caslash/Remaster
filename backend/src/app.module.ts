@@ -9,6 +9,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { z } from 'zod';
+import { TmdbModule } from './tmdb/tmdb.module';
 
 export const envSchema = z.object({
   UPCMDB_LOOKUP_URL: z.string(),
@@ -44,6 +45,7 @@ export type Env = z.infer<typeof envSchema>;
       }),
     }),
     UpcModule,
+    TmdbModule,
   ],
   controllers: [],
   providers: [
