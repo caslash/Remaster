@@ -510,6 +510,73 @@ describe('TMDBService', () => {
       },
     );
 
+    // Decided 2026-11-25: TMDB's value is accepted only as whole seconds and
+    // clamped to 1–30. Anything that isn't whole seconds falls back to 2.
+    describe("checking TMDB's Retry-After", () => {
+      const retryAfterFor = async (header: string): Promise<number> => {
+        respondWithJSON({ status_code: 25, success: false }, 429, {
+          'Retry-After': header,
+        });
+        const thrown = await rejectionOf(service.searchTitle('Home Alone'));
+        expect(thrown).toBeInstanceOf(RetryableServiceUnavailableException);
+        return Number(
+          (thrown as RetryableServiceUnavailableException).retryAfter,
+        );
+      };
+
+      it.each([
+        ['1', 1],
+        ['5', 5],
+        ['30', 30],
+        ['05', 5],
+      ])('accepts %s as %i seconds', async (header, expected) => {
+        await expect(retryAfterFor(header)).resolves.toBe(expected);
+      });
+
+      it.each([
+        ['0', 1],
+        ['31', 30],
+        ['45', 30],
+        ['86400', 30],
+        ['99999999999999999999', 30],
+      ])('clamps %s to %i', async (header, expected) => {
+        await expect(retryAfterFor(header)).resolves.toBe(expected);
+      });
+
+      it('accepts whole seconds with surrounding whitespace', async () => {
+        await expect(retryAfterFor(' 5 ')).resolves.toBe(5);
+      });
+
+      it.each([
+        ['an HTTP date', 'Wed, 25 Nov 2026 07:28:00 GMT'],
+        ['a negative number', '-1'],
+        ['a decimal', '5.5'],
+        ['exponent notation', '1e3'],
+        ['trailing junk', '5abc'],
+        ['a word', 'soon'],
+        ['an empty value', ''],
+        ['only whitespace', '   '],
+      ])('falls back to 2 for %s', async (_, header) => {
+        await expect(retryAfterFor(header)).resolves.toBe(2);
+      });
+
+      it.each([
+        ['an HTTP date', 'Wed, 25 Nov 2026 07:28:00 GMT'],
+        ['trailing junk', '5abc'],
+        ['a valid value', '5'],
+        ['an out-of-range value', '86400'],
+      ])(
+        'always gives a whole number from 1 to 30 for %s',
+        async (_, header) => {
+          const seconds = await retryAfterFor(header);
+
+          expect(Number.isInteger(seconds)).toBe(true);
+          expect(seconds).toBeGreaterThanOrEqual(1);
+          expect(seconds).toBeLessThanOrEqual(30);
+        },
+      );
+    });
+
     it('logs a warning on 429', async () => {
       respondWithJSON({ status_code: 25, success: false }, 429);
 

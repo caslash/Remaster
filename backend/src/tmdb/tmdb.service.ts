@@ -1,5 +1,6 @@
 import { Env } from '@/app.module';
 import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
+import { clamp } from '@/tmdb/utils/tmdb.utils';
 import { PosterSize } from '@/upc/types/poster-size';
 import { Title, TitleResponse } from '@/upc/types/title';
 import { isRecord, isValidString } from '@/upc/utils/upc.utils';
@@ -70,7 +71,7 @@ export class TmdbService {
           case 429:
             this.logger.warn(response.status);
             throw new RetryableServiceUnavailableException(
-              response.headers.get('Retry-After') ?? 2,
+              this.getRetryAfterFromResponse(response) ?? 2,
             );
           default:
             this.logger.warn(
@@ -105,6 +106,16 @@ export class TmdbService {
     }
 
     if (isRecord(json)) return json;
+  }
+
+  private getRetryAfterFromResponse(response: Response): number | undefined {
+    const headerValue = response.headers.get('Retry-After')?.trim();
+    if (!headerValue) return undefined;
+
+    const headerString = headerValue.match(/^\d+$/)?.[0];
+    if (!headerString) return undefined;
+
+    return clamp(Number(headerString), 1, 30);
   }
 
   private parseTitleFromJSON(

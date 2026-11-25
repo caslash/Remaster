@@ -86,10 +86,15 @@ Error bodies use Nest's default shape: a JSON object with `statusCode`, `message
 
 TMDB's rate limit is counted per IP, and every search goes out from the server's one address, so a 429 means the whole app is over TMDB's limit for a moment, not one user. The limit is short-lived (TMDB allows roughly 50 requests a second), so the wait is short.
 
-- **Current:** the header is TMDB's own `Retry-After` value, forwarded as is, or `2` (seconds) when TMDB doesn't send one.
-- **Planned:** accept TMDB's value only as a whole number of seconds and keep it between 1 and 30, falling back to `2` for anything else (an HTTP date, a non-number, zero, a negative or an oversized value), so an unexpected upstream value can't tell clients to wait minutes or not at all.
+The header is always a whole number of seconds from 1 to 30 (decided 2026-11-25), so an unexpected upstream value can't tell clients to wait minutes or not at all:
 
-Until then, clients should treat a `Retry-After` they can't read as a whole number of seconds as `2`.
+| TMDB's `Retry-After`                                                            | Sent to the client       |
+| ------------------------------------------------------------------------------- | ------------------------ |
+| Whole seconds from 1 to 30 (surrounding whitespace is ignored)                  | the same value           |
+| Whole seconds outside that range (`0`, `45`, `86400`)                           | **clamped**: `1` or `30` |
+| Missing, empty, or not whole seconds (an HTTP date, `-1`, `5.5`, `1e3`, `5abc`) | `2`                      |
+
+HTTP dates are allowed by the HTTP spec but aren't converted: that would mean trusting TMDB's clock against the server's, and the fallback is short anyway.
 
 #### What the client should do
 

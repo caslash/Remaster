@@ -160,9 +160,9 @@ describe('TmdbController', () => {
       expect(response.body).toMatchObject({ statusCode: 503 });
     });
 
-    it('should forward a Retry-After value given as a string', async () => {
+    it("should send the exception's Retry-After seconds as the header", async () => {
       mockTmdbService.searchTitle.mockRejectedValue(
-        new RetryableServiceUnavailableException('7'),
+        new RetryableServiceUnavailableException(7),
       );
 
       const response = await request(app.getHttpServer())
