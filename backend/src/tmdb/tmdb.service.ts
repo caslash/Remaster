@@ -1,4 +1,5 @@
 import { Env } from '@/app.module';
+import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
 import { PosterSize } from '@/upc/types/poster-size';
 import { Title, TitleResponse } from '@/upc/types/title';
 import { isRecord, isValidString } from '@/upc/utils/upc.utils';
@@ -65,10 +66,18 @@ export class TmdbService {
       });
 
       if (!response.ok) {
-        this.logger.warn(
-          `TMDB responded with status ${response.status} - ${response.statusText}`,
-        );
-        throw new BadGatewayException('TMDB returned an error');
+        switch (response.status) {
+          case 429:
+            this.logger.warn(response.status);
+            throw new RetryableServiceUnavailableException(
+              response.headers.get('Retry-After') ?? 2,
+            );
+          default:
+            this.logger.warn(
+              `TMDB responded with status ${response.status} - ${response.statusText}`,
+            );
+            throw new BadGatewayException('TMDB returned an error');
+        }
       }
 
       body = await response.text();
@@ -237,8 +246,6 @@ export class TmdbService {
 
     const name = this.normalizeName(kind, response);
     if (!name) return undefined;
-
-    if (!isValidString(response.id)) return undefined;
 
     return {
       tmdbId: `${tmdbId}`,

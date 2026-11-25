@@ -1,4 +1,5 @@
 import { Env } from '@/app.module';
+import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
 import { TmdbService } from '@/tmdb/tmdb.service';
 import { UpcTitleNotFoundException } from '@/upc/normalization/normalization.error';
 import { NormalizationService } from '@/upc/normalization/normalization.service';
@@ -80,7 +81,8 @@ export class UpcService {
       } catch (error) {
         if (
           error instanceof BadGatewayException ||
-          error instanceof GatewayTimeoutException
+          error instanceof GatewayTimeoutException ||
+          error instanceof RetryableServiceUnavailableException
         ) {
           return {
             ...responseEdition,
