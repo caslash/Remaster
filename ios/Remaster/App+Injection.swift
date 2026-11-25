@@ -20,6 +20,16 @@ extension Container {
 #endif
     }
     
+    var titleService: Factory<any TitleServicing> {
+        Factory(self) { TitleService() }
+            .singleton
+#if DEBUG
+            .onArg("SIMULATED_SERVICES", factory: {
+                SimulatedTitleService()
+            })
+#endif
+    }
+    
     @MainActor
     var libraryService: Factory<any LibraryManaging> {
         Factory(self) { LibraryService() }
