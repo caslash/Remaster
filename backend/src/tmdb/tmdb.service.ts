@@ -251,11 +251,10 @@ export class TmdbService {
   ): TitleResponse[] {
     if (!Array.isArray(response.results)) {
       this.logger.error(`The results field in the response was invalid`);
+      throw new BadGatewayException('TMDB returned an invalid response');
     }
 
-    const results = Array(response.results);
-
-    return results
+    return response.results
       .map((item) => this.parseTitleResponseFromObject(item))
       .filter((item) => item != undefined);
   }
@@ -265,22 +264,23 @@ export class TmdbService {
   ): TitleResponse | undefined {
     if (!isRecord(response)) return undefined;
 
+    const tmdbId: number | undefined =
+      typeof response.id === 'number' ? response.id : undefined;
+    if (!tmdbId) return undefined;
+
     const kind = this.normalizeKind(response);
     if (!kind) return undefined;
 
     const name = this.normalizeName(kind, response);
     if (!name) return undefined;
 
-    const year = this.normalizeYear(kind, response);
-    if (!year) return undefined;
-
     if (!isValidString(response.id)) return undefined;
 
     return {
-      tmdbId: response.id,
+      tmdbId: `${tmdbId}`,
       kind: kind,
       name: name,
-      year: year,
+      year: this.normalizeYear(kind, response),
       imdbId: undefined,
       posterURL: isValidString(response.poster_path)
         ? this.getPosterURL(response.poster_path, PosterSize.W500)

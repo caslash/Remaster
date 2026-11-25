@@ -1,15 +1,16 @@
+import { SearchQueryDto } from '@/tmdb/dto/search-query.dto';
 import { TmdbService } from '@/tmdb/tmdb.service';
 import { TitleResponse } from '@/upc/types/title';
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Query, ValidationPipe } from '@nestjs/common';
 
 @Controller('tmdb')
 export class TmdbController {
   public constructor(private tmdbService: TmdbService) {}
 
-  @Get('search/:searchText')
+  @Get('search')
   async searchTitle(
-    @Param('searchText') searchText: string,
+    @Query(new ValidationPipe({ transform: true })) query: SearchQueryDto,
   ): Promise<TitleResponse[]> {
-    return await this.tmdbService.searchTitle(searchText);
+    return await this.tmdbService.searchTitle(query.q);
   }
 }
