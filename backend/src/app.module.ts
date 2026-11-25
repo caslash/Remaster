@@ -5,7 +5,8 @@ import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { UpcModule } from '@/upc/upc.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { z } from 'zod';
@@ -44,6 +45,12 @@ export type Env = z.infer<typeof envSchema>;
         retryDelay: 2000,
       }),
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     UpcModule,
     TmdbModule,
   ],
@@ -52,6 +59,10 @@ export type Env = z.infer<typeof envSchema>;
     {
       provide: APP_INTERCEPTOR,
       useClass: TimingInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })
