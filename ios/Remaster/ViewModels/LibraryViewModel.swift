@@ -9,12 +9,10 @@ import FactoryKit
 import Foundation
 import Observation
 import SwiftData
-import UIKit
 
 @Observable
 public class LibraryViewModel {
     @ObservationIgnored @Injected(\.libraryService) private var libraryService: any LibraryManaging
-    @ObservationIgnored @Injected(\.posterService) private var posterService: any PosterStore
     
     public var error: Error?
     
@@ -26,9 +24,5 @@ public class LibraryViewModel {
         } catch {
             self.error = error
         }
-    }
-    
-    func getPoster(for persistentModelID: PersistentIdentifier) async -> UIImage? {
-        return await self.posterService.getPoster(persistentModelID: persistentModelID)
     }
 }
