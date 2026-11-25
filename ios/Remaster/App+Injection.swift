@@ -10,6 +10,10 @@ import Foundation
 import SwiftData
 
 extension Container {
+    var remasterService: Factory<any RemasterServicing> {
+        Factory(self) { RemasterService() }
+    }
+    
     var barcodeService: Factory<any BarcodeServicing> {
         Factory(self) { BarcodeService() }
             .singleton
