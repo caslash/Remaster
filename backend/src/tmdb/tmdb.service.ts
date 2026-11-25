@@ -1,6 +1,6 @@
 import { Env } from '@/app.module';
 import { PosterSize } from '@/upc/types/poster-size';
-import { Title } from '@/upc/types/title';
+import { Title, TitleResponse } from '@/upc/types/title';
 import { isRecord, isValidString } from '@/upc/utils/upc.utils';
 import {
   BadGatewayException,
@@ -16,26 +16,29 @@ dayjs.extend(customParseFormat);
 @Injectable()
 export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
-  constructor(private configService: ConfigService<Env, true>) {}
+  private readonly tmdbURL: string;
+  private readonly tmdbToken: string;
+  constructor(private configService: ConfigService<Env, true>) {
+    this.tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
+    this.tmdbToken = this.configService.getOrThrow<string>(
+      'TMDB_READ_ACCESS_TOKEN',
+    );
+  }
 
   public async getTitle(
     imdbId: string,
     kind: 'tv' | 'movie' | undefined,
   ): Promise<Title | undefined> {
-    const tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
-    const tmdbToken = this.configService.getOrThrow<string>(
-      'TMDB_READ_ACCESS_TOKEN',
-    );
     let response: Response;
     let body: string = '';
     let json: unknown;
 
     try {
       response = await fetch(
-        `${tmdbURL}/find/${imdbId}?external_source=imdb_id`,
+        `${this.tmdbURL}/find/${imdbId}?external_source=imdb_id`,
         {
           method: 'GET',
-          headers: { Authorization: `Bearer ${tmdbToken}` },
+          headers: { Authorization: `Bearer ${this.tmdbToken}` },
           signal: AbortSignal.timeout(5000),
         },
       );
@@ -72,6 +75,57 @@ export class TmdbService {
     }
 
     if (isRecord(json)) return this.parseTitleFromJSON(imdbId, json, kind);
+    this.logger.error('TMDB response body is not a JSON object');
+    throw new BadGatewayException('TMDB returned an invalid response');
+  }
+
+  public async searchTitle(searchText: string): Promise<TitleResponse[]> {
+    let response: Response;
+    let body: string = '';
+    let json: unknown;
+
+    try {
+      response = await fetch(
+        `${this.tmdbURL}/search/multi?query=${encodeURIComponent(searchText)}&include_adult=false&language=en-US&page=1`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${this.tmdbToken}` },
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+
+      if (!response.ok) {
+        this.logger.warn(
+          `TMDB responded with status ${response.status} - ${response.statusText}`,
+        );
+        throw new BadGatewayException('TMDB returned an error');
+      }
+
+      body = await response.text();
+      json = JSON.parse(body);
+    } catch (error) {
+      if (error instanceof DOMException) {
+        if (error.name === 'TimeoutError') {
+          this.logger.error(error.message);
+          throw new GatewayTimeoutException('TMDB request timed out');
+        }
+      }
+      if (error instanceof TypeError) {
+        if (!isRecord(error.cause))
+          throw new BadGatewayException('TMDB request failed');
+        this.logger.error(error.cause.code);
+        throw new BadGatewayException('TMDB request failed');
+      }
+      if (error instanceof SyntaxError) {
+        this.logger.error(
+          `TMDB returned an invalid response of length ${body.length}`,
+        );
+        throw new BadGatewayException('TMDB returned an invalid response');
+      }
+      throw error;
+    }
+
+    if (isRecord(json)) return this.parseTitleResponsesFromJSON(json);
     this.logger.error('TMDB response body is not a JSON object');
     throw new BadGatewayException('TMDB returned an invalid response');
   }
@@ -190,5 +244,47 @@ export class TmdbService {
     if (parsedDate.isValid()) return parsedDate.year();
 
     this.logger.warn(`Unknown release_date format - ${dateString}`);
+  }
+
+  private parseTitleResponsesFromJSON(
+    response: Record<string, unknown>,
+  ): TitleResponse[] {
+    if (!Array.isArray(response.results)) {
+      this.logger.error(`The results field in the response was invalid`);
+    }
+
+    const results = Array(response.results);
+
+    return results
+      .map((item) => this.parseTitleResponseFromObject(item))
+      .filter((item) => item != undefined);
+  }
+
+  private parseTitleResponseFromObject(
+    response: unknown,
+  ): TitleResponse | undefined {
+    if (!isRecord(response)) return undefined;
+
+    const kind = this.normalizeKind(response);
+    if (!kind) return undefined;
+
+    const name = this.normalizeName(kind, response);
+    if (!name) return undefined;
+
+    const year = this.normalizeYear(kind, response);
+    if (!year) return undefined;
+
+    if (!isValidString(response.id)) return undefined;
+
+    return {
+      tmdbId: response.id,
+      kind: kind,
+      name: name,
+      year: year,
+      imdbId: undefined,
+      posterURL: isValidString(response.poster_path)
+        ? this.getPosterURL(response.poster_path, PosterSize.W500)
+        : undefined,
+    };
   }
 }
