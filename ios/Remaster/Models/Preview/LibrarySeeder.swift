@@ -5,9 +5,11 @@
 //  Created by Cameron Slash on 11/24/26.
 //
 
-#if DEBUG
+#if DEBUG || PROFILING
+import FactoryKit
 import Foundation
 import SwiftData
+import UIKit
 
 nonisolated enum LibrarySeeder {
     static func seed(_ container: ModelContainer, count: Int = 500) {
@@ -19,17 +21,37 @@ nonisolated enum LibrarySeeder {
         
         var rng = SeededGenerator(seed: 42)
         let editions = [Edition.wandaVision, Edition.grinch, Edition.hoppers]
+        let posters: [Data] = (0..<12).map { _ in ArtworkGenerator().makeImageData(using: &rng) }
+        let missingImageRate = 0.1
         
         for _ in 0..<count {
+            var randomItem = editions.randomElement(using: &rng)!
+            let addedAt = Date(timeIntervalSince1970: Date.now.timeIntervalSince1970 - Double.random(in: 0...(86_400 * 365 * 5), using: &rng))
+            let randomPosterData: Data? = Double.random(in: 0..<1, using: &rng) >= missingImageRate ? posters.randomElement(using: &rng)! : nil
+            
+            if randomPosterData == nil {
+                randomItem.title?.posterURL = nil
+                randomItem.coverImageURL = nil
+            }
+            
+            let fallbackOwnedFormats = randomItem.format?.rawValue != nil ? [randomItem.format!.rawValue] : []
+            
             let item = LibraryItem(
-                upc: editions.randomElement(using: &rng)?.barcodes.upc,
-                ean: editions.randomElement(using: &rng)?.barcodes.ean,
-                kind: editions.randomElement(using: &rng)?.kind?.rawValue,
-                tmdbId: editions.randomElement(using: &rng)?.title?.tmdbId,
-                ownedFormats: editions.randomElement(using: &rng)?.discContents?.map { $0.format.rawValue },
-                edition: editions.randomElement(using: &rng)!,
-                dateAdded: Date(timeIntervalSince1970: Date.now.timeIntervalSince1970 - Double.random(in: 0...(86_400 * 365 * 5), using: &rng))
+                upc: randomItem.barcodes.upc,
+                ean: randomItem.barcodes.ean,
+                kind: randomItem.title?.kind.rawValue,
+                tmdbId: randomItem.title?.tmdbId,
+                ownedFormats: randomItem.discContents?.map { $0.format.rawValue } ?? fallbackOwnedFormats,
+                edition: randomItem,
+                dateAdded: addedAt,
+                imageData: randomPosterData,
+                posterUpdatedAt: addedAt
             )
+            
+            if Double.random(in: 0..<1, using: &rng) >= 0.7 {
+                item.displayTitle = ["Alien", "Heat", "Arrival", "Dune", "Jaws", "Se7en", "Up", "Tenet"].randomElement(using: &rng)
+            }
+            
             context.insert(item)
         }
         

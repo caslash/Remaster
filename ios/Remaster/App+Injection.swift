@@ -50,7 +50,7 @@ extension Container {
             return self.createModelContainer(isStoredInMemoryOnly: false)
         }
         .singleton
-#if DEBUG
+#if DEBUG || PROFILING
         .context(.arg("SIMULATED_SERVICES"), .arg("SEED_LIBRARY"), .preview, factory: {
             let container = self.createModelContainer(isStoredInMemoryOnly: true)
             

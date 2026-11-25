@@ -5,7 +5,7 @@
 //  Created by Cameron Slash on 11/24/26.
 //
 
-#if DEBUG
+#if DEBUG || PROFILING
 import Foundation
 
 nonisolated extension Edition {
