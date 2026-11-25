@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>runDestinationsByUUID</key>
+	<dict>
+		<key>74080135-32A3-4047-8CC6-F1BD10AD18E6</key>
+		<dict>
+			<key>targetArchitecture</key>
+			<string>arm64</string>
+			<key>targetDevice</key>
+			<dict>
+				<key>modelCode</key>
+				<string>iPhone19,4</string>
+				<key>platformIdentifier</key>
+				<string>com.apple.platform.iphoneos</string>
+			</dict>
+		</dict>
+		<key>FD8895BA-C22A-4832-9094-2F64AE887FE0</key>
+		<dict>
+			<key>targetArchitecture</key>
+			<string>arm64</string>
+			<key>targetDevice</key>
+			<dict>
+				<key>busSpeedInMHz</key>
+				<integer>0</integer>
+				<key>cpuCount</key>
+				<integer>0</integer>
+				<key>cpuKind</key>
+				<string></string>
+				<key>cpuSpeedInMHz</key>
+				<integer>0</integer>
+				<key>logicalCPUCoresPerPackage</key>
+				<integer>0</integer>
+				<key>modelCode</key>
+				<string>iPhone19,4</string>
+				<key>physicalCPUCoresPerPackage</key>
+				<integer>0</integer>
+				<key>platformIdentifier</key>
+				<string>com.apple.platform.iphoneos</string>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>
