@@ -10,9 +10,9 @@ import SwiftUI
 
 struct LibraryView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
-    @State private var viewModel: LibraryViewModel
-    
     @Environment(\.modelContext) private var modelContext
+    
+    @State private var viewModel: LibraryViewModel
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     
     @State private var selection: LibraryItem? = nil
@@ -20,7 +20,7 @@ struct LibraryView: View {
     var body: some View {
         if hSizeClass == .regular {
             NavigationSplitView {
-                LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+                LibraryGrid(items: items, selection: $selection, getPoster: self.viewModel.getPoster, onDelete: self.viewModel.deleteItem)
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
@@ -38,7 +38,7 @@ struct LibraryView: View {
             }
         } else {
             NavigationStack {
-                LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+                LibraryGrid(items: items, selection: $selection, getPoster: self.viewModel.getPoster, onDelete: self.viewModel.deleteItem)
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
@@ -59,15 +59,16 @@ struct LibraryView: View {
     private struct LibraryGrid: View {
         let items: [LibraryItem]
         @Binding var selection: LibraryItem?
-        
+        let getPoster: (PersistentIdentifier) async -> UIImage?
         var onDelete: (LibraryItem) -> Void
+        
         
         var body: some View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: LibraryCardView.POSTER_WIDTH), spacing: 16)], spacing: 16) {
                     ForEach(items, id: \.id) { item in
                         Button { self.selection = item } label: {
-                            LibraryCardView(item: item)
+                            LibraryCardView(item: item, getPoster: getPoster)
                                 .padding(4)
                                 .background(RoundedRectangle(cornerRadius: 6).fill(.background))
                                 .contentShape(RoundedRectangle(cornerRadius: 6))
