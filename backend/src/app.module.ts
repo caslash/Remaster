@@ -1,19 +1,21 @@
 import { TimingInterceptor } from '@/common/app.interceptor';
+import { RetryAfterExceptionFilter } from '@/common/filters/retry-after.filter';
 import { Edition } from '@/upc/types/edition';
 import { Title } from '@/upc/types/title';
 import { UnresolvedUPC } from '@/upc/types/unresolved-upc';
 import { UpcModule } from '@/upc/upc.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { z } from 'zod';
+import { TmdbModule } from './tmdb/tmdb.module';
 
 export const envSchema = z.object({
   UPCMDB_LOOKUP_URL: z.string(),
   UPCMDB_API_KEY: z.string(),
-  TMDB_FIND_URL: z.string(),
+  TMDB_BASE_URL: z.string(),
   TMDB_READ_ACCESS_TOKEN: z.string(),
   DATABASE_URL: z.string(),
 });
@@ -44,12 +46,17 @@ export type Env = z.infer<typeof envSchema>;
       }),
     }),
     UpcModule,
+    TmdbModule,
   ],
   controllers: [],
   providers: [
     {
       provide: APP_INTERCEPTOR,
       useClass: TimingInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: RetryAfterExceptionFilter,
     },
   ],
 })

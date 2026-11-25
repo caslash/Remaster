@@ -1,6 +1,8 @@
 import { Env } from '@/app.module';
+import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
+import { clamp } from '@/tmdb/utils/tmdb.utils';
 import { PosterSize } from '@/upc/types/poster-size';
-import { Title } from '@/upc/types/title';
+import { Title, TitleResponse } from '@/upc/types/title';
 import { isRecord, isValidString } from '@/upc/utils/upc.utils';
 import {
   BadGatewayException,
@@ -14,34 +16,69 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
 
 @Injectable()
-export class TMDBService {
-  private readonly logger = new Logger(TMDBService.name);
+export class TmdbService {
+  private readonly logger = new Logger(TmdbService.name);
   constructor(private configService: ConfigService<Env, true>) {}
 
   public async getTitle(
     imdbId: string,
     kind: 'tv' | 'movie' | undefined,
   ): Promise<Title | undefined> {
-    const tmdbURL = this.configService.getOrThrow<string>('TMDB_FIND_URL');
+    const record = await this.fetchTMDB(
+      `find/${imdbId}?external_source=imdb_id`,
+    );
+
+    if (record) return this.parseTitleFromJSON(imdbId, record, kind);
+    this.logger.error('TMDB response body is not a JSON object');
+    throw new BadGatewayException('TMDB returned an invalid response');
+  }
+
+  public async searchTitle(searchText: string): Promise<TitleResponse[]> {
+    const record = await this.fetchTMDB(
+      `search/multi?query=${encodeURIComponent(searchText)}&include_adult=false&language=en-US&page=1`,
+    );
+
+    if (record) return this.parseTitleResponsesFromJSON(record);
+    this.logger.error('TMDB response body is not a JSON object');
+    throw new BadGatewayException('TMDB returned an invalid response');
+  }
+
+  public getPosterURL(path: string, size: PosterSize): string {
+    return `https://image.tmdb.org/t/p/${size}${path}`;
+  }
+
+  private async fetchTMDB(
+    path: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
     const tmdbToken = this.configService.getOrThrow<string>(
       'TMDB_READ_ACCESS_TOKEN',
     );
+
     let response: Response;
     let body: string = '';
     let json: unknown;
 
     try {
-      response = await fetch(`${tmdbURL}${imdbId}?external_source=imdb_id`, {
+      response = await fetch(`${tmdbURL}/${path}`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${tmdbToken}` },
         signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {
-        this.logger.warn(
-          `TMDB responded with status ${response.status} - ${response.statusText}`,
-        );
-        throw new BadGatewayException('TMDB returned an error');
+        switch (response.status) {
+          case 429:
+            this.logger.warn(response.status);
+            throw new RetryableServiceUnavailableException(
+              this.getRetryAfterFromResponse(response) ?? 2,
+            );
+          default:
+            this.logger.warn(
+              `TMDB responded with status ${response.status} - ${response.statusText}`,
+            );
+            throw new BadGatewayException('TMDB returned an error');
+        }
       }
 
       body = await response.text();
@@ -68,13 +105,17 @@ export class TMDBService {
       throw error;
     }
 
-    if (isRecord(json)) return this.parseTitleFromJSON(imdbId, json, kind);
-    this.logger.error('TMDB response body is not a JSON object');
-    throw new BadGatewayException('TMDB returned an invalid response');
+    if (isRecord(json)) return json;
   }
 
-  public getPosterURL(path: string, size: PosterSize): string {
-    return `https://image.tmdb.org/t/p/${size}${path}`;
+  private getRetryAfterFromResponse(response: Response): number | undefined {
+    const headerValue = response.headers.get('Retry-After')?.trim();
+    if (!headerValue) return undefined;
+
+    const headerString = headerValue.match(/^\d+$/)?.[0];
+    if (!headerString) return undefined;
+
+    return clamp(Number(headerString), 1, 30);
   }
 
   private parseTitleFromJSON(
@@ -187,5 +228,45 @@ export class TMDBService {
     if (parsedDate.isValid()) return parsedDate.year();
 
     this.logger.warn(`Unknown release_date format - ${dateString}`);
+  }
+
+  private parseTitleResponsesFromJSON(
+    response: Record<string, unknown>,
+  ): TitleResponse[] {
+    if (!Array.isArray(response.results)) {
+      this.logger.error(`The results field in the response was invalid`);
+      throw new BadGatewayException('TMDB returned an invalid response');
+    }
+
+    return response.results
+      .map((item) => this.parseTitleResponseFromObject(item))
+      .filter((item) => item != undefined);
+  }
+
+  private parseTitleResponseFromObject(
+    response: unknown,
+  ): TitleResponse | undefined {
+    if (!isRecord(response)) return undefined;
+
+    const tmdbId: number | undefined =
+      typeof response.id === 'number' ? response.id : undefined;
+    if (!tmdbId) return undefined;
+
+    const kind = this.normalizeKind(response);
+    if (!kind) return undefined;
+
+    const name = this.normalizeName(kind, response);
+    if (!name) return undefined;
+
+    return {
+      tmdbId: `${tmdbId}`,
+      kind: kind,
+      name: name,
+      year: this.normalizeYear(kind, response),
+      imdbId: undefined,
+      posterURL: isValidString(response.poster_path)
+        ? this.getPosterURL(response.poster_path, PosterSize.W500)
+        : undefined,
+    };
   }
 }

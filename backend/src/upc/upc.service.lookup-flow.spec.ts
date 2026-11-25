@@ -29,9 +29,10 @@
 //   cache-hit response; the service builds the cache-miss one.
 // - A UPCMDB record with no title is a 404 and is recorded as unresolved.
 
+import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
-import { TMDBService } from '@/upc/tmdb.service';
 import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import { UpcService } from '@/upc/upc.service';
@@ -205,7 +206,7 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
       providers: [
         UpcService,
         NormalizationService,
-        { provide: TMDBService, useValue: mockTMDBService },
+        { provide: TmdbService, useValue: mockTMDBService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: EditionStore, useValue: auto.store },
       ],
@@ -218,7 +219,7 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     // resetAllMocks wipes implementations.
     mockTMDBService.getPosterURL.mockImplementation(
       (path: string, size: PosterSize) =>
-        TMDBService.prototype.getPosterURL.call(undefined, path, size),
+        TmdbService.prototype.getPosterURL.call(undefined, path, size),
     );
   });
 
@@ -385,6 +386,12 @@ describe('UpcService lookup flow (RMSTR-68)', () => {
     it.each([
       ['BadGateway', new BadGatewayException('TMDB returned an error')],
       ['GatewayTimeout', new GatewayTimeoutException('TMDB request timed out')],
+      // RMSTR-56: a TMDB rate limit during a scan is still a TMDB failure. The
+      // 503 meant for /search must not fail the /upc lookup.
+      [
+        'RetryableServiceUnavailable (TMDB 429)',
+        new RetryableServiceUnavailableException(2),
+      ],
     ])(
       'should return the edition unmatched and save nothing when TMDB fails with %s',
       async (_name, tmdbError) => {

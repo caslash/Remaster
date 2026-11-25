@@ -1,8 +1,9 @@
 import { Env } from '@/app.module';
+import { RetryableServiceUnavailableException } from '@/common/exceptions/retryable-service-unavailable.exception';
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { UpcTitleNotFoundException } from '@/upc/normalization/normalization.error';
 import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { EditionStore } from '@/upc/storage/upc.storage.store';
-import { TMDBService } from '@/upc/tmdb.service';
 import { BarcodeShape } from '@/upc/types/barcode-shape';
 import { EditionResponse } from '@/upc/types/edition';
 import { POSTER_SIZES } from '@/upc/types/poster-size';
@@ -27,7 +28,7 @@ import { ConfigService } from '@nestjs/config';
 export class UpcService {
   private readonly logger = new Logger(UpcService.name);
   constructor(
-    private tmdbService: TMDBService,
+    private tmdbService: TmdbService,
     private configService: ConfigService<Env, true>,
     private editionStore: EditionStore,
     private normalizationService: NormalizationService,
@@ -80,7 +81,8 @@ export class UpcService {
       } catch (error) {
         if (
           error instanceof BadGatewayException ||
-          error instanceof GatewayTimeoutException
+          error instanceof GatewayTimeoutException ||
+          error instanceof RetryableServiceUnavailableException
         ) {
           return {
             ...responseEdition,

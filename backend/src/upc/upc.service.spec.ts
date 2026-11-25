@@ -1,3 +1,4 @@
+import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { UpcService } from '@/upc/upc.service';
 import {
   BadGatewayException,
@@ -8,12 +9,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NormalizationService } from '@/upc/normalization/normalization.service';
 import { EditionStore } from './storage/upc.storage.store';
 import { EditionResponse } from './types/edition';
 import { NORMALIZER_VERSION, StoreRangeReason } from './utils/upc.utils';
 
-import { TMDBService } from '@/upc/tmdb.service';
+import { TmdbService } from '@/tmdb/tmdb.service';
 import { PosterSize } from '@/upc/types/poster-size';
 import { Title } from '@/upc/types/title';
 import databaseZootopia from './mock/database-zootopia.json';
@@ -80,7 +80,7 @@ describe('UpcService', () => {
       providers: [
         UpcService,
         NormalizationService,
-        { provide: TMDBService, useValue: mockTMDBService },
+        { provide: TmdbService, useValue: mockTMDBService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: EditionStore, useValue: mockEditionStore },
       ],
@@ -90,7 +90,7 @@ describe('UpcService', () => {
     // The real URL builder; set here because resetAllMocks wipes it.
     mockTMDBService.getPosterURL.mockImplementation(
       (path: string, size: PosterSize) =>
-        TMDBService.prototype.getPosterURL.call(undefined, path, size),
+        TmdbService.prototype.getPosterURL.call(undefined, path, size),
     );
   });
 
