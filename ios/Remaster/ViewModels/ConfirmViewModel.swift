@@ -19,7 +19,6 @@ public class ConfirmViewModel {
         }
     }
     public var hdrFormats: String { getEditionHDRText() }
-    public var editionText: String { getEditionText() }
     
     public var selectedFormatIncludedAndHasLeftover: Bool { getFormatIncludedAndHasLeftover() }
     public var secondFormatName: String? { getSecondFormatName() }
@@ -114,21 +113,8 @@ public class ConfirmViewModel {
         return formats.map { $0.rawValue }.joined(separator: ", ")
     }
     
-    private func getEditionText() -> String {
-        if edition.packaging?.steelbook == false && edition.editionFlags.allFalse { return "Standard" }
-
-        if edition.packaging?.steelbook ?? false { return "Steelbook" }
-        if edition.editionFlags.collector ?? false { return "Collector's" }
-        if edition.editionFlags.limited ?? false { return "Limited" }
-        if edition.editionFlags.boxset ?? false { return "Boxset" }
-        if edition.editionFlags.special ?? false { return "Special" }
-        if edition.editionFlags.anniversary ?? false { return "Anniversary" }
-            
-        return "Unknown"
-    }
-    
     private func getDiscContentFormats() -> [DiscFormat] {
-        return (edition.discContents ?? []).map { $0.format }.unique().sorted(sortedBy: \.upgradeOrder)
+        return (edition.discContents ?? []).map { $0.format }.unique().sorted()
     }
     
     private func getLeftoverFormats() -> [DiscFormat] {

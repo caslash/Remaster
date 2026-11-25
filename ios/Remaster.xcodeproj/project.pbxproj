@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2E78DA7230B328930088A47C /* PopupView in Frameworks */ = {isa = PBXBuildFile; productRef = 2E78DA7130B328930088A47C /* PopupView */; };
+		2E78DB1C30B61B970088A47C /* FactoryTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 2E78DB1B30B61B970088A47C /* FactoryTesting */; };
 		2EE5679530B1FE3700FC71A7 /* FactoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2EE5679430B1FE3700FC71A7 /* FactoryKit */; };
 /* End PBXBuildFile section */
 
@@ -75,6 +76,7 @@
 		2E5824603095544600C1A8C8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				2E78DB1C30B61B970088A47C /* FactoryTesting in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -88,6 +90,7 @@
 				2E24D31830962EE100854D7D /* RemasterUITests */,
 				2EF85AD03093DB6700FE9847 /* Mocks */,
 				2E50990630660D1600D79250 /* Config */,
+				2E78DB1A30B61B970088A47C /* Frameworks */,
 				2E5098F730660D1500D79250 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -109,6 +112,13 @@
 				2E50990530660D1600D79250 /* Info.plist */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		2E78DB1A30B61B970088A47C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -175,6 +185,9 @@
 				2E5824643095544600C1A8C8 /* RemasterTests */,
 			);
 			name = RemasterTests;
+			packageProductDependencies = (
+				2E78DB1B30B61B970088A47C /* FactoryTesting */,
+			);
 			productName = RemasterTests;
 			productReference = 2E5824633095544600C1A8C8 /* RemasterTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -574,6 +587,153 @@
 			};
 			name = Release;
 		};
+		2E78DB2930B6470C0088A47C /* Profile configuration for PBXProject "Remaster" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3S8XC6A264;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = PROFILING;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		2E78DB2A30B6470C0088A47C /* Profile configuration for PBXNativeTarget "Remaster" */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E50990430660D1600D79250 /* Remaster.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3S8XC6A264;
+				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = Editions.bundle;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Remaster;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan barcodes.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.Remaster;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Profile;
+		};
+		2E78DB2B30B6470C0088A47C /* Profile configuration for PBXNativeTarget "RemasterTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Remaster.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Remaster";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Profile;
+		};
+		2E78DB2C30B6470C0088A47C /* Profile configuration for PBXNativeTarget "RemasterUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3S8XC6A264;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.caslash.RemasterUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Remaster;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -582,6 +742,7 @@
 			buildConfigurations = (
 				2E24D31E30962EE100854D7D /* Debug configuration for PBXNativeTarget "RemasterUITests" */,
 				2E24D31F30962EE100854D7D /* Release configuration for PBXNativeTarget "RemasterUITests" */,
+				2E78DB2C30B6470C0088A47C /* Profile configuration for PBXNativeTarget "RemasterUITests" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -590,6 +751,7 @@
 			buildConfigurations = (
 				2E5098FF30660D1600D79250 /* Debug configuration for PBXProject "Remaster" */,
 				2E50990030660D1600D79250 /* Release configuration for PBXProject "Remaster" */,
+				2E78DB2930B6470C0088A47C /* Profile configuration for PBXProject "Remaster" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -598,6 +760,7 @@
 			buildConfigurations = (
 				2E50990230660D1600D79250 /* Debug configuration for PBXNativeTarget "Remaster" */,
 				2E50990330660D1600D79250 /* Release configuration for PBXNativeTarget "Remaster" */,
+				2E78DB2A30B6470C0088A47C /* Profile configuration for PBXNativeTarget "Remaster" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -606,6 +769,7 @@
 			buildConfigurations = (
 				2E5824673095544600C1A8C8 /* Debug configuration for PBXNativeTarget "RemasterTests" */,
 				2E5824683095544600C1A8C8 /* Release configuration for PBXNativeTarget "RemasterTests" */,
+				2E78DB2B30B6470C0088A47C /* Profile configuration for PBXNativeTarget "RemasterTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -635,6 +799,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2E78DA7030B328930088A47C /* XCRemoteSwiftPackageReference "PopupView" */;
 			productName = PopupView;
+		};
+		2E78DB1B30B61B970088A47C /* FactoryTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2EE5679330B1FE3700FC71A7 /* XCRemoteSwiftPackageReference "Factory" */;
+			productName = FactoryTesting;
 		};
 		2EE5679430B1FE3700FC71A7 /* FactoryKit */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -7,7 +7,9 @@
 
 protocol LibraryManaging {
     func addToLibrary(_ item: LibraryItem, forceDuplicate: Bool) async throws
-    func findCopyWithBarcode(_ barcode: String?) async throws -> LibraryItem?
-    func findCopyByTitle(_ title: Title?) async throws -> LibraryItem?
+    func findCopyWithBarcode(_ barcode: String?) throws -> LibraryItem?
+    func findAmountOfCopiesWithBarcode(upc: String?, ean: String?) throws -> Int
+    func findCopyByTitle(kind: String?, tmdbId: String?) throws -> LibraryItem?
     func addFormatsToExistingCopy(_ item: LibraryItem) async throws -> LibraryItem
+    func deleteFromLibrary(_ item: LibraryItem) throws
 }

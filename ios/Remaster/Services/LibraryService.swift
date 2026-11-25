@@ -7,18 +7,22 @@
 
 import FactoryKit
 import Foundation
+import OSLog
 import SwiftData
 
 @MainActor
 public class LibraryService: LibraryManaging {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "LibraryService")
+    
     @Injected(\.modelContainer) private var modelContainer: ModelContainer
+    @Injected(\.posterService) private var posterService: any PosterStore
 
     func addToLibrary(_ item: LibraryItem, forceDuplicate: Bool = false) async throws {
         do {
             try await self.checkForDuplicate(item: item, skipCheck: forceDuplicate)
             
             if item.ownedFormats != nil {
-                item.ownedFormats = sortFormats(item.ownedFormats!)
+                item.ownedFormats = DiscFormat.sortList(item.ownedFormats!)
             }
             
             self.modelContainer.mainContext.insert(item)
@@ -27,18 +31,34 @@ public class LibraryService: LibraryManaging {
             self.modelContainer.mainContext.rollback()
             throw error
         }
+        
+        if let posterURL = item.posterURL {
+            Task {
+                do {
+                    try await self.posterService.savePoster(persistentModelID: item.persistentModelID, posterURL: posterURL)
+                } catch {
+                    Self.logger.error("Failed to save poster for \(posterURL): \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
-    func findCopyWithBarcode(_ barcode: String?) async throws -> LibraryItem? {
+    func findCopyWithBarcode(_ barcode: String?) throws -> LibraryItem? {
         guard let barcode else { return nil }
         let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.upc == barcode || $0.ean == barcode })
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
+    
+    func findAmountOfCopiesWithBarcode(upc: String?, ean: String?) throws -> Int {
+        guard upc != nil || ean != nil else { return 0 }
+        let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate {
+            ($0.upc != nil && $0.upc == upc) || ($0.ean != nil && $0.ean == ean)
+        })
+        return try self.modelContainer.mainContext.fetchCount(descriptor)
+    }
 
-    func findCopyByTitle(_ title: Title?) async throws -> LibraryItem? {
-        guard let title else { return nil }
-        let kind: String? = title.kind.rawValue
-        let tmdbId: String? = title.tmdbId
+    func findCopyByTitle(kind: String?, tmdbId: String?) throws -> LibraryItem? {
+        guard let kind, let tmdbId else { return nil }
         let descriptor: FetchDescriptor<LibraryItem> = .init(predicate: #Predicate { $0.kind == kind && $0.tmdbId == tmdbId })
         return try self.modelContainer.mainContext.fetch(descriptor).first
     }
@@ -51,11 +71,11 @@ public class LibraryService: LibraryManaging {
             
             do {
                 if match.ownedFormats == nil {
-                    match.ownedFormats = sortFormats(extraFormats)
+                    match.ownedFormats = DiscFormat.sortList(extraFormats)
                 } else {
                     var formatsList = match.ownedFormats!
                     formatsList.append(contentsOf: extraFormats)
-                    match.ownedFormats = sortFormats(formatsList)
+                    match.ownedFormats = DiscFormat.sortList(formatsList)
                 }
                 
                 try self.modelContainer.mainContext.save()
@@ -69,13 +89,14 @@ public class LibraryService: LibraryManaging {
         }
     }
     
-    private func sortFormats(_ formats: [DiscFormat.RawValue]) -> [DiscFormat.RawValue] {
-        return formats.sorted(by: { lhs,rhs in
-            let lFormat = DiscFormat(rawValue: lhs)
-            let rFormat = DiscFormat(rawValue: rhs)
-            
-            return lFormat?.upgradeOrder ?? Int.min > rFormat?.upgradeOrder ?? Int.min
-        })
+    func deleteFromLibrary(_ item: LibraryItem) throws {
+        do {
+            self.modelContainer.mainContext.delete(item)
+            try self.modelContainer.mainContext.save()
+        } catch {
+            self.modelContainer.mainContext.rollback()
+            throw error
+        }
     }
     
     private func checkForDuplicate(item: LibraryItem, skipCheck: Bool) async throws {
@@ -87,14 +108,14 @@ public class LibraryService: LibraryManaging {
             throw LibraryError.extraFormat(formats: extraFormats)
         }
         
-        if let duplicate = try await findCopyByTitle(item.edition?.title) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
+        if let duplicate = try findCopyByTitle(kind: item.kind, tmdbId: item.tmdbId) { throw LibraryError.ownedInOtherFormats(formats: duplicate.ownedFormats ?? []) }
     }
     
     private func findDuplicateAndExtraFormats(item: LibraryItem) async throws -> (match: LibraryItem, extraFormats: [DiscFormat.RawValue])? {
-        let match: LibraryItem? = if let upcMatch = try await findCopyWithBarcode(item.upc) {
+        let match: LibraryItem? = if let upcMatch = try findCopyWithBarcode(item.upc) {
             upcMatch
         } else {
-            try await findCopyWithBarcode(item.ean)
+            try findCopyWithBarcode(item.ean)
         }
         
         if let match {

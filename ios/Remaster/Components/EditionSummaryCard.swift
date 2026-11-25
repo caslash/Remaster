@@ -29,33 +29,19 @@ struct EditionSummaryCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            AsyncImage(url: edition.title?.posterURL ?? edition.coverImageURL) { phase in
-                if (edition.title?.posterURL ?? edition.coverImageURL) != nil {
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } else if phase.error != nil {
-                        fallbackImage
-                    } else {
-                        ProgressView()
+            Poster(posterURL: edition.title?.posterURL ?? edition.coverImageURL)
+                .frame(width: 76, height: 114)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .bottomLeading) {
+                    if let format = edition.format?.displayString {
+                        Text(format)
+                            .font(.caption2.weight(.heavy))
+                            .padding(2)
+                            .background(in: RoundedRectangle(cornerRadius: 4))
+                            .backgroundStyle(.ultraThickMaterial)
+                            .padding(4)
                     }
-                } else {
-                    fallbackImage
                 }
-            }
-            .frame(width: 76, height: 114)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .bottomLeading) {
-                if let format = edition.format?.displayString {
-                    Text(format)
-                        .font(.caption2.weight(.heavy))
-                        .padding(2)
-                        .background(in: RoundedRectangle(cornerRadius: 4))
-                        .backgroundStyle(.ultraThickMaterial)
-                        .padding(4)
-                }
-            }
             
             VStack(alignment: .leading) {
                 Text(edition.upcTitle)
@@ -90,21 +76,6 @@ struct EditionSummaryCard: View {
         self.someDetailsMissing = someDetailsMissing
     }
     
-    private var fallbackImage: some View {
-        VStack {
-            Image(systemName: "opticaldisc")
-                .resizable()
-                .frame(width: 30, height: 30)
-            
-            Text("No cover")
-                .font(.caption.bold())
-        }
-        .foregroundStyle(.gray)
-        .frame(width: 76, height: 114)
-        .background(Color(uiColor: .systemGray3))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-    
     private func getSubtitleText() -> String {
         var entries: [String] = []
         
@@ -118,19 +89,8 @@ struct EditionSummaryCard: View {
 
 #if DEBUG && canImport(Vision)
 #Preview {
-    @Previewable @State var edition: Edition?
-    
-    Group {
-        if let edition {
-            Form {
-                EditionSummaryCard(edition: edition)
-            }
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
+    Form {
+        EditionSummaryCard(edition: Edition.hoppers)
     }
 }
 #endif

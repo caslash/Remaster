@@ -16,7 +16,7 @@ struct AddedToLibraryView: View {
     let saveType: SaveType
     
     var detail: String? {
-        guard let edition = libraryItem.edition, let ownedFormats = libraryItem.ownedFormats else { return nil }
+        guard let edition = libraryItem.getEdition(), let ownedFormats = libraryItem.ownedFormats else { return nil }
         
         return "\(edition.upcTitle) · \(ownedFormats.joined(separator: " + "))"
     }
@@ -58,21 +58,12 @@ struct AddedToLibraryView: View {
 
 #if DEBUG && canImport(Vision)
 #Preview {
-    @Previewable @State var edition: Edition?
+    let edition: Edition = Edition.hoppers
     
-    var item: LibraryItem? {
-        return .init(upc: edition?.barcodes.upc, ean: edition?.barcodes.ean, kind: edition?.title?.kind.rawValue, tmdbId: edition?.title?.tmdbId, ownedFormats: edition?.discContents?.map { $0.format.rawValue }, edition: edition)
+    var item: LibraryItem {
+        return .init(upc: edition.barcodes.upc, ean: edition.barcodes.ean, kind: edition.title?.kind.rawValue, tmdbId: edition.title?.tmdbId, ownedFormats: edition.discContents?.map { $0.format.rawValue }, edition: edition)
     }
-    
-    Group {
-        if let item {
-            AddedToLibraryView(libraryItem: item, saveType: .new)
-        } else {
-            ProgressView("Loading preview data...")
-        }
-    }
-    .task {
-        edition = try? await SimulatedBarcodeService().fetchBarcode("043396648654", shape: .ean13)
-    }
+
+    AddedToLibraryView(libraryItem: item, saveType: .new)
 }
 #endif

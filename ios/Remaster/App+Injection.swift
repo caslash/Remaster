@@ -26,6 +26,11 @@ extension Container {
             .singleton
     }
     
+    var posterService: Factory<any PosterStore> {
+        Factory(self) { PosterService() }
+            .singleton
+    }
+    
     private func createModelContainer(isStoredInMemoryOnly: Bool) -> ModelContainer {
         let schema = Schema([
             LibraryItem.self
@@ -45,9 +50,15 @@ extension Container {
             return self.createModelContainer(isStoredInMemoryOnly: false)
         }
         .singleton
-#if DEBUG
-        .onArg("SIMULATED_SERVICES", factory: {
-            return self.createModelContainer(isStoredInMemoryOnly: true)
+#if DEBUG || PROFILING
+        .context(.arg("SIMULATED_SERVICES"), .arg("SEED_LIBRARY"), .preview, factory: {
+            let container = self.createModelContainer(isStoredInMemoryOnly: true)
+            
+            if ProcessInfo.processInfo.arguments.contains("SEED_LIBRARY") {
+                LibrarySeeder.seed(container)
+            }
+            
+            return container
         })
 #endif
     }

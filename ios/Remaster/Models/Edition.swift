@@ -32,6 +32,21 @@ public nonisolated struct Edition: Codable, Identifiable {
     var hasDigital: Bool?
     var title: Title?
     var unmatchedTitle: Bool
+    
+    var editionText: String? { getEditionText() }
+    
+    private func getEditionText() -> String? {
+        if self.packaging?.steelbook == false && self.editionFlags.allFalse { return "Standard" }
+
+        if self.packaging?.steelbook ?? false { return "Steelbook" }
+        if self.editionFlags.collector ?? false { return "Collector's" }
+        if self.editionFlags.limited ?? false { return "Limited" }
+        if self.editionFlags.boxset ?? false { return "Boxset" }
+        if self.editionFlags.special ?? false { return "Special" }
+        if self.editionFlags.anniversary ?? false { return "Anniversary" }
+            
+        return nil
+    }
 }
 
 nonisolated struct Barcodes: Codable {
@@ -98,7 +113,7 @@ nonisolated struct EditionFlags: Codable {
     var boxset: Bool?
 }
 
-extension EditionFlags {
+nonisolated extension EditionFlags {
     var allFalse: Bool {
         Mirror(reflecting: self).children.allSatisfy { ($0.value as? Bool) == false }
     }
@@ -115,7 +130,26 @@ public nonisolated enum Kind: String, Codable {
     }
 }
 
-public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable {
+public nonisolated enum DiscFormat: String, Comparable, Codable, CaseIterable, Identifiable {
+    public static func < (lhs: DiscFormat, rhs: DiscFormat) -> Bool {
+        return lhs.upgradeOrder < rhs.upgradeOrder
+    }
+    
+    public static func sortList(_ list: [DiscFormat.RawValue]) -> [DiscFormat.RawValue] {
+        return list.sorted(by: { lhs, rhs in
+            switch (DiscFormat(rawValue: lhs), DiscFormat(rawValue: rhs)) {
+            case let (lFormat?, rFormat?):
+                return lFormat > rFormat
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                return false
+            }
+        })
+    }
+    
     case dvd = "DVD", bluray = "Blu-ray", uhd = "4K UHD"
     
     public var id: Self { self }
@@ -128,7 +162,15 @@ public nonisolated enum DiscFormat: String, Codable, CaseIterable, Identifiable 
         }
     }
     
-    var upgradeOrder: Int {
+    var chipString: String {
+        switch self {
+        case .dvd: return "DVD"
+        case .bluray: return "BD"
+        case .uhd: return "4K"
+        }
+    }
+    
+    private var upgradeOrder: Int {
         switch self {
         case .dvd: return 0
         case .bluray: return 1
@@ -143,4 +185,11 @@ nonisolated enum HDRFormat: String, Codable {
 
 nonisolated enum Resolution: String, Codable {
     case native = "native", upscaled = "upscaled"
+    
+    var displayName: String {
+        switch self {
+        case .native: return "Native 4K"
+        case .upscaled: return "Upscaled 4K"
+        }
+    }
 }
