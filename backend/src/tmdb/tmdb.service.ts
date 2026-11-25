@@ -16,122 +16,86 @@ dayjs.extend(customParseFormat);
 @Injectable()
 export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
-  private readonly tmdbURL: string;
-  private readonly tmdbToken: string;
-  constructor(private configService: ConfigService<Env, true>) {
-    this.tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
-    this.tmdbToken = this.configService.getOrThrow<string>(
-      'TMDB_READ_ACCESS_TOKEN',
-    );
-  }
+  constructor(private configService: ConfigService<Env, true>) {}
 
   public async getTitle(
     imdbId: string,
     kind: 'tv' | 'movie' | undefined,
   ): Promise<Title | undefined> {
-    let response: Response;
-    let body: string = '';
-    let json: unknown;
+    const record = await this.fetchTMDB(
+      `find/${imdbId}?external_source=imdb_id`,
+    );
 
-    try {
-      response = await fetch(
-        `${this.tmdbURL}/find/${imdbId}?external_source=imdb_id`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${this.tmdbToken}` },
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (!response.ok) {
-        this.logger.warn(
-          `TMDB responded with status ${response.status} - ${response.statusText}`,
-        );
-        throw new BadGatewayException('TMDB returned an error');
-      }
-
-      body = await response.text();
-      json = JSON.parse(body);
-    } catch (error) {
-      if (error instanceof DOMException) {
-        if (error.name === 'TimeoutError') {
-          this.logger.error(error.message);
-          throw new GatewayTimeoutException('TMDB request timed out');
-        }
-      }
-      if (error instanceof TypeError) {
-        if (!isRecord(error.cause))
-          throw new BadGatewayException('TMDB request failed');
-        this.logger.error(error.cause.code);
-        throw new BadGatewayException('TMDB request failed');
-      }
-      if (error instanceof SyntaxError) {
-        this.logger.error(
-          `TMDB returned an invalid response of length ${body.length}`,
-        );
-        throw new BadGatewayException('TMDB returned an invalid response');
-      }
-      throw error;
-    }
-
-    if (isRecord(json)) return this.parseTitleFromJSON(imdbId, json, kind);
+    if (record) return this.parseTitleFromJSON(imdbId, record, kind);
     this.logger.error('TMDB response body is not a JSON object');
     throw new BadGatewayException('TMDB returned an invalid response');
   }
 
   public async searchTitle(searchText: string): Promise<TitleResponse[]> {
-    let response: Response;
-    let body: string = '';
-    let json: unknown;
+    const record = await this.fetchTMDB(
+      `search/multi?query=${encodeURIComponent(searchText)}&include_adult=false&language=en-US&page=1`,
+    );
 
-    try {
-      response = await fetch(
-        `${this.tmdbURL}/search/multi?query=${encodeURIComponent(searchText)}&include_adult=false&language=en-US&page=1`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${this.tmdbToken}` },
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (!response.ok) {
-        this.logger.warn(
-          `TMDB responded with status ${response.status} - ${response.statusText}`,
-        );
-        throw new BadGatewayException('TMDB returned an error');
-      }
-
-      body = await response.text();
-      json = JSON.parse(body);
-    } catch (error) {
-      if (error instanceof DOMException) {
-        if (error.name === 'TimeoutError') {
-          this.logger.error(error.message);
-          throw new GatewayTimeoutException('TMDB request timed out');
-        }
-      }
-      if (error instanceof TypeError) {
-        if (!isRecord(error.cause))
-          throw new BadGatewayException('TMDB request failed');
-        this.logger.error(error.cause.code);
-        throw new BadGatewayException('TMDB request failed');
-      }
-      if (error instanceof SyntaxError) {
-        this.logger.error(
-          `TMDB returned an invalid response of length ${body.length}`,
-        );
-        throw new BadGatewayException('TMDB returned an invalid response');
-      }
-      throw error;
-    }
-
-    if (isRecord(json)) return this.parseTitleResponsesFromJSON(json);
+    if (record) return this.parseTitleResponsesFromJSON(record);
     this.logger.error('TMDB response body is not a JSON object');
     throw new BadGatewayException('TMDB returned an invalid response');
   }
 
   public getPosterURL(path: string, size: PosterSize): string {
     return `https://image.tmdb.org/t/p/${size}${path}`;
+  }
+
+  private async fetchTMDB(
+    path: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const tmdbURL = this.configService.getOrThrow<string>('TMDB_BASE_URL');
+    const tmdbToken = this.configService.getOrThrow<string>(
+      'TMDB_READ_ACCESS_TOKEN',
+    );
+
+    let response: Response;
+    let body: string = '';
+    let json: unknown;
+
+    try {
+      response = await fetch(`${tmdbURL}/${path}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${tmdbToken}` },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `TMDB responded with status ${response.status} - ${response.statusText}`,
+        );
+        throw new BadGatewayException('TMDB returned an error');
+      }
+
+      body = await response.text();
+      json = JSON.parse(body);
+    } catch (error) {
+      if (error instanceof DOMException) {
+        if (error.name === 'TimeoutError') {
+          this.logger.error(error.message);
+          throw new GatewayTimeoutException('TMDB request timed out');
+        }
+      }
+      if (error instanceof TypeError) {
+        if (!isRecord(error.cause))
+          throw new BadGatewayException('TMDB request failed');
+        this.logger.error(error.cause.code);
+        throw new BadGatewayException('TMDB request failed');
+      }
+      if (error instanceof SyntaxError) {
+        this.logger.error(
+          `TMDB returned an invalid response of length ${body.length}`,
+        );
+        throw new BadGatewayException('TMDB returned an invalid response');
+      }
+      throw error;
+    }
+
+    if (isRecord(json)) return json;
   }
 
   private parseTitleFromJSON(
