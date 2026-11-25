@@ -3,7 +3,7 @@ import { TmdbService } from '@/tmdb/tmdb.service';
 import { TitleResponse } from '@/upc/types/title';
 import { Controller, Get, Query, ValidationPipe } from '@nestjs/common';
 
-@Controller('tmdb')
+@Controller()
 export class TmdbController {
   public constructor(private tmdbService: TmdbService) {}
 
