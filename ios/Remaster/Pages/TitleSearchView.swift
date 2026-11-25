@@ -65,6 +65,22 @@ struct TitleSearchView: View {
         }
         .navigationTitle(viewModel.searchType.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .alert(error: $viewModel.error) {
+            Button("OK", role: .close) { }
+        }
+        .alert(error: $viewModel.networkError) { error in
+            if (error.isRetryable) {
+                Button("Retry") {
+                    Task {
+                        await viewModel.searchTitle()
+                    }
+                }
+            }
+            
+            Button("OK", role: .close) { }
+        } message: { error in
+            Text(error.recoverySuggestion ?? "")
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", role: .close) {

@@ -18,6 +18,9 @@ public class TitleSearchViewModel {
     public var searchText: String
     public var results: [Title] = []
     
+    public var networkError: NetworkError?
+    public var error: any Error?
+    
     init(searchType: TitleSearchType, textPrefill: String? = nil) {
         self.searchType = searchType
         self.upc = searchType.upc
@@ -27,8 +30,10 @@ public class TitleSearchViewModel {
     public func searchTitle() async {
         do {
             self.results = try await self.titleService.searchTitle(self.searchText)
+        } catch let error as NetworkError {
+            self.networkError = error
         } catch {
-            
+            self.error = error
         }
     }
 }
