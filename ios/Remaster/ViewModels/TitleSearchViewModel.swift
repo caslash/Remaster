@@ -16,10 +16,20 @@ public class TitleSearchViewModel {
     public var searchType: TitleSearchType
     public var upc: String
     public var searchText: String
-    public var results: [Title] = []
+    public var results: [Title] = [] {
+        didSet {
+            if results.isEmpty {
+                self.searchState = .empty
+            } else {
+                self.searchState = .results
+            }
+        }
+    }
     
     public var networkError: NetworkError?
     public var error: any Error?
+    
+    public var searchState: TitleSearchState = .idle
     
     init(searchType: TitleSearchType, textPrefill: String? = nil) {
         self.searchType = searchType
@@ -28,14 +38,26 @@ public class TitleSearchViewModel {
     }
     
     public func searchTitle() async {
+        self.searchState = .loading
         do {
             self.results = try await self.titleService.searchTitle(self.searchText)
         } catch let error as NetworkError {
             self.networkError = error
+            self.searchState = .failed
         } catch {
             self.error = error
+            self.searchState = .failed
         }
     }
+    
+    public func clearResults() {
+        self.results = []
+        self.searchState = .empty
+    }
+}
+
+public enum TitleSearchState {
+    case idle, loading, results, empty, failed
 }
 
 public enum TitleSearchType {

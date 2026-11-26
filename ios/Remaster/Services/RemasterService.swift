@@ -5,16 +5,15 @@
 //  Created by Cameron Slash on 11/25/26.
 //
 
-import Combine
 import Foundation
 import OSLog
 
 nonisolated public class RemasterService: RemasterServicing {
     private static let remasterBaseUrl = Bundle.main.object(forInfoDictionaryKey: "RemasterBaseUrl") as? String ?? ""
     private static let remasterLocalPort = Bundle.main.object(forInfoDictionaryKey: "RemasterLocalPort") as? String
-    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "BarcodeService")
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "RemasterService")
     
-    func fetchRemaster(_ pathName: String, httpMethod: String?, queryItems: [URLQueryItem]?) async throws -> Data {
+    func fetchRemaster(_ pathName: String, httpMethod: String, queryItems: [URLQueryItem]?) async throws -> Data {
         var components = URLComponents()
         components.scheme = "https"
         components.host = Self.remasterBaseUrl

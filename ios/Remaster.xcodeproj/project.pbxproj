@@ -504,7 +504,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3S8XC6A264;
 				ENABLE_PREVIEWS = YES;
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = Editions.bundle;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = (
+					Editions.bundle,
+					TItles.bundle,
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Remaster;
@@ -656,7 +659,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3S8XC6A264;
 				ENABLE_PREVIEWS = YES;
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = Editions.bundle;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = (
+					Editions.bundle,
+					TItles.bundle,
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Remaster;

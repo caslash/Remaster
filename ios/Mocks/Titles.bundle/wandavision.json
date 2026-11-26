@@ -1,0 +1,16 @@
+[
+  {
+    "tmdbId": "85271",
+    "kind": "tv",
+    "name": "WandaVision",
+    "year": 2021,
+    "posterURL": "https://image.tmdb.org/t/p/w500/glKDfE6btIRcVB5zrjspRIs4r52.jpg"
+  },
+  {
+    "tmdbId": "118924",
+    "kind": "tv",
+    "name": "Marvel Studios Assembled",
+    "year": 2021,
+    "posterURL": "https://image.tmdb.org/t/p/w500/v2BHRwtQVkt5fssLdo5MpFgHJPY.jpg"
+  }
+]

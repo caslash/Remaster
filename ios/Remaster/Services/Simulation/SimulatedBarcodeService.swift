@@ -13,7 +13,7 @@ import Vision
 nonisolated public class SimulatedBarcodeService: BarcodeServicing {
     private let errorBarcodes: [String] = ["000", "503", "400", "404"]
     
-    public required init () { print("SIMULATING BARCODESERVICE") }
+    public required init() { print("SIMULATING BARCODESERVICE") }
     
     public func fetchBarcode(_ barcode: String, shape: VNBarcodeSymbology?) async throws -> Edition {
         try await Task.sleep(for: .milliseconds(200))
