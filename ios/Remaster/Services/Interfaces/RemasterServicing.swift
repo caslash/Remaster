@@ -8,5 +8,5 @@
 import Foundation
 
 protocol RemasterServicing: Sendable {
-    func fetchRemaster(_ pathName: String, httpMethod: String, queryItems: [URLQueryItem]?) async throws -> Data
+    func fetchRemaster(_ pathName: String, httpMethod: String, queryItems: [URLQueryItem]?) async throws(BackendError) -> Data
 }

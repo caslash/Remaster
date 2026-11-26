@@ -25,7 +25,7 @@ public class TitleSearchViewModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private let clock: any Clock<Duration>
     @ObservationIgnored private let debounce: Duration
-    @ObservationIgnored private let maxAttempts = 3
+    @ObservationIgnored private let maxAttempts = 2
     
     init(clock: any Clock<Duration> = ContinuousClock(), debounce: Duration = .milliseconds(300)) {
         self.clock = clock
@@ -40,7 +40,7 @@ public class TitleSearchViewModel {
         searchTask?.cancel()
         
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty && trimmed.count > 2 else {
+        guard trimmed.count > 1 else {
             state = .idle
             return
         }
@@ -67,6 +67,8 @@ public class TitleSearchViewModel {
                 guard !Task.isCancelled else { return }
                 state = .waitingToRetry(until: .now.addingTimeInterval(TimeInterval(seconds)), attempt: attempt)
                 do { try await clock.sleep(for: .seconds(seconds)) } catch { return }
+            } catch TitleSearchError.cancelled {
+                return
             } catch {
                 guard !Task.isCancelled else { return }
                 state = .failed(error)
@@ -77,7 +79,7 @@ public class TitleSearchViewModel {
 }
 
 public enum TitleSearchState {
-    case idle, loading, waitingToRetry(until: Date, attempt: Int), results([Title]), noMatches(query: String), failed(Error)
+    case idle, loading, waitingToRetry(until: Date, attempt: Int), results([Title]), noMatches(query: String), failed(TitleSearchError)
 }
 
 public enum TitleSearchType {

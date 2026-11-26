@@ -55,12 +55,12 @@ struct TitleSearchView: View {
     private var listContent: some View {
         switch viewModel.state {
         case .idle:
-            ContentUnavailableView("Find a title", image: "magnifyingglass", description: Text("Start typing to search."))
+            ContentUnavailableView("Find a title", systemImage: "magnifyingglass", description: Text("Start typing to search."))
         case .loading:
             ProgressView()
         case .waitingToRetry(let until, _):
             ContentUnavailableView {
-                Label("Server is busy", systemImage: "hourglass")
+                Label("Search is busy", systemImage: "hourglass")
             } description: {
                 Text("Retrying in \(Text(timerInterval: Date.now...until, countsDown: true))")
             } actions: {
@@ -74,11 +74,15 @@ struct TitleSearchView: View {
             ContentUnavailableView.search(text: query)
         case .failed(let error):
             ContentUnavailableView {
-                Label("Search failed", systemImage: "exclamationmark.triangle")
+                Label(error.errorDescription ?? "Search failed", systemImage: "exclamationmark.triangle")
             } description: {
-                Text(error.localizedDescription)
+                if let recoverySuggestion = error.recoverySuggestion {
+                    Text(recoverySuggestion)
+                }
             } actions: {
-                Button("Try again") { viewModel.retry() }
+                if (error.isRetryable) {
+                    Button("Try again") { viewModel.retry() }
+                }
             }
         }
     }

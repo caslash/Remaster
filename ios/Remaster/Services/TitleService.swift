@@ -15,7 +15,7 @@ nonisolated public final class TitleService: TitleServicing {
         self.remasterService = remasterService
     }
 
-    func searchTitle(_ query: String) async throws -> [Title] {
+    func searchTitle(_ query: String) async throws(TitleSearchError) -> [Title] {
         let queryItems: [URLQueryItem] = [
             URLQueryItem(name: "q", value: query)
         ]
@@ -25,13 +25,22 @@ nonisolated public final class TitleService: TitleServicing {
             return try JSONDecoder().decode([Title].self, from: data)
         } catch let error as BackendError {
             switch error {
-            case .serverError(_, let retryAfter):
-                if let retryAfter { throw TitleSearchError.serviceUnavailable(retryAfterSeconds: retryAfter) }
-                throw error
-            default: throw error
+            case .generic, .invalidResponse, .invalidURL: throw TitleSearchError.unexpected
+            case .transportError(let urlError):
+                switch urlError.code {
+                case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff, .networkConnectionLost: throw TitleSearchError.offline
+                case .cancelled: throw TitleSearchError.cancelled
+                default: throw TitleSearchError.tempUnavailable
+                }
+            case .serverError(let statusCode, let retryAfter):
+                switch statusCode {
+                case 503: throw TitleSearchError.serviceUnavailable(retryAfterSeconds: retryAfter ?? 5)
+                case 502, 504: throw TitleSearchError.tempUnavailable
+                default: throw TitleSearchError.unexpected
+                }
             }
         } catch {
-            throw error
+            throw TitleSearchError.unexpected
         }
     }
 }

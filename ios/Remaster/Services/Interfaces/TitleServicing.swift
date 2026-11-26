@@ -8,5 +8,5 @@
 import Foundation
 
 nonisolated protocol TitleServicing: Sendable {
-    func searchTitle(_ query: String) async throws -> [Title]
+    func searchTitle(_ query: String) async throws(TitleSearchError) -> [Title]
 }
