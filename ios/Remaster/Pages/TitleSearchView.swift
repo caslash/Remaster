@@ -16,11 +16,13 @@ struct TitleSearchView: View {
     
     var body: some View {
         List {
-            Section {
-                UnmatchedDiscCard(searchType: searchType)
+            if let _ = searchType.upc {
+                Section {
+                    UnmatchedDiscCard(searchType: searchType)
+                }
+                .padding(14)
+                .listRowInsets(EdgeInsets())
             }
-            .padding(14)
-            .listRowInsets(EdgeInsets())
             
             Section {
                 SearchTextField(titleKey: "Search for a title", searchText: $viewModel.query, isFocused: $isSearchFocused)
@@ -42,6 +44,7 @@ struct TitleSearchView: View {
         .listSectionSpacing(12)
         .navigationTitle(searchType.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", role: .close) {
@@ -88,7 +91,7 @@ struct TitleSearchView: View {
     }
     
     init(searchType: TitleSearchType) {
-        self.viewModel = TitleSearchViewModel()
+        self.viewModel = TitleSearchViewModel(searchType: searchType)
         self.searchType = searchType
     }
 }
@@ -101,6 +104,6 @@ struct TitleSearchView: View {
 
 #Preview("Title Not Confirmed") {
     NavigationStack {
-        TitleSearchView(searchType: .titleNotConfirmed(upc: "043396648654"))
+        TitleSearchView(searchType: .titleNotConfirmed(upc: "043396648654", prefillQuery: "Hoppers"))
     }
 }

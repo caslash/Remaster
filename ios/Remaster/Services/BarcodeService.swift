@@ -47,7 +47,3 @@ nonisolated public class BarcodeService: BarcodeServicing {
         }
     }
 }
-
-private struct ErrorResponse: Decodable {
-    var message: String
-}

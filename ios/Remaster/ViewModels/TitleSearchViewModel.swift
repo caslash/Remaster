@@ -13,7 +13,7 @@ import Observation
 public class TitleSearchViewModel {
     @ObservationIgnored @Injected(\.titleService) private var titleService: any TitleServicing
     
-    var query = "" {
+    var query: String {
         didSet {
             guard query != oldValue else { return }
             scheduleSearch(debounced: true)
@@ -27,9 +27,12 @@ public class TitleSearchViewModel {
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private let maxAttempts = 2
     
-    init(clock: any Clock<Duration> = ContinuousClock(), debounce: Duration = .milliseconds(300)) {
+    init(searchType: TitleSearchType, clock: any Clock<Duration> = ContinuousClock(), debounce: Duration = .milliseconds(300)) {
         self.clock = clock
         self.debounce = debounce
+        self.query = searchType.prefillQuery
+        
+        scheduleSearch(debounced: true)
     }
     
     func retry() {
@@ -83,7 +86,7 @@ public enum TitleSearchState {
 }
 
 public enum TitleSearchType {
-    case barcodeNotFound(upc: String), titleNotConfirmed(upc: String)
+    case barcodeNotFound(upc: String?), titleNotConfirmed(upc: String, prefillQuery: String)
     
     public var navigationTitle: String {
         switch self {
@@ -101,22 +104,33 @@ public enum TitleSearchType {
     
     public var unmatchedCardText: String {
         switch self {
-        case .barcodeNotFound(let upc): return "UPC \(upc) • Search by title and we'll keep the barcode with your disc."
-        case .titleNotConfirmed(let upc): return "UPC \(upc) • Pick the movie or show it belongs to. Your disc's format and details stay as scanned."
+        case .barcodeNotFound(let upc):
+            switch upc {
+            case .some(let upc): return "UPC \(upc) • Search by title and we'll keep the barcode with your disc."
+            case .none: return ""
+            }
+        case .titleNotConfirmed(let upc, _): return "UPC \(upc) • Pick the movie or show it belongs to. Your disc's format and details stay as scanned."
         }
     }
     
     public var footerText: String {
         switch self {
-        case .barcodeNotFound: return "Optional. Sends only the barcode and the title and format you choose, so the next collector gets a match. Nothing about you or your library is sent."
+        case .barcodeNotFound: return ""
         case .titleNotConfirmed: return "Pick a title to attach it to your disc. Nothing about the match leaves this iPhone."
         }
     }
     
-    public var upc: String {
+    public var upc: String? {
         switch self {
         case .barcodeNotFound(let upc): return upc
-        case .titleNotConfirmed(let upc): return upc
+        case .titleNotConfirmed(let upc, _): return upc
+        }
+    }
+    
+    public var prefillQuery: String {
+        switch self {
+        case .barcodeNotFound: return ""
+        case .titleNotConfirmed(_, let prefillQuery): return prefillQuery
         }
     }
 }

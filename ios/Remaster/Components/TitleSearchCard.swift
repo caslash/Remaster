@@ -18,12 +18,12 @@ struct TitleSearchCard: View {
             
             VStack(alignment: .leading) {
                 Text(title.name)
-                    .font(.title2.bold())
+                    .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 
                 Text(getSubtitleText())
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             

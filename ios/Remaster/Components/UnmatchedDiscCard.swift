@@ -38,5 +38,5 @@ struct UnmatchedDiscCard: View {
 }
 
 #Preview("Title Not Confirmed") {
-    UnmatchedDiscCard(searchType: .titleNotConfirmed(upc: "043396648654"))
+    UnmatchedDiscCard(searchType: .titleNotConfirmed(upc: "043396648654", prefillQuery: "Hoppers"))
 }
