@@ -11,7 +11,7 @@ import Observation
 
 @Observable
 public class ConfirmViewModel {
-    public let edition: Edition
+    public var edition: Edition
     
     public var discFormat: DiscFormat? {
         didSet {
@@ -98,6 +98,10 @@ public class ConfirmViewModel {
             
             self.isSaving = false
         }
+    }
+    
+    public func updateEditionTitle(_ title: Title) {
+        self.edition.title = title
     }
     
     private func buildLibraryItem() -> LibraryItem {

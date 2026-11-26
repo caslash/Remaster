@@ -81,7 +81,7 @@ struct ConfirmView: View {
                     .controlSize(.large)
                     .accessibilityIdentifier("page.confirm.add")
                     
-                    NavigationLink("Not this title? Search instead", destination: TitleSearchView(searchType: .barcodeNotFound(upc: viewModel.edition.barcodes.upc ?? viewModel.edition.barcodes.ean ?? "")))
+                    NavigationLink("Not this title? Search instead", destination: TitleSearchView(searchType: .titleNotConfirmed(upc: viewModel.edition.barcodes.upc ?? viewModel.edition.barcodes.ean ?? "", prefillQuery: viewModel.edition.upcTitle), onSelect: viewModel.updateEditionTitle))
                         .accessibilityIdentifier("page.confirm.notThis")
                 }
                 .safeAreaPadding(.horizontal)

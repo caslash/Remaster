@@ -13,6 +13,7 @@ struct TitleSearchView: View {
     @FocusState private var isSearchFocused
     
     let searchType: TitleSearchType
+    let onSelect: (Title) -> Void
     
     var body: some View {
         List {
@@ -71,7 +72,13 @@ struct TitleSearchView: View {
             }
         case .results(let titles):
             ForEach(titles) { title in
-                TitleSearchCard(title: title)
+                Button {
+                    onSelect(title)
+                    dismiss()
+                } label: {
+                    TitleSearchCard(title: title)
+                }
+                .buttonStyle(.plain)
             }
         case .noMatches(let query):
             ContentUnavailableView.search(text: query)
@@ -90,20 +97,21 @@ struct TitleSearchView: View {
         }
     }
     
-    init(searchType: TitleSearchType) {
+    init(searchType: TitleSearchType, onSelect: @escaping (Title) -> Void) {
         self.viewModel = TitleSearchViewModel(searchType: searchType)
         self.searchType = searchType
+        self.onSelect = onSelect
     }
 }
 
 #Preview("Barcode Not Found") {
     NavigationStack {
-        TitleSearchView(searchType: .barcodeNotFound(upc: "043396648654"))
+        TitleSearchView(searchType: .barcodeNotFound(upc: "043396648654")) { _ in }
     }
 }
 
 #Preview("Title Not Confirmed") {
     NavigationStack {
-        TitleSearchView(searchType: .titleNotConfirmed(upc: "043396648654", prefillQuery: "Hoppers"))
+        TitleSearchView(searchType: .titleNotConfirmed(upc: "043396648654", prefillQuery: "Hoppers")) { _ in }
     }
 }

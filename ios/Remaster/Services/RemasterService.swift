@@ -20,6 +20,8 @@ nonisolated public final class RemasterService: RemasterServicing {
         components.path = pathName
         components.queryItems = queryItems
         
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        
         if let port = Self.remasterLocalPort, let portNumber = Int(port) {
             components.port = portNumber
         }
