@@ -8,7 +8,7 @@
 import Foundation
 
 #if DEBUG
-nonisolated public class SimulatedTitleService: TitleServicing {
+nonisolated final public class SimulatedTitleService: TitleServicing {
     private let errorSearches: [String] = ["000", "503", "400", "404"]
     
     public required init() { print ("SIMULATING TITLESERVICE") }

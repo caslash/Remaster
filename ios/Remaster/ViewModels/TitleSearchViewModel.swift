@@ -13,51 +13,71 @@ import Observation
 public class TitleSearchViewModel {
     @ObservationIgnored @Injected(\.titleService) private var titleService: any TitleServicing
     
-    public var searchType: TitleSearchType
-    public var upc: String
-    public var searchText: String
-    public var results: [Title] = [] {
+    var query = "" {
         didSet {
-            if results.isEmpty {
-                self.searchState = .empty
-            } else {
-                self.searchState = .results
+            guard query != oldValue else { return }
+            scheduleSearch(debounced: true)
+        }
+    }
+    
+    private(set) var state: TitleSearchState = .idle
+    
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private let clock: any Clock<Duration>
+    @ObservationIgnored private let debounce: Duration
+    @ObservationIgnored private let maxAttempts = 3
+    
+    init(clock: any Clock<Duration> = ContinuousClock(), debounce: Duration = .milliseconds(300)) {
+        self.clock = clock
+        self.debounce = debounce
+    }
+    
+    func retry() {
+        scheduleSearch(debounced: false)
+    }
+    
+    private func scheduleSearch(debounced: Bool) {
+        searchTask?.cancel()
+        
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty && trimmed.count > 2 else {
+            state = .idle
+            return
+        }
+        
+        searchTask = Task {
+            if debounced {
+                do { try await clock.sleep(for: debounce) } catch { return }
+            }
+            
+            await run(trimmed)
+        }
+    }
+    
+    private func run(_ query: String) async {
+        for attempt in 1...maxAttempts {
+            state = .loading
+            
+            do {
+                let titles = try await titleService.searchTitle(query)
+                guard !Task.isCancelled else { return }
+                state = titles.isEmpty ? .noMatches(query: query) : .results(titles)
+                return
+            } catch TitleSearchError.serviceUnavailable(let seconds) where attempt < maxAttempts {
+                guard !Task.isCancelled else { return }
+                state = .waitingToRetry(until: .now.addingTimeInterval(TimeInterval(seconds)), attempt: attempt)
+                do { try await clock.sleep(for: .seconds(seconds)) } catch { return }
+            } catch {
+                guard !Task.isCancelled else { return }
+                state = .failed(error)
+                return
             }
         }
-    }
-    
-    public var networkError: NetworkError?
-    public var error: any Error?
-    
-    public var searchState: TitleSearchState = .idle
-    
-    init(searchType: TitleSearchType, textPrefill: String? = nil) {
-        self.searchType = searchType
-        self.upc = searchType.upc
-        self.searchText = textPrefill ?? ""
-    }
-    
-    public func searchTitle() async {
-        self.searchState = .loading
-        do {
-            self.results = try await self.titleService.searchTitle(self.searchText)
-        } catch let error as NetworkError {
-            self.networkError = error
-            self.searchState = .failed
-        } catch {
-            self.error = error
-            self.searchState = .failed
-        }
-    }
-    
-    public func clearResults() {
-        self.results = []
-        self.searchState = .empty
     }
 }
 
 public enum TitleSearchState {
-    case idle, loading, results, empty, failed
+    case idle, loading, waitingToRetry(until: Date, attempt: Int), results([Title]), noMatches(query: String), failed(Error)
 }
 
 public enum TitleSearchType {

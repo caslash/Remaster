@@ -25,11 +25,23 @@ nonisolated public class BarcodeService: BarcodeServicing {
             queryItems = []
             queryItems?.append(URLQueryItem(name: "shape", value: shapeString))
         }
-        
-        let data = try await self.remasterService.fetchRemaster("/upc/\(trimmedBarcode)", httpMethod: "GET", queryItems: queryItems)
 
         do {
+            let data = try await self.remasterService.fetchRemaster("/upc/\(trimmedBarcode)", httpMethod: "GET", queryItems: queryItems)
             return try JSONDecoder().decode(Edition.self, from: data)
+        } catch let error as BackendError {
+            switch error {
+            case .generic(let error): throw error
+            case .invalidURL: throw NetworkError.invalidURL
+            case .invalidResponse: throw NetworkError.invalidResponse
+            case .serverError(let statusCode, _):
+                switch statusCode {
+                case 400: throw NetworkError.badRequest
+                case 404: throw NetworkError.notFound
+                default: throw NetworkError.serverError(statusCode: statusCode)
+                }
+            case .transportError(let urlError): throw NetworkError.transportError(urlError)
+            }
         } catch {
             throw NetworkError.decodingError(error)
         }

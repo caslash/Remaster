@@ -12,76 +12,36 @@ struct TitleSearchView: View {
     @State private var viewModel: TitleSearchViewModel
     @FocusState private var isSearchFocused
     
+    let searchType: TitleSearchType
+    
     var body: some View {
         List {
             Section {
-                UnmatchedDiscCard(searchType: viewModel.searchType)
+                UnmatchedDiscCard(searchType: searchType)
             }
             .padding(14)
             .listRowInsets(EdgeInsets())
             
             Section {
-                SearchTextField(titleKey: "Search for a title", searchText: $viewModel.searchText, isFocused: $isSearchFocused)
-                    .onSubmit {
-                        Task {
-                            await viewModel.searchTitle()
-                        }
-                    }
+                SearchTextField(titleKey: "Search for a title", searchText: $viewModel.query, isFocused: $isSearchFocused)
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             
             Section {
-                if viewModel.searchState == .idle || viewModel.searchState == .empty {
-                    ContentUnavailableView.search(text: viewModel.searchText)
-                } else if viewModel.searchState == .loading {
-                    ProgressView()
-                } else {
-                    ForEach(viewModel.results) { item in
-                        TitleSearchCard(title: item)
-                    }
-                }
+                listContent
             } header: {
                 Text("Results")
                     .textCase(.uppercase)
                     .font(.footnote.weight(.regular))
             } footer: {
-                Text(viewModel.searchType.footerText)
+                Text(searchType.footerText)
             }
         }
         .contentMargins(.top, 0)
         .listSectionSpacing(12)
-        .task(id: viewModel.searchText) {
-            let trimmed = viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty && trimmed.count > 2 else {
-                self.viewModel.clearResults()
-                return
-            }
-            
-            try? await Task.sleep(for: .milliseconds(300))
-            
-            guard !Task.isCancelled else { return }
-            
-            await viewModel.searchTitle()
-        }
-        .navigationTitle(viewModel.searchType.navigationTitle)
+        .navigationTitle(searchType.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .alert(error: $viewModel.error) {
-            Button("OK", role: .close) { }
-        }
-        .alert(error: $viewModel.networkError) { error in
-            if (error.isRetryable) {
-                Button("Retry") {
-                    Task {
-                        await viewModel.searchTitle()
-                    }
-                }
-            }
-            
-            Button("OK", role: .close) { }
-        } message: { error in
-            Text(error.recoverySuggestion ?? "")
-        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", role: .close) {
@@ -91,8 +51,41 @@ struct TitleSearchView: View {
         }
     }
     
+    @ViewBuilder
+    private var listContent: some View {
+        switch viewModel.state {
+        case .idle:
+            ContentUnavailableView("Find a title", image: "magnifyingglass", description: Text("Start typing to search."))
+        case .loading:
+            ProgressView()
+        case .waitingToRetry(let until, _):
+            ContentUnavailableView {
+                Label("Server is busy", systemImage: "hourglass")
+            } description: {
+                Text("Retrying in \(Text(timerInterval: Date.now...until, countsDown: true))")
+            } actions: {
+                Button("Retry now") { viewModel.retry() }
+            }
+        case .results(let titles):
+            ForEach(titles) { title in
+                TitleSearchCard(title: title)
+            }
+        case .noMatches(let query):
+            ContentUnavailableView.search(text: query)
+        case .failed(let error):
+            ContentUnavailableView {
+                Label("Search failed", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Try again") { viewModel.retry() }
+            }
+        }
+    }
+    
     init(searchType: TitleSearchType) {
-        self.viewModel = TitleSearchViewModel(searchType: searchType)
+        self.viewModel = TitleSearchViewModel()
+        self.searchType = searchType
     }
 }
 

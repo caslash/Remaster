@@ -8,20 +8,30 @@
 import FactoryKit
 import Foundation
 
-nonisolated public class TitleService: TitleServicing {
-    @Injected(\.remasterService) private var remasterService: any RemasterServicing
-    
-    func searchTitle(_ searchText: String) async throws -> [Title] {
+nonisolated public final class TitleService: TitleServicing {
+    private let remasterService: any RemasterServicing
+
+    init(remasterService: any RemasterServicing = Container.shared.remasterService()) {
+        self.remasterService = remasterService
+    }
+
+    func searchTitle(_ query: String) async throws -> [Title] {
         let queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "q", value: searchText)
+            URLQueryItem(name: "q", value: query)
         ]
         
-        let data = try await self.remasterService.fetchRemaster("/search", httpMethod: "GET", queryItems: queryItems)
-        
         do {
+            let data = try await self.remasterService.fetchRemaster("/search", httpMethod: "GET", queryItems: queryItems)
             return try JSONDecoder().decode([Title].self, from: data)
+        } catch let error as BackendError {
+            switch error {
+            case .serverError(_, let retryAfter):
+                if let retryAfter { throw TitleSearchError.serviceUnavailable(retryAfterSeconds: retryAfter) }
+                throw error
+            default: throw error
+            }
         } catch {
-            throw NetworkError.decodingError(error)
+            throw error
         }
     }
 }
