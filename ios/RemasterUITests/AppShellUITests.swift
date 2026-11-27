@@ -2,10 +2,14 @@
 //  AppShellUITests.swift
 //  RemasterUITests
 //
-//  The tab shell: Library, Upgrades and the Scan action (RMSTR-58).
+//  The tab shell (RMSTR-58): Library and Upgrades tabs, and the scanner sheet
+//  that ContentView presents. The Scan tab is gone; the scanner opens from
+//  Library's Add new (+) toolbar button or the empty library's Scan a Shelf
+//  button, both as the same sheet.
 //
 //  Launches with SIMULATED_SERVICES like the lookup tests, so nothing reaches a
-//  backend. Not covered yet:
+//  backend. The Simulator has no camera scanner, so the sheet shows the manual
+//  entry form in its place. Not covered yet:
 //  - AC 3, the Upgrades badge: it's fixed at 0 (hidden) until RMSTR-29 wires up
 //    the count.
 //  - AC 4, per-tab scroll position and navigation stack: the placeholder tabs
@@ -24,54 +28,54 @@ final class AppShellUITests: XCTestCase {
         app.launchArguments = ["SIMULATED_SERVICES"]
     }
 
-    // MARK: AC 1: a tab bar with Library and Upgrades, and a Scan action
+    // MARK: AC 1: a tab bar with Library and Upgrades; the scanner opens from Library
 
-    func testLaunchShowsTabsAndScan() {
+    func testLaunchShowsTabsAndAddNew() {
         app.launch()
 
         XCTAssertTrue(tab(.library).waitForExistence(timeout: 10), "Library tab is missing")
         XCTAssertTrue(tab(.upgrades).exists, "Upgrades tab is missing")
-        XCTAssertTrue(scanAction.exists, "Scan action is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "Library's Add new button is missing")
+        XCTAssertFalse(app.buttons["Scan"].exists, "The Scan tab should be gone")
         XCTAssertTrue(waitUntilSelected(.library), "The app should open on Library")
         XCTAssertFalse(dismissScanner.exists, "The scanner shouldn't be open at launch")
     }
 
-    // MARK: AC 2: Scan opens the scanner; closing returns to the tab I was on
+    // MARK: AC 2: the scanner opens as a sheet; closing returns to Library
 
-    func testScanOpensScannerAndCloseReturnsToLibrary() {
+    func testAddNewOpensTheScannerAndCloseReturnsToLibrary() {
         app.launch()
-        XCTAssertTrue(scanAction.waitForExistence(timeout: 10), "Scan action is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
 
-        scanAction.tap()
+        addNew.tap()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
+        XCTAssertTrue(manualEntryField.exists, "The scanner sheet didn't show the manual entry form")
 
         dismissScanner.tap()
         XCTAssertTrue(dismissScanner.waitForNonExistence(timeout: 5), "Scanner didn't close")
         XCTAssertTrue(waitUntilSelected(.library), "Closing the scanner didn't return to Library")
     }
 
-    func testCloseReturnsToUpgradesWhenOpenedFromUpgrades() {
+    func testScanAShelfOpensTheSameScanner() {
         app.launch()
-        XCTAssertTrue(tab(.upgrades).waitForExistence(timeout: 10), "Upgrades tab is missing")
-        tab(.upgrades).tap()
-        XCTAssertTrue(waitUntilSelected(.upgrades), "Tapping Upgrades didn't select it")
+        XCTAssertTrue(scanAShelf.waitForExistence(timeout: 10), "The empty library's Scan a Shelf button is missing")
 
-        scanAction.tap()
-        XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
+        scanAShelf.tap()
+        XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scan a Shelf didn't open the scanner")
+        XCTAssertTrue(manualEntryField.exists, "Scan a Shelf opened something other than the scanner sheet")
 
         dismissScanner.tap()
         XCTAssertTrue(dismissScanner.waitForNonExistence(timeout: 5), "Scanner didn't close")
-        XCTAssertTrue(waitUntilSelected(.upgrades), "Closing the scanner didn't return to Upgrades")
-        XCTAssertFalse(tab(.library).isSelected, "Library is selected after closing the scanner opened from Upgrades")
+        XCTAssertTrue(waitUntilSelected(.library), "Closing the scanner didn't return to Library")
     }
 
-    func testScanCanBeOpenedAgainAfterClosing() {
+    func testScannerCanBeOpenedAgainAfterClosing() {
         app.launch()
-        XCTAssertTrue(scanAction.waitForExistence(timeout: 10), "Scan action is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
 
-        for _ in 0..<2 {
-            scanAction.tap()
-            XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
+        for opener in [addNew, scanAShelf, addNew] {
+            opener.tap()
+            XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open from \(opener)")
             dismissScanner.tap()
             XCTAssertTrue(dismissScanner.waitForNonExistence(timeout: 5), "Scanner didn't close")
         }
@@ -79,26 +83,27 @@ final class AppShellUITests: XCTestCase {
 
     // MARK: Privacy: navigation alone makes no requests
 
-    func testOpeningScanDoesNotStartALookup() {
+    func testOpeningTheScannerDoesNotStartALookup() {
         app.launch()
-        XCTAssertTrue(scanAction.waitForExistence(timeout: 10), "Scan action is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
 
-        scanAction.tap()
+        addNew.tap()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
 
-        XCTAssertFalse(app.activityIndicators["page.scanning.progress"].exists, "Opening Scan started a lookup")
-        XCTAssertFalse(app.sheets.firstMatch.exists, "Opening Scan showed an edition sheet")
-        XCTAssertEqual(app.alerts.count, 0, "Opening Scan showed a lookup result")
+        XCTAssertFalse(app.activityIndicators["page.scanning.progress"].exists, "Opening the scanner started a lookup")
+        XCTAssertFalse(app.staticTexts["page.confirm.title"].exists, "Opening the scanner showed an edition sheet")
+        XCTAssertEqual(app.alerts.count, 0, "Opening the scanner showed a lookup result")
     }
 
     // MARK: AC 5: reachable and labelled at the largest accessibility size
 
-    func testTabsAndScanAreReachableAtLargestTextSize() {
+    func testTabsAndScannerAreReachableAtLargestTextSize() {
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
 
         XCTAssertTrue(tab(.library).waitForExistence(timeout: 10), "Library tab is missing")
-        for element in [tab(.library), tab(.upgrades), scanAction] {
+        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "Add new is missing")
+        for element in [tab(.library), tab(.upgrades), addNew] {
             XCTAssertTrue(element.isHittable, "\(element) isn't reachable at the largest text size")
             XCTAssertFalse(element.label.isEmpty, "\(element) has no VoiceOver label")
         }
@@ -106,7 +111,10 @@ final class AppShellUITests: XCTestCase {
         tab(.upgrades).tap()
         XCTAssertTrue(waitUntilSelected(.upgrades), "Tapping Upgrades didn't select it at the largest text size")
 
-        scanAction.tap()
+        tab(.library).tap()
+        XCTAssertTrue(waitUntilSelected(.library), "Tapping Library didn't select it at the largest text size")
+
+        addNew.tap()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open at the largest text size")
         XCTAssertTrue(dismissScanner.isHittable, "Close isn't reachable at the largest text size")
         XCTAssertFalse(dismissScanner.label.isEmpty, "Close has no VoiceOver label")
@@ -134,12 +142,23 @@ final class AppShellUITests: XCTestCase {
         return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 
-    private var scanAction: XCUIElement {
-        app.buttons["Scan"].firstMatch
+    /// Library's + toolbar button.
+    private var addNew: XCUIElement {
+        app.buttons["Add new"].firstMatch
     }
 
-    /// The scanner's Close button: by its identifier if it has one, otherwise its label.
+    /// The empty library's primary button.
+    private var scanAShelf: XCUIElement {
+        app.buttons["Scan a Shelf"].firstMatch
+    }
+
+    private var manualEntryField: XCUIElement {
+        app.textFields["page.scanning.manualEntry.field"]
+    }
+
+    /// The scanner's Close button. In the Simulator the sheet shows the manual entry
+    /// form, whose Close has its own identifier, so match either one or the label.
     private var dismissScanner: XCUIElement {
-        app.buttons.matching(NSPredicate(format: "identifier == 'page.scanning.dismiss' OR label == 'Close'")).firstMatch
+        app.buttons.matching(NSPredicate(format: "identifier IN {'page.scanning.dismiss', 'page.scanning.manualEntry.dismiss'} OR label == 'Close'")).firstMatch
     }
 }

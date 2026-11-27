@@ -8,8 +8,8 @@
 //  The app launches with SIMULATED_SERVICES, so SimulatedBarcodeService answers
 //  from ios/Mocks/Editions.bundle and fakes errors for 000 (offline), 400, 404
 //  and 503. The camera scanner isn't supported in the Simulator, so each test
-//  opens Scan from the tab bar (RMSTR-58) and types the barcode into the manual
-//  entry field that the scanning screen shows instead.
+//  opens the scanner sheet from Library's Add new (+) button and types the
+//  barcode into the manual entry field that the scanner shows instead.
 //
 
 import XCTest
@@ -73,7 +73,7 @@ final class EditionLookupUITests: XCTestCase {
         let title = app.staticTexts["page.confirm.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "Confirm sheet didn't appear")
 
-        app.navigationBars["Is this right?"].buttons.firstMatch.tap()
+        closeConfirm()
 
         XCTAssertTrue(title.waitForNonExistence(timeout: 5), "Confirm sheet stayed up after Close")
         assertManualEntryIsReady()
@@ -188,10 +188,20 @@ final class EditionLookupUITests: XCTestCase {
         app.segmentedControls["page.confirm.format"].buttons[name]
     }
 
+    /// The confirm sheet's Close. Not found through its navigation bar: on iPhone
+    /// Duo the toolbar is a vertical rail outside the NavigationBar element. It has
+    /// no identifier, which also tells it apart from manual entry's Close
+    /// (page.scanning.manualEntry.dismiss) still on screen under the sheet.
+    private func closeConfirm(file: StaticString = #filePath, line: UInt = #line) {
+        let close = app.buttons.matching(NSPredicate(format: "identifier == 'page.confirm.dismiss' OR (label == 'Close' AND identifier == '')")).firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "The confirm sheet has no Close", file: file, line: line)
+        close.tap()
+    }
+
     private func openScanner(file: StaticString = #filePath, line: UInt = #line) {
-        let scan = app.buttons["Scan"].firstMatch
-        XCTAssertTrue(scan.waitForExistence(timeout: 10), "Scan action didn't appear", file: file, line: line)
-        scan.tap()
+        let addNew = app.buttons["Add new"].firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's Add new button didn't appear", file: file, line: line)
+        addNew.tap()
     }
 
     private func lookUp(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {

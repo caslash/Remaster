@@ -8,7 +8,8 @@
 //
 //  The app launches with SIMULATED_SERVICES, so the library starts empty in an
 //  in-memory store and lookups come from ios/Mocks/Editions.bundle. Discs are
-//  saved through Scan, as AddToLibraryUITests does:
+//  saved through the scanner (Library's Add new button), as AddToLibraryUITests
+//  does:
 //  - WandaVision (786936900378): matched, 4K UHD, steelbook + collector's.
 //  - Hoppers (043396648654): matched, 4K UHD + Blu-ray, steelbook.
 //  - The Grinch (0191329282809): unmatched (no TMDB title or kind), anniversary.
@@ -215,8 +216,15 @@ final class LibraryUITests: XCTestCase {
         }
     }
 
+    /// By the back button's identifier: on iPhone Duo the toolbar is a vertical
+    /// rail outside the NavigationBar element, so there's no bar to look in.
     private func goBack() {
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let back = app.buttons["BackButton"].firstMatch
+        if back.exists {
+            back.tap()
+        } else {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
     }
 
     private func openLibrary(file: StaticString = #filePath, line: UInt = #line) {
@@ -240,11 +248,11 @@ final class LibraryUITests: XCTestCase {
         app.textFields["page.scanning.manualEntry.field"]
     }
 
-    /// Opens Scan, looks up the barcode and waits for the confirm sheet.
+    /// Opens the scanner from Library's Add new button, looks up the barcode and waits for the confirm sheet.
     private func openConfirm(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
-        let scan = app.buttons["Scan"].firstMatch
-        XCTAssertTrue(scan.waitForExistence(timeout: 10), "Scan action didn't appear", file: file, line: line)
-        scan.tap()
+        let addNew = app.buttons["Add new"].firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's Add new button didn't appear", file: file, line: line)
+        addNew.tap()
 
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
         manualEntryField.tap()
@@ -260,7 +268,7 @@ final class LibraryUITests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Banner didn't dismiss", file: file, line: line)
     }
 
-    /// Saves the disc through Scan with its default formats and clears the banner.
+    /// Saves the disc through the scanner with its default formats and clears the banner.
     private func save(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
         openConfirm(barcode, file: file, line: line)
         app.buttons["page.confirm.add"].tap()
