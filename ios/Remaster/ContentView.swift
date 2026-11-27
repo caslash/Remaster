@@ -27,7 +27,7 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("Library", systemImage: "books.vertical", value: .library) {
-                LibraryView()
+                LibraryView(newestLibraryItem: $newestLibraryItem, newestLibraryItemType: $newestLibraryItemType)
             }
             .accessibilityIdentifier("tab.library")
             

@@ -9,18 +9,62 @@ import SwiftUI
 import Vision
 import VisionKit
 
-struct BarcodeScanner<Content: View>: View {
+struct BarcodeScanner<Fallback: View>: View {
+    @Environment(\.dismiss) private var dismiss
     var symbologies: [VNBarcodeSymbology] = []
     let isPresented: Bool
+    @Binding var isManualEntryPresented: Bool
     let onScanned: (String, VNBarcodeSymbology?) -> Void
-    let fallbackContent: () -> Content
+    @ViewBuilder let fallback: () -> Fallback
+
+    init(
+        symbologies: [VNBarcodeSymbology] = [],
+        isPresented: Bool,
+        isManualEntryPresented: Binding<Bool>,
+        onScanned: @escaping (String, VNBarcodeSymbology?) -> Void,
+        @ViewBuilder fallback: @escaping () -> Fallback
+    ) {
+        self.symbologies = symbologies
+        self.isPresented = isPresented
+        self._isManualEntryPresented = isManualEntryPresented
+        self.onScanned = onScanned
+        self.fallback = fallback
+    }
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
             DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
                 .ignoresSafeArea()
+                .overlay(alignment: .bottom) {
+                    Button {
+                        isManualEntryPresented = true
+                    } label: {
+                        Label("Enter manually", systemImage: "keyboard")
+                    }
+                    .foregroundStyle(.primary)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+                .toolbar {
+                    if #available(anyAppleOS 27.1, *) {
+                        ToolbarItem(placement: .automatic) {
+                            Button("Close", systemImage: "xmark") {
+                                dismiss()
+                            }
+                            .accessibilityIdentifier("page.scanning.dismiss")
+                        }
+                        .axisBehavior(.verticalPreferred)
+                    } else {
+                        ToolbarItem(placement: .automatic) {
+                            Button("Close", systemImage: "xmark") {
+                                dismiss()
+                            }
+                            .accessibilityIdentifier("page.scanning.dismiss")
+                        }
+                    }
+                }
         } else {
-            fallbackContent()
+            fallback()
         }
     }
 }
@@ -86,8 +130,8 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 }
 
 #Preview {
-    let onSubmit: (String, VNBarcodeSymbology?) -> Void = { _,_ in }
-    BarcodeScanner (isPresented: true, onScanned: onSubmit) {
-        ManualEntryView(isEnabled: true, onSubmit: onSubmit)
+    @Previewable @Environment(\.dismiss) var dismiss
+    BarcodeScanner(isPresented: true, isManualEntryPresented: .constant(false), onScanned: { _,_ in }) {
+        ManualEntryView(onSubmit: { _,_ in })
     }
 }

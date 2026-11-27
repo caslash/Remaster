@@ -26,6 +26,7 @@ struct UnmatchedDiscCard: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
+                    .accessibilityIdentifier("page.titleSearch.upc")
             }
             
             Spacer()

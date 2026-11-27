@@ -13,19 +13,36 @@ struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     
     @State private var viewModel: LibraryViewModel
+    @State private var selection: LibraryItem? = nil
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     
-    @State private var selection: LibraryItem? = nil
+    @State var isScannerPresented: Bool = false
+    
+    var newestLibraryItem: Binding<LibraryItem?>
+    var newestLibraryItemType: Binding<SaveType>
     
     var body: some View {
         if hSizeClass == .regular {
             NavigationSplitView {
-                LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+                libraryContent
+                    .navigationTitle("Library")
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
-                    .navigationTitle("Library")
-                
+                    .sheet(isPresented: $isScannerPresented) {
+                        ScanningView() { item, saveType in
+                            self.isScannerPresented = false
+                            self.newestLibraryItem.wrappedValue = item
+                            self.newestLibraryItemType.wrappedValue = saveType
+                        }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Add new", systemImage: "plus") {
+                                self.isScannerPresented = true
+                            }
+                        }
+                    }
             } detail: {
                 if let selection {
                     LibraryItemDetailView(item: selection) {
@@ -38,22 +55,98 @@ struct LibraryView: View {
             }
         } else {
             NavigationStack {
-                LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
-                    .alert(error: self.$viewModel.error) {
-                        Button("OK") { }
-                    }
+                libraryContent
+                    .background(Color(.secondarySystemBackground))
                     .navigationTitle("Library")
                     .navigationDestination(item: $selection) { item in
                         LibraryItemDetailView(item: item) {
                             self.selection = nil
                         }
                     }
+                    .alert(error: self.$viewModel.error) {
+                        Button("OK") { }
+                    }
+                    .sheet(isPresented: $isScannerPresented) {
+                        ScanningView() { item, saveType in
+                            self.isScannerPresented = false
+                            self.newestLibraryItem.wrappedValue = item
+                            self.newestLibraryItemType.wrappedValue = saveType
+                        }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Add new", systemImage: "plus") {
+                                self.isScannerPresented = true
+                            }
+                        }
+                    }
             }
         }
     }
     
-    init() {
+    init(newestLibraryItem: Binding<LibraryItem?>, newestLibraryItemType: Binding<SaveType>) {
         self.viewModel = LibraryViewModel()
+        self.newestLibraryItem = newestLibraryItem
+        self.newestLibraryItemType = newestLibraryItemType
+    }
+    
+    @ViewBuilder
+    private var libraryContent: some View {
+        if items.isEmpty {
+            VStack(spacing: 18) {
+                Image(systemName: "barcode.viewfinder")
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                    .foregroundStyle(.secondary)
+                
+                Text("Start your libary")
+                    .font(.title2.bold())
+                
+                Text("Scan the barcode on each case and we'll identify the release and tell you when a better version exists.")
+                    .foregroundStyle(.secondary)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom)
+                
+                VStack(spacing: 12) {
+                    Button {
+                        self.isScannerPresented = true
+                    } label: {
+                        Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                    }
+                    .fontWeight(.heavy)
+                    .buttonSizing(.flexible)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    
+                    Button("Search by Title") {
+                        
+                    }
+                    .fontWeight(.heavy)
+                    .buttonSizing(.flexible)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+                
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lock")
+                        .foregroundStyle(.blue)
+                    
+                    Text("No account needed. Your library is stored only on this iPhone")
+                        .multilineTextAlignment(.leading)
+                        .font(.footnote)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.top)
+            }
+            .padding(.horizontal, 40)
+            .ignoresSafeArea()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+        }
     }
     
     private struct LibraryGrid: View {
@@ -69,7 +162,7 @@ struct LibraryView: View {
                         Button { self.selection = item } label: {
                             LibraryCardView(item: item)
                                 .padding(4)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(.background))
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color(.secondarySystemBackground)))
                                 .contentShape(RoundedRectangle(cornerRadius: 6))
                                 .contextMenu {
                                     Button(role: .destructive) {
@@ -92,8 +185,12 @@ struct LibraryView: View {
     }
 }
 
+#Preview("Empty State") {
+    LibraryView(newestLibraryItem: .constant(nil), newestLibraryItemType: .constant(.new))
+}
+
 #if DEBUG
 #Preview(traits: .modifier(PreviewLibraryItems())) {
-    LibraryView()
+    LibraryView(newestLibraryItem: .constant(nil), newestLibraryItemType: .constant(.new))
 }
 #endif

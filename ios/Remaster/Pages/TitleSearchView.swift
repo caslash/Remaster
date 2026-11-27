@@ -26,7 +26,7 @@ struct TitleSearchView: View {
             }
             
             Section {
-                SearchTextField(titleKey: "Search for a title", searchText: $viewModel.query, isFocused: $isSearchFocused)
+                TitleSearchField(searchText: $viewModel.query, isFocused: $isSearchFocused)
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
@@ -51,6 +51,7 @@ struct TitleSearchView: View {
                 Button("Cancel", role: .close) {
                     dismiss()
                 }
+                .accessibilityIdentifier("page.titleSearch.cancel")
             }
         }
     }
@@ -60,15 +61,19 @@ struct TitleSearchView: View {
         switch viewModel.state {
         case .idle:
             ContentUnavailableView("Find a title", systemImage: "magnifyingglass", description: Text("Start typing to search."))
+                .accessibilityIdentifier("page.titleSearch.idle")
         case .loading:
             ProgressView()
+                .accessibilityIdentifier("page.titleSearch.progress")
         case .waitingToRetry(let until, _):
             ContentUnavailableView {
                 Label("Search is busy", systemImage: "hourglass")
+                    .accessibilityIdentifier("page.titleSearch.busy")
             } description: {
                 Text("Retrying in \(Text(timerInterval: Date.now...until, countsDown: true))")
             } actions: {
                 Button("Retry now") { viewModel.retry() }
+                    .accessibilityIdentifier("page.titleSearch.retryNow")
             }
         case .results(let titles):
             ForEach(titles) { title in
@@ -79,15 +84,19 @@ struct TitleSearchView: View {
                     TitleSearchCard(title: title)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("page.titleSearch.result")
             }
         case .noMatches(let query):
             ContentUnavailableView.search(text: query)
+                .accessibilityIdentifier("page.titleSearch.noMatches")
         case .failed(let error):
             ContentUnavailableView {
                 Label(error.errorDescription ?? "Search failed", systemImage: "exclamationmark.triangle")
+                    .accessibilityIdentifier("page.titleSearch.error.title")
             } description: {
                 if let recoverySuggestion = error.recoverySuggestion {
                     Text(recoverySuggestion)
+                        .accessibilityIdentifier("page.titleSearch.error.message")
                 }
             } actions: {
                 if (error.isRetryable) {

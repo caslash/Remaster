@@ -81,67 +81,70 @@ final class EditionLookupUITests: XCTestCase {
 
     // MARK: AC 4: not found shows a not-found message
 
-    func testNotFoundShowsMessageWithoutRetry() {
+    // A lookup typed into manual entry reports its failure under the field, not in
+    // an alert, so the barcode can be corrected in place (RMSTR-16).
+    func testNotFoundShowsMessageInline() {
         lookUp("404")
 
-        let alert = app.alerts["We don't know this disc yet"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Not-found alert didn't appear")
-        assertNoRawJSON(in: alert)
-        XCTAssertFalse(alert.buttons["Retry"].exists, "Retrying an unknown disc can't succeed")
-
-        alert.buttons["OK"].firstMatch.tap()
-
+        assertInlineError("We don't know this disc yet")
+        XCTAssertEqual(app.alerts.count, 0, "A manual lookup's failure raised an alert")
         assertManualEntryIsReady()
+        XCTAssertEqual(manualEntryField.value as? String, "404", "The typed barcode was lost after a failed lookup")
     }
 
     // MARK: AC 5: a network or backend failure is retryable
 
-    func testBackendFailureOffersRetry() {
+    func testBackendFailureShowsMessageInline() {
         lookUp("503")
 
-        let alert = app.alerts["Remaster is having trouble"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Backend error alert didn't appear")
-        assertNoRawJSON(in: alert)
-        XCTAssertTrue(alert.buttons["Retry"].exists)
-        XCTAssertTrue(alert.buttons["OK"].exists)
+        assertInlineError("Remaster is having trouble")
+        assertManualEntryIsReady()
     }
 
-    func testOfflineOffersRetry() {
+    func testOfflineShowsMessageInline() {
         lookUp("000")
 
-        let alert = app.alerts["You're offline"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Offline alert didn't appear")
-        assertNoRawJSON(in: alert)
-        XCTAssertTrue(alert.buttons["Retry"].exists)
+        assertInlineError("You're offline")
+        assertManualEntryIsReady()
     }
 
-    func testRetryRunsTheLookupAgain() {
+    // Look Up is the retry: the barcode is still in the field.
+    func testLookingUpAgainRunsTheLookupAgain() {
         lookUp("503")
-        let alert = app.alerts["Remaster is having trouble"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        assertInlineError("Remaster is having trouble")
+        assertManualEntryIsReady()
 
-        alert.buttons["Retry"].firstMatch.tap()
+        manualEntrySearch.tap()
 
-        // The alert goes away while the lookup runs, then the same failure brings it back.
-        // The gap is only a few hundred milliseconds, shorter than waitForNonExistence's
-        // polling interval, so check in a tight loop instead.
-        XCTAssertTrue(disappears(alert, within: 5), "Alert stayed up after Retry")
-        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Retry didn't run the lookup again")
+        // The message goes away while the lookup runs, then the same failure brings it
+        // back. The gap is only a few hundred milliseconds, shorter than
+        // waitForNonExistence's polling interval, so check in a tight loop instead.
+        XCTAssertTrue(disappears(inlineError, within: 5), "Error stayed up during the second lookup")
+        assertInlineError("Remaster is having trouble")
     }
 
     // MARK: Bad scan (upc-endpoint.md: 400 means scan again, don't retry)
 
-    func testBadScanShowsMessageWithoutRetry() {
+    func testBadBarcodeShowsMessageInline() {
         lookUp("400")
 
-        let alert = app.alerts["That's not a disc barcode"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Bad scan alert didn't appear")
-        assertNoRawJSON(in: alert)
-        XCTAssertFalse(alert.buttons["Retry"].exists, "Retrying the same bad code can't succeed")
-
-        alert.buttons["OK"].firstMatch.tap()
-
+        assertInlineError("That's not a disc barcode")
+        XCTAssertEqual(app.alerts.count, 0, "A manual lookup's failure raised an alert")
         assertManualEntryIsReady()
+    }
+
+    // A failed lookup followed by a good barcode clears the message and opens confirm.
+    func testCorrectingTheBarcodeAfterAFailureFindsTheDisc() {
+        lookUp("404")
+        assertInlineError("We don't know this disc yet")
+        assertManualEntryIsReady()
+
+        manualEntryField.tap()
+        manualEntryField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3))
+        manualEntryField.typeText("786936900378")
+        manualEntrySearch.tap()
+
+        XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForExistence(timeout: 5), "Confirm sheet didn't appear")
     }
 
     // MARK: Manual entry is paused while a lookup runs
@@ -150,9 +153,10 @@ final class EditionLookupUITests: XCTestCase {
         lookUp("503")
 
         // The simulated service waits at least MINIMUM_WAIT before answering, so the
-        // field is still disabled right after Search.
+        // field and button are still disabled right after Look Up.
         XCTAssertFalse(manualEntryField.isEnabled, "Manual entry stayed enabled during the lookup")
-        XCTAssertTrue(app.alerts["Remaster is having trouble"].waitForExistence(timeout: 5))
+        XCTAssertFalse(manualEntrySearch.isEnabled, "Look Up stayed enabled during the lookup")
+        assertInlineError("Remaster is having trouble")
     }
 
     // MARK: Helpers
@@ -163,6 +167,17 @@ final class EditionLookupUITests: XCTestCase {
 
     private var manualEntrySearch: XCUIElement {
         app.buttons["page.scanning.manualEntry.search"]
+    }
+
+    private var inlineError: XCUIElement {
+        app.staticTexts["page.scanning.manualEntry.error"]
+    }
+
+    private func assertInlineError(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(inlineError.waitForExistence(timeout: 5), "Inline error didn't appear", file: file, line: line)
+        XCTAssertEqual(inlineError.label, message, file: file, line: line)
+        let suggestion = app.staticTexts["page.scanning.manualEntry.error.suggestion"]
+        XCTAssertFalse(suggestion.label.contains("{"), "Raw JSON shown to the user: \(suggestion.label)", file: file, line: line)
     }
 
     private var comboToggle: XCUIElement {

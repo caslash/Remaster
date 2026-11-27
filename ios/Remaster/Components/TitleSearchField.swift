@@ -1,5 +1,5 @@
 //
-//  SearchTextField.swift
+//  TitleSearchField.swift
 //  Remaster
 //
 //  Created by Cameron Slash on 11/25/26.
@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-struct SearchTextField: View {
-    var titleKey: String
+struct TitleSearchField: View {
     @Binding var searchText: String
     var isFocused: FocusState<Bool>.Binding
     
@@ -17,11 +16,12 @@ struct SearchTextField: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
             
-            TextField(titleKey, text: $searchText)
+            TextField("Search for a title", text: $searchText)
                 .focused(isFocused)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("page.titleSearch.field")
             
             if !searchText.isEmpty {
                 Button {
@@ -33,6 +33,7 @@ struct SearchTextField: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Clear search")
+                .accessibilityIdentifier("page.titleSearch.clear")
             }
         }
         .padding(.horizontal, 14)
@@ -45,5 +46,5 @@ struct SearchTextField: View {
 
 #Preview {
     @Previewable @FocusState var focused: Bool
-    SearchTextField(titleKey: "Search for a title", searchText: .constant(""), isFocused: $focused)
+    TitleSearchField(searchText: .constant(""), isFocused: $focused)
 }
