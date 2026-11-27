@@ -24,7 +24,6 @@ struct ManualEntryView: View {
             Section {
                 BarcodeTextField(searchText: $upc, isFocused: $isSearchFocused)
                     .disabled(isFetching)
-                    .accessibilityIdentifier("page.scanning.manualEntry.field")
             } header: {
                 Text("Barcode Number")
                     .textCase(.uppercase)
@@ -108,7 +107,7 @@ struct ManualEntryView: View {
                     Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
-                    .accessibilityIdentifier("page.scanning.dismiss")
+                    .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
                 }
                 .axisBehavior(.verticalPreferred)
             } else {
@@ -116,7 +115,7 @@ struct ManualEntryView: View {
                     Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
-                    .accessibilityIdentifier("page.scanning.dismiss")
+                    .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
                 }
             }
         }

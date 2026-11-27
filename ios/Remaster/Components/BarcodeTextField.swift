@@ -19,6 +19,7 @@ struct BarcodeTextField: View {
                 .keyboardType(.numberPad)
                 .focused(isFocused)
                 .limitCharacters($searchText, to: 13)
+                .accessibilityIdentifier("page.scanning.manualEntry.field")
             
             if !searchText.isEmpty {
                 Button {
@@ -29,7 +30,8 @@ struct BarcodeTextField: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .accessibilityLabel("Clear search")
+                .accessibilityLabel("Clear barcode")
+                .accessibilityIdentifier("page.scanning.manualEntry.clear")
             }
         }
         .background(Color.clear)

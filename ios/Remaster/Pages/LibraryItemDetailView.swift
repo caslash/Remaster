@@ -100,7 +100,7 @@ struct LibraryItemDetailView: View {
             
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("\(viewModel.libraryItem.displayTitle ?? viewModel.edition?.upcTitle ?? "This title") will be removed from your libary on this iPhone")
+            Text("\(viewModel.libraryItem.displayTitle ?? viewModel.edition?.upcTitle ?? "This title") will be removed from your library on this iPhone")
         }
         .alert(error: self.$viewModel.error) {
             Button("OK") { }

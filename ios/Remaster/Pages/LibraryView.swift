@@ -14,9 +14,8 @@ struct LibraryView: View {
     
     @State private var viewModel: LibraryViewModel
     @State private var selection: LibraryItem? = nil
+    @State private var isScannerPresented: Bool = false
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
-    
-    @State var isScannerPresented: Bool = false
     
     var newestLibraryItem: Binding<LibraryItem?>
     var newestLibraryItemType: Binding<SaveType>
@@ -99,7 +98,7 @@ struct LibraryView: View {
                     .frame(width: 64, height: 64)
                     .foregroundStyle(.secondary)
                 
-                Text("Start your libary")
+                Text("Start your library")
                     .font(.title2.bold())
                 
                 Text("Scan the barcode on each case and we'll identify the release and tell you when a better version exists.")

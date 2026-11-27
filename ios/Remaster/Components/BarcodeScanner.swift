@@ -130,7 +130,6 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 }
 
 #Preview {
-    @Previewable @Environment(\.dismiss) var dismiss
     BarcodeScanner(isPresented: true, isManualEntryPresented: .constant(false), onScanned: { _,_ in }) {
         ManualEntryView(onSubmit: { _,_ in })
     }
