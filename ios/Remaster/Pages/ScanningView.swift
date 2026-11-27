@@ -13,21 +13,24 @@ struct ScanningView: View {
     @State private var viewModel: ScanningViewModel = .init()
     @State private var isManualLookup = false
     
+    @State private var isManualEntryPresented = false
+    
     let onSuccess: (LibraryItem, SaveType) -> Void
     
     var body: some View {
         NavigationStack {
             BarcodeScanner(
                 symbologies: [.ean13, .upce, .ean8],
-                isPresented: viewModel.isIdle,
+                isPresented: viewModel.isIdle && !isManualEntryPresented,
                 onScanned: { barcode, symbology in
                     isManualLookup = false
                     viewModel.processBarcode(barcode, shape: symbology)
                 }
             ) {
                 manualEntry
+                    .onAppear { isManualEntryPresented = true }
+                    .onDisappear(perform: manualEntryDismissed)
             }
-            .navigationBarBackButtonHidden()
             .overlay {
                 if (viewModel.isFetching && !isManualLookup) {
                     ProgressView()
@@ -79,6 +82,7 @@ struct ScanningView: View {
         viewModel.networkError = nil
         viewModel.error = nil
         isManualLookup = false
+        isManualEntryPresented = false
     }
 }
 

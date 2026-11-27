@@ -30,36 +30,60 @@ struct BarcodeScanner<ManualEntry: View>: View {
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-            DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
-                .ignoresSafeArea()
-                .overlay(alignment: .bottom) {
-                    NavigationLink {
-                        manualEntry()
-                    } label: {
-                        Label("Enter manually", systemImage: "keyboard")
-                    }
-                    .foregroundStyle(.primary)
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                }
-                .toolbar {
-                    if #available(anyAppleOS 27.1, *) {
-                        ToolbarItem(placement: .automatic) {
-                            Button(role: .close) {
-                                closeScanner()
-                            }
-                            .accessibilityIdentifier("page.scanning.dismiss")
+            VStack {
+                DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
+                    .ignoresSafeArea()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Scan Barcode")
+                        .font(.title.bold())
+                    
+                    Text("Point the camera at the barcode on the back of the case.")
+                        .multilineTextAlignment(.leading)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 10) {
+                        NavigationLink {
+                            manualEntry()
+                        } label: {
+                            Text("Enter Barcode Manually")
+                                .frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("page.scanning.enterManually")
                         }
-                        .axisBehavior(.verticalPreferred)
-                    } else {
-                        ToolbarItem(placement: .automatic) {
-                            Button(role: .close) {
-                                closeScanner()
-                            }
-                            .accessibilityIdentifier("page.scanning.dismiss")
-                        }
+                        .padding()
+                        .buttonSizing(.flexible)
+                        .controlSize(.large)
+                        
+                        Text("The camera is used only to read the barcode. Only the barcode number is sent to look up the disc.")
+                            .multilineTextAlignment(.center)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .padding(.horizontal, 28)
+                .padding(.top, 26)
+                .padding(.bottom, 30)
+            }
+            .toolbar {
+                if #available(anyAppleOS 27.1, *) {
+                    ToolbarItem(placement: .automatic) {
+                        Button(role: .close) {
+                            closeScanner()
+                        }
+                        .accessibilityIdentifier("page.scanning.dismiss")
+                    }
+                    .axisBehavior(.verticalPreferred)
+                } else {
+                    ToolbarItem(placement: .automatic) {
+                        Button(role: .close) {
+                            closeScanner()
+                        }
+                        .accessibilityIdentifier("page.scanning.dismiss")
+                    }
+                }
+            }
         } else {
             manualEntry()
         }

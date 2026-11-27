@@ -13,21 +13,20 @@ import Vision
 #endif
 
 enum RemasterTab: String, Hashable {
-    case library, upgrades, watchlist, settings, scanner
+    case library, upgrades, watchlist, settings
 }
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var selection: RemasterTab = .library
-    @State private var lastSelection: RemasterTab = .library
     @State private var isScannerPresented = false
-    
     @State private var newestLibraryItem: LibraryItem?
     @State private var newestLibraryItemType: SaveType
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("Library", systemImage: "books.vertical", value: .library) {
-                LibraryView(newestLibraryItem: $newestLibraryItem, newestLibraryItemType: $newestLibraryItemType)
+                LibraryView()
             }
             .accessibilityIdentifier("tab.library")
             
@@ -65,8 +64,8 @@ struct ContentView: View {
                 .becomesKeyWindow(false)
                 .closeOnTapOutside(true)
                 .allowTapThroughBG(true)
-                .type(.floater())
-                .position(.top)
+                .type(hSizeClass == .regular ? .floater() : .floater(verticalPadding: 36))
+                .position(hSizeClass == .regular ? .bottom : .top)
                 .animation(.spring)
         }
     }
@@ -86,8 +85,8 @@ struct ContentView: View {
     }
     
     Group {
-        if let item, edition != nil {
-            ContentView()
+        if edition != nil {
+            ContentView(libraryItem: item)
         } else {
             ProgressView("Loading preview data...")
         }

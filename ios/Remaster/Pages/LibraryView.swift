@@ -17,9 +17,6 @@ struct LibraryView: View {
     @State private var selection: LibraryItem? = nil
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     
-    var newestLibraryItem: Binding<LibraryItem?>
-    var newestLibraryItemType: Binding<SaveType>
-    
     var body: some View {
         if hSizeClass == .regular {
             NavigationSplitView {
@@ -69,10 +66,8 @@ struct LibraryView: View {
         }
     }
     
-    init(newestLibraryItem: Binding<LibraryItem?>, newestLibraryItemType: Binding<SaveType>) {
+    init() {
         self.viewModel = LibraryViewModel()
-        self.newestLibraryItem = newestLibraryItem
-        self.newestLibraryItemType = newestLibraryItemType
     }
     
     @ViewBuilder
@@ -170,11 +165,11 @@ struct LibraryView: View {
 }
 
 #Preview("Empty State") {
-    LibraryView(newestLibraryItem: .constant(nil), newestLibraryItemType: .constant(.new))
+    LibraryView()
 }
 
 #if DEBUG
 #Preview(traits: .modifier(PreviewLibraryItems())) {
-    LibraryView(newestLibraryItem: .constant(nil), newestLibraryItemType: .constant(.new))
+    LibraryView()
 }
 #endif
