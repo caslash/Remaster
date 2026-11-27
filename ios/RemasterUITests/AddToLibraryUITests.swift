@@ -91,6 +91,43 @@ final class AddToLibraryUITests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Tapping the banner didn't dismiss it")
     }
 
+    // MARK: Taps outside the banner
+
+    // The banner sits in its own window over the whole screen; a tap outside it
+    // must still reach the app underneath.
+    func testTapOutsideTheBannerReachesTheTabs() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        upgradesTab.tap()
+
+        XCTAssertTrue(waitUntilSelected(upgradesTab), "Tapping Upgrades with the banner showing didn't select it")
+    }
+
+    func testTapOutsideTheBannerDismissesIt() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        upgradesTab.tap()
+
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Tapping outside the banner didn't dismiss it")
+    }
+
+    func testScanOpensAgainWithTheBannerShowing() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        app.buttons["Scan"].firstMatch.tap()
+
+        XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Tapping Scan with the banner showing didn't open the scanner")
+    }
+
     // MARK: Duplicates
 
     func testSameDiscAgainAsksBeforeAdding() {
@@ -186,6 +223,18 @@ final class AddToLibraryUITests: XCTestCase {
     }
 
     // MARK: Helpers
+
+    /// Matched by identifier or label, as in AppShellUITests: iOS 27.0 doesn't
+    /// expose `tab.*` identifiers, and iPhone Duo's tab rail isn't a TabBar.
+    private var upgradesTab: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "identifier == 'tab.upgrades' OR label == 'Upgrades'")).firstMatch
+    }
+
+    /// Selection can lag a tap by a frame or two, so wait for it.
+    private func waitUntilSelected(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: element)
+        return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
+    }
 
     private var addToYourCopy: XCUIElement {
         app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'your copy'")).firstMatch

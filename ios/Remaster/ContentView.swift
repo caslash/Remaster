@@ -55,6 +55,9 @@ struct ContentView: View {
             AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
         } customize: {
             $0
+                .becomesKeyWindow(false)
+                .closeOnTapOutside(true)
+                .allowTapThroughBG(true)
                 .type(.floater())
                 .position(.top)
                 .animation(.spring)
@@ -68,7 +71,7 @@ struct ContentView: View {
                 self.newestLibraryItemType = saveType
             }
         }
-        .onChange(of: selection) {oldValue, newValue in
+        .onChange(of: selection) { oldValue, newValue in
             if (newValue == .scanner) {
                 lastSelection = oldValue
                 isScannerPresented = true

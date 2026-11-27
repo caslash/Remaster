@@ -141,7 +141,6 @@ struct LibraryView: View {
                 .padding(.top)
             }
             .padding(.horizontal, 40)
-            .ignoresSafeArea()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
