@@ -10,4 +10,22 @@ import SwiftUI
 
 extension EnvironmentValues {
     @Entry var posterService: any PosterStore = Container.shared.posterService()
+    @Entry var openScanner = OpenScannerAction(isPresented: .constant(false))
+    @Entry var closeScanner = CloseScannerAction(isPresented: .constant(false))
+}
+
+struct OpenScannerAction {
+    var isPresented: Binding<Bool>
+
+    func callAsFunction() {
+        isPresented.wrappedValue = true
+    }
+}
+
+struct CloseScannerAction {
+    var isPresented: Binding<Bool>
+    
+    func callAsFunction() {
+        isPresented.wrappedValue = false
+    }
 }

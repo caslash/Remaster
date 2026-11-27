@@ -2,7 +2,7 @@ import SwiftUI
 import Vision
 
 struct ManualEntryView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeScanner) private var closeScanner
     @State private var upc: String = ""
     @FocusState private var isSearchFocused: Bool
     
@@ -100,20 +100,19 @@ struct ManualEntryView: View {
         }
         .navigationTitle("Enter Barcode")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
         .toolbar {
             if #available(anyAppleOS 27.1, *) {
                 ToolbarItem(placement: .automatic) {
-                    Button("Close", systemImage: "xmark") {
-                        dismiss()
+                    Button(role: .close) {
+                        closeScanner()
                     }
                     .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
                 }
                 .axisBehavior(.verticalPreferred)
             } else {
                 ToolbarItem(placement: .automatic) {
-                    Button("Close", systemImage: "xmark") {
-                        dismiss()
+                    Button(role: .close) {
+                        closeScanner()
                     }
                     .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
                 }

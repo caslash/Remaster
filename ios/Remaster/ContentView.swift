@@ -46,10 +46,17 @@ struct ContentView: View {
                 SettingsView()
             }
             .accessibilityIdentifier("tab.settings")
-            
-            Tab("Scan", systemImage: "barcode.viewfinder", value: .scanner, role: .prominent) {
-                Color.clear
+        }
+        .environment(\.openScanner, OpenScannerAction(isPresented: $isScannerPresented))
+        .environment(\.closeScanner, CloseScannerAction(isPresented: $isScannerPresented))
+        .sheet(isPresented: $isScannerPresented) {
+            ScanningView() { item, saveType in
+                isScannerPresented = false
+                self.newestLibraryItem = item
+                self.newestLibraryItemType = saveType
             }
+            .environment(\.openScanner, OpenScannerAction(isPresented: $isScannerPresented))
+            .environment(\.closeScanner, CloseScannerAction(isPresented: $isScannerPresented))
         }
         .popup(item: $newestLibraryItem) { item in
             AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
@@ -61,21 +68,6 @@ struct ContentView: View {
                 .type(.floater())
                 .position(.top)
                 .animation(.spring)
-        }
-        .fullScreenCover(isPresented: $isScannerPresented, onDismiss: {
-            selection = lastSelection
-        }) {
-            ScanningView() { item, saveType in
-                isScannerPresented = false
-                self.newestLibraryItem = item
-                self.newestLibraryItemType = saveType
-            }
-        }
-        .onChange(of: selection) { oldValue, newValue in
-            if (newValue == .scanner) {
-                lastSelection = oldValue
-                isScannerPresented = true
-            }
         }
     }
     
@@ -95,7 +87,7 @@ struct ContentView: View {
     
     Group {
         if let item, edition != nil {
-            ContentView(libraryItem: item)
+            ContentView()
         } else {
             ProgressView("Loading preview data...")
         }

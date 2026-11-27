@@ -11,7 +11,6 @@ import Vision
 
 struct ScanningView: View {
     @State private var viewModel: ScanningViewModel = .init()
-    @State private var isManualEntryPresented = false
     @State private var isManualLookup = false
     
     let onSuccess: (LibraryItem, SaveType) -> Void
@@ -20,8 +19,7 @@ struct ScanningView: View {
         NavigationStack {
             BarcodeScanner(
                 symbologies: [.ean13, .upce, .ean8],
-                isPresented: viewModel.isIdle && !isManualEntryPresented,
-                isManualEntryPresented: $isManualEntryPresented,
+                isPresented: viewModel.isIdle,
                 onScanned: { barcode, symbology in
                     isManualLookup = false
                     viewModel.processBarcode(barcode, shape: symbology)
@@ -54,18 +52,8 @@ struct ScanningView: View {
                 Text(error.recoverySuggestion ?? "")
                     .accessibilityIdentifier("page.scanning.alert.message")
             }
-            .sheet(isPresented: $isManualEntryPresented, onDismiss: manualEntryDismissed) {
-                NavigationStack {
-                    manualEntry
-                }
-            }
             .sheet(item: $viewModel.edition) { edition in
                 ConfirmView(edition: edition, onSuccess: onSuccess)
-            }
-            .onChange(of: viewModel.edition == nil) { _, isEmpty in
-                if !isEmpty {
-                    isManualEntryPresented = false
-                }
             }
         }
     }

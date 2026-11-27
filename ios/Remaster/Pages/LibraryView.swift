@@ -11,10 +11,10 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openScanner) private var openScanner
     
     @State private var viewModel: LibraryViewModel
     @State private var selection: LibraryItem? = nil
-    @State private var isScannerPresented: Bool = false
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     
     var newestLibraryItem: Binding<LibraryItem?>
@@ -28,17 +28,10 @@ struct LibraryView: View {
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
-                    .sheet(isPresented: $isScannerPresented) {
-                        ScanningView() { item, saveType in
-                            self.isScannerPresented = false
-                            self.newestLibraryItem.wrappedValue = item
-                            self.newestLibraryItemType.wrappedValue = saveType
-                        }
-                    }
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             Button("Add new", systemImage: "plus") {
-                                self.isScannerPresented = true
+                                self.openScanner()
                             }
                         }
                     }
@@ -65,17 +58,10 @@ struct LibraryView: View {
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
-                    .sheet(isPresented: $isScannerPresented) {
-                        ScanningView() { item, saveType in
-                            self.isScannerPresented = false
-                            self.newestLibraryItem.wrappedValue = item
-                            self.newestLibraryItemType.wrappedValue = saveType
-                        }
-                    }
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             Button("Add new", systemImage: "plus") {
-                                self.isScannerPresented = true
+                                self.openScanner()
                             }
                         }
                     }
@@ -109,7 +95,7 @@ struct LibraryView: View {
                 
                 VStack(spacing: 12) {
                     Button {
-                        self.isScannerPresented = true
+                        self.openScanner()
                     } label: {
                         Label("Scan a Shelf", systemImage: "barcode.viewfinder")
                     }
