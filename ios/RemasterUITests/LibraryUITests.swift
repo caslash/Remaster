@@ -247,8 +247,7 @@ final class LibraryUITests: XCTestCase {
         scan.tap()
 
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
-        manualEntryField.tap()
-        manualEntryField.typeText(barcode)
+        manualEntryField.tapAndType(barcode, file: file, line: line)
         app.buttons["page.scanning.manualEntry.search"].tap()
 
         XCTAssertTrue(app.staticTexts["page.confirm.title"].waitForExistence(timeout: 5), "Confirm sheet didn't appear", file: file, line: line)
