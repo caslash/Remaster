@@ -8,7 +8,7 @@
 //
 //  The app launches with SIMULATED_SERVICES, so the library starts empty in an
 //  in-memory store and lookups come from ios/Mocks/Editions.bundle. Discs are
-//  saved through the scanner (Library's Add new button), as AddToLibraryUITests
+//  saved through the scanner (Library's + menu), as AddToLibraryUITests
 //  does:
 //  - WandaVision (786936900378): matched, 4K UHD, steelbook + collector's.
 //  - Hoppers (043396648654): matched, 4K UHD + Blu-ray, steelbook.
@@ -248,11 +248,16 @@ final class LibraryUITests: XCTestCase {
         app.textFields["page.scanning.manualEntry.field"]
     }
 
-    /// Opens the scanner from Library's Add new button, looks up the barcode and waits for the confirm sheet.
+    /// Opens the scanner from Library's + menu, looks up the barcode and waits for the confirm sheet.
     private func openConfirm(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
-        let addNew = app.buttons["Add new"].firstMatch
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's Add new button didn't appear", file: file, line: line)
+        // Library's + is a menu: Scan a Shelf or Search by Title. Matched by label,
+        // "Add new" or the plain + image's "Add".
+        let addNew = app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's + button didn't appear", file: file, line: line)
         addNew.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "The + menu has no Scan a Shelf", file: file, line: line)
+        scan.tap()
 
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
         manualEntryField.tap()

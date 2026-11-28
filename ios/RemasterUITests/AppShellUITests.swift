@@ -4,8 +4,9 @@
 //
 //  The tab shell (RMSTR-58): Library and Upgrades tabs, and the scanner sheet
 //  that ContentView presents. The Scan tab is gone; the scanner opens from
-//  Library's Add new (+) toolbar button or the empty library's Scan a Shelf
-//  button, both as the same sheet.
+//  Library's + menu (Scan a Shelf) or the empty library's Scan a Shelf button,
+//  both as the same sheet. The menu's Search by Title is covered in
+//  TitleSearchUITests.
 //
 //  Launches with SIMULATED_SERVICES like the lookup tests, so nothing reaches a
 //  backend. The Simulator has no camera scanner, so the sheet shows the manual
@@ -30,12 +31,12 @@ final class AppShellUITests: XCTestCase {
 
     // MARK: AC 1: a tab bar with Library and Upgrades; the scanner opens from Library
 
-    func testLaunchShowsTabsAndAddNew() {
+    func testLaunchShowsTabsAndAddMenu() {
         app.launch()
 
         XCTAssertTrue(tab(.library).waitForExistence(timeout: 10), "Library tab is missing")
         XCTAssertTrue(tab(.upgrades).exists, "Upgrades tab is missing")
-        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "Library's Add new button is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "Library's + button is missing")
         XCTAssertFalse(app.buttons["Scan"].exists, "The Scan tab should be gone")
         XCTAssertTrue(waitUntilSelected(.library), "The app should open on Library")
         XCTAssertFalse(dismissScanner.exists, "The scanner shouldn't be open at launch")
@@ -43,11 +44,21 @@ final class AppShellUITests: XCTestCase {
 
     // MARK: AC 2: the scanner opens as a sheet; closing returns to Library
 
-    func testAddNewOpensTheScannerAndCloseReturnsToLibrary() {
+    func testAddMenuOffersScanAndSearch() {
         app.launch()
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "+ is missing")
 
         addNew.tap()
+        XCTAssertTrue(menuItem("Scan a Shelf").waitForExistence(timeout: 5), "The + menu has no Scan a Shelf")
+        XCTAssertTrue(menuItem("Search by Title").exists, "The + menu has no Search by Title")
+        XCTAssertFalse(dismissScanner.exists, "Tapping + opened the scanner instead of a menu")
+    }
+
+    func testAddMenuOpensTheScannerAndCloseReturnsToLibrary() {
+        app.launch()
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "+ is missing")
+
+        openScannerFromAddMenu()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
         XCTAssertTrue(manualEntryField.exists, "The scanner sheet didn't show the manual entry form")
 
@@ -71,11 +82,11 @@ final class AppShellUITests: XCTestCase {
 
     func testScannerCanBeOpenedAgainAfterClosing() {
         app.launch()
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "+ is missing")
 
-        for opener in [addNew, scanAShelf, addNew] {
-            opener.tap()
-            XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open from \(opener)")
+        for fromMenu in [true, false, true] {
+            if fromMenu { openScannerFromAddMenu() } else { scanAShelf.tap() }
+            XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open from \(fromMenu ? "the + menu" : "Scan a Shelf")")
             dismissScanner.tap()
             XCTAssertTrue(dismissScanner.waitForNonExistence(timeout: 5), "Scanner didn't close")
         }
@@ -85,9 +96,9 @@ final class AppShellUITests: XCTestCase {
 
     func testOpeningTheScannerDoesNotStartALookup() {
         app.launch()
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Add new is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "+ is missing")
 
-        addNew.tap()
+        openScannerFromAddMenu()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open")
 
         XCTAssertFalse(app.activityIndicators["page.scanning.progress"].exists, "Opening the scanner started a lookup")
@@ -102,7 +113,7 @@ final class AppShellUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(tab(.library).waitForExistence(timeout: 10), "Library tab is missing")
-        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "Add new is missing")
+        XCTAssertTrue(addNew.waitForExistence(timeout: 5), "+ is missing")
         for element in [tab(.library), tab(.upgrades), addNew] {
             XCTAssertTrue(element.isHittable, "\(element) isn't reachable at the largest text size")
             XCTAssertFalse(element.label.isEmpty, "\(element) has no VoiceOver label")
@@ -114,7 +125,7 @@ final class AppShellUITests: XCTestCase {
         tab(.library).tap()
         XCTAssertTrue(waitUntilSelected(.library), "Tapping Library didn't select it at the largest text size")
 
-        addNew.tap()
+        openScannerFromAddMenu()
         XCTAssertTrue(dismissScanner.waitForExistence(timeout: 5), "Scanner didn't open at the largest text size")
         XCTAssertTrue(dismissScanner.isHittable, "Close isn't reachable at the largest text size")
         XCTAssertFalse(dismissScanner.label.isEmpty, "Close has no VoiceOver label")
@@ -142,14 +153,28 @@ final class AppShellUITests: XCTestCase {
         return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 
-    /// Library's + toolbar button.
+    /// Library's + toolbar menu. Matched by label: "Add new", or "Add", which is
+    /// what VoiceOver reads for a bare + image.
     private var addNew: XCUIElement {
-        app.buttons["Add new"].firstMatch
+        app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch
     }
 
-    /// The empty library's primary button.
+    /// An item in the open + menu. Looked up inside the menu's collection view so
+    /// it isn't confused with the empty library's button of the same name.
+    private func menuItem(_ label: String) -> XCUIElement {
+        app.collectionViews.buttons[label].firstMatch
+    }
+
+    private func openScannerFromAddMenu(file: StaticString = #filePath, line: UInt = #line) {
+        addNew.tap()
+        let scan = menuItem("Scan a Shelf")
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "The + menu has no Scan a Shelf", file: file, line: line)
+        scan.tap()
+    }
+
+    /// The empty library's primary button (not the + menu's item).
     private var scanAShelf: XCUIElement {
-        app.buttons["Scan a Shelf"].firstMatch
+        app.buttons.matching(NSPredicate(format: "label == 'Scan a Shelf' AND identifier == ''")).firstMatch
     }
 
     private var manualEntryField: XCUIElement {

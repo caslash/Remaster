@@ -28,7 +28,7 @@ final class TitleSearchViewModelTests {
         Container.shared.titleService.register { [stub] in stub }
     }
 
-    private func makeViewModel(_ searchType: TitleSearchType = .barcodeNotFound(upc: nil)) -> TitleSearchViewModel {
+    private func makeViewModel(_ searchType: TitleSearchType = .addTitle(upc: nil)) -> TitleSearchViewModel {
         TitleSearchViewModel(searchType: searchType, clock: clock)
     }
 
@@ -177,15 +177,14 @@ final class TitleSearchViewModelTests {
         #expect(titles.map(\.id) == [SampleTitles.dune.id, SampleTitles.duneMiniseries.id, SampleTitles.dunePartTwo.id])
     }
 
-    @Test("No results shows no matches for the trimmed text")
+    @Test("No results shows no matches")
     func noMatches() async {
         let viewModel = makeViewModel()
 
         await type(" zzzz ", into: viewModel)
         await waitUntil("no matches") { viewModel.state.caseName == "noMatches" }
 
-        guard case .noMatches(let query) = viewModel.state else { return }
-        #expect(query == "zzzz")
+        #expect(viewModel.state.titles == nil)
     }
 
     @Test("Clearing the field goes back to idle")
@@ -357,7 +356,7 @@ struct TitleSearchTypeTests {
 
     @Test("An unknown barcode starts empty and keeps the UPC")
     func barcodeNotFound() {
-        let type = TitleSearchType.barcodeNotFound(upc: "043396648654")
+        let type = TitleSearchType.addTitle(upc: "043396648654")
 
         #expect(type.prefillQuery.isEmpty)
         #expect(type.upc == "043396648654")
@@ -367,7 +366,7 @@ struct TitleSearchTypeTests {
 
     @Test("A disc without a barcode has no UPC to show")
     func noBarcode() {
-        let type = TitleSearchType.barcodeNotFound(upc: nil)
+        let type = TitleSearchType.addTitle(upc: nil)
 
         #expect(type.upc == nil)
         #expect(type.prefillQuery.isEmpty)
@@ -375,8 +374,8 @@ struct TitleSearchTypeTests {
     }
 
     @Test("No wording mentions sharing, which isn't part of this release", arguments: [
-        TitleSearchType.barcodeNotFound(upc: "043396648654"),
-        .barcodeNotFound(upc: nil),
+        TitleSearchType.addTitle(upc: "043396648654"),
+        .addTitle(upc: nil),
         .titleNotConfirmed(upc: "8717418608644", prefillQuery: "WandaVision"),
     ])
     func noShareWording(_ type: TitleSearchType) {

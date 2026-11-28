@@ -7,7 +7,7 @@
 //
 //  The app launches with SIMULATED_SERVICES, which also swaps in an in-memory
 //  library store, so every test starts with an empty library. Each test opens
-//  the scanner from Library's Add new (+) button and types a barcode from ios/Mocks/Editions.bundle into the manual entry
+//  the scanner from Library's + menu (Scan a Shelf) and types a barcode from ios/Mocks/Editions.bundle into the manual entry
 //  field, as EditionLookupUITests does.
 //
 //  The banner is one combined accessibility element (banner.added) whose label
@@ -122,9 +122,12 @@ final class AddToLibraryUITests: XCTestCase {
         XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
         XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
 
-        app.buttons["Add new"].firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "Tapping + with the banner showing didn't open its menu")
+        scan.tap()
 
-        XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Tapping Add new with the banner showing didn't open the scanner")
+        XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Scan a Shelf with the banner showing didn't open the scanner")
     }
 
     // MARK: Duplicates
@@ -295,11 +298,16 @@ final class AddToLibraryUITests: XCTestCase {
         app.switches.matching(NSPredicate(format: "label BEGINSWITH 'Also includes'")).firstMatch
     }
 
-    /// Opens the scanner from Library's Add new button, looks up the barcode and waits for the confirm sheet.
+    /// Opens the scanner from Library's + menu, looks up the barcode and waits for the confirm sheet.
     private func openConfirm(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
-        let addNew = app.buttons["Add new"].firstMatch
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's Add new button didn't appear", file: file, line: line)
+        // Library's + is a menu: Scan a Shelf or Search by Title. Matched by label,
+        // "Add new" or the plain + image's "Add".
+        let addNew = app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's + button didn't appear", file: file, line: line)
         addNew.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "The + menu has no Scan a Shelf", file: file, line: line)
+        scan.tap()
 
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
         manualEntryField.tap()

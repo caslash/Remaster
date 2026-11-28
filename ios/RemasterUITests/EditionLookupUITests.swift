@@ -8,7 +8,7 @@
 //  The app launches with SIMULATED_SERVICES, so SimulatedBarcodeService answers
 //  from ios/Mocks/Editions.bundle and fakes errors for 000 (offline), 400, 404
 //  and 503. The camera scanner isn't supported in the Simulator, so each test
-//  opens the scanner sheet from Library's Add new (+) button and types the
+//  opens the scanner sheet from Library's + menu (Scan a Shelf) and types the
 //  barcode into the manual entry field that the scanner shows instead.
 //
 
@@ -199,9 +199,14 @@ final class EditionLookupUITests: XCTestCase {
     }
 
     private func openScanner(file: StaticString = #filePath, line: UInt = #line) {
-        let addNew = app.buttons["Add new"].firstMatch
-        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's Add new button didn't appear", file: file, line: line)
+        // Library's + is a menu: Scan a Shelf or Search by Title. Matched by label,
+        // "Add new" or the plain + image's "Add".
+        let addNew = app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's + button didn't appear", file: file, line: line)
         addNew.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "The + menu has no Scan a Shelf", file: file, line: line)
+        scan.tap()
     }
 
     private func lookUp(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
