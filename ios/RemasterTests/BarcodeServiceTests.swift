@@ -231,10 +231,12 @@ nonisolated final class StubURLProtocol: URLProtocol {
         }
     }
 
-    /// Leaves poster downloads to PosterStubURLProtocol: suites run in parallel,
-    /// and the protocol registered last is asked first.
+    /// Leaves poster downloads to PosterStubURLProtocol and title searches to
+    /// SearchStubURLProtocol: suites run in parallel, and the protocol
+    /// registered last is asked first.
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host() != PosterStubURLProtocol.host
+            && request.url?.path() != SearchStubURLProtocol.path
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }

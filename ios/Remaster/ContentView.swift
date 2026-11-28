@@ -13,14 +13,13 @@ import Vision
 #endif
 
 enum RemasterTab: String, Hashable {
-    case library, upgrades, watchlist, settings, scanner
+    case library, upgrades, watchlist, settings
 }
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var selection: RemasterTab = .library
-    @State private var lastSelection: RemasterTab = .library
     @State private var isScannerPresented = false
-    
     @State private var newestLibraryItem: LibraryItem?
     @State private var newestLibraryItemType: SaveType
 
@@ -46,33 +45,28 @@ struct ContentView: View {
                 SettingsView()
             }
             .accessibilityIdentifier("tab.settings")
-            
-            Tab("Scan", systemImage: "barcode.viewfinder", value: .scanner, role: .prominent) {
-                Color.clear
-            }
         }
-        .popup(item: $newestLibraryItem) { item in
-            AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
-        } customize: {
-            $0
-                .type(.floater())
-                .position(.top)
-                .animation(.spring)
-        }
-        .fullScreenCover(isPresented: $isScannerPresented, onDismiss: {
-            selection = lastSelection
-        }) {
+        .environment(\.openScanner, OpenScannerAction(isPresented: $isScannerPresented))
+        .environment(\.closeScanner, CloseScannerAction(isPresented: $isScannerPresented))
+        .sheet(isPresented: $isScannerPresented) {
             ScanningView() { item, saveType in
                 isScannerPresented = false
                 self.newestLibraryItem = item
                 self.newestLibraryItemType = saveType
             }
+            .environment(\.openScanner, OpenScannerAction(isPresented: $isScannerPresented))
+            .environment(\.closeScanner, CloseScannerAction(isPresented: $isScannerPresented))
         }
-        .onChange(of: selection) {oldValue, newValue in
-            if (newValue == .scanner) {
-                lastSelection = oldValue
-                isScannerPresented = true
-            }
+        .popup(item: $newestLibraryItem) { item in
+            AddedToLibraryView(libraryItem: item, saveType: newestLibraryItemType)
+        } customize: {
+            $0
+                .becomesKeyWindow(false)
+                .closeOnTapOutside(true)
+                .allowTapThroughBG(true)
+                .type(hSizeClass == .regular ? .floater() : .floater(verticalPadding: 36))
+                .position(hSizeClass == .regular ? .bottom : .top)
+                .animation(.spring)
         }
     }
     
@@ -91,7 +85,7 @@ struct ContentView: View {
     }
     
     Group {
-        if let item, edition != nil {
+        if edition != nil {
             ContentView(libraryItem: item)
         } else {
             ProgressView("Loading preview data...")

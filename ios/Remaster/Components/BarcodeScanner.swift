@@ -9,18 +9,68 @@ import SwiftUI
 import Vision
 import VisionKit
 
-struct BarcodeScanner<Content: View>: View {
+struct BarcodeScanner<ManualEntry: View>: View {
+    @Environment(\.closeScanner) private var closeScanner
     var symbologies: [VNBarcodeSymbology] = []
     let isPresented: Bool
     let onScanned: (String, VNBarcodeSymbology?) -> Void
-    let fallbackContent: () -> Content
+    @ViewBuilder let manualEntry: () -> ManualEntry
+
+    init(
+        symbologies: [VNBarcodeSymbology] = [],
+        isPresented: Bool,
+        onScanned: @escaping (String, VNBarcodeSymbology?) -> Void,
+        @ViewBuilder manualEntry: @escaping () -> ManualEntry
+    ) {
+        self.symbologies = symbologies
+        self.isPresented = isPresented
+        self.onScanned = onScanned
+        self.manualEntry = manualEntry
+    }
 
     var body: some View {
         if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-            DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
-                .ignoresSafeArea()
+            VStack {
+                DataScannerRepresentable(canScan: isPresented, symbologies: symbologies, onScanned: onScanned)
+                    .ignoresSafeArea()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Scan Barcode")
+                        .font(.title.bold())
+                    
+                    Text("Point the camera at the barcode on the back of the case.")
+                        .multilineTextAlignment(.leading)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 10) {
+                        NavigationLink {
+                            manualEntry()
+                        } label: {
+                            Text("Enter Barcode Manually")
+                                .frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("page.scanning.enterManually")
+                        }
+                        .padding()
+                        .buttonSizing(.flexible)
+                        .controlSize(.large)
+                        
+                        Text("The camera is used only to read the barcode. Only the barcode number is sent to look up the disc.")
+                            .multilineTextAlignment(.center)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 26)
+                .padding(.bottom, 30)
+            }
+            .toolbar {
+                ToolbarCloseButton(accessibilityIdentifier: "page.scanning.dismiss", closeAction: closeScanner.callAsFunction)
+            }
         } else {
-            fallbackContent()
+            manualEntry()
         }
     }
 }
@@ -86,8 +136,9 @@ private struct DataScannerRepresentable: UIViewControllerRepresentable {
 }
 
 #Preview {
-    let onSubmit: (String, VNBarcodeSymbology?) -> Void = { _,_ in }
-    BarcodeScanner (isPresented: true, onScanned: onSubmit) {
-        ManualEntryView(isEnabled: true, onSubmit: onSubmit)
+    NavigationStack {
+        BarcodeScanner(isPresented: true, onScanned: { _,_ in }) {
+            ManualEntryView(onSubmit: { _,_ in })
+        }
     }
 }

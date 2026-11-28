@@ -10,12 +10,27 @@ import Foundation
 import SwiftData
 
 extension Container {
+    var remasterService: Factory<any RemasterServicing> {
+        Factory(self) { RemasterService() }
+            .singleton
+    }
+    
     var barcodeService: Factory<any BarcodeServicing> {
         Factory(self) { BarcodeService() }
             .singleton
 #if DEBUG
-            .onArg("SIMULATED_SERVICES", factory: {
+            .context(.arg("SIMULATED_SERVICES"), .preview, factory: {
                 SimulatedBarcodeService()
+            })
+#endif
+    }
+    
+    var titleService: Factory<any TitleServicing> {
+        Factory(self) { TitleService() }
+            .singleton
+#if DEBUG
+            .context(.arg("SIMULATED_SERVICES"), .preview, factory: {
+                SimulatedTitleService()
             })
 #endif
     }

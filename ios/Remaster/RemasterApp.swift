@@ -21,6 +21,7 @@ struct RemasterApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.posterService, posterService)
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, newPhase in

@@ -10,63 +10,79 @@ import SwiftUI
 import Vision
 
 struct ScanningView: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ScanningViewModel = .init()
+    @State private var isManualLookup = false
+    
+    @State private var isManualEntryPresented = false
     
     let onSuccess: (LibraryItem, SaveType) -> Void
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                BarcodeScanner(symbologies: [.ean13, .upce, .ean8], isPresented: viewModel.isIdle, onScanned: viewModel.processBarcode) {
-                    ManualEntryView(isEnabled: viewModel.isIdle, onSubmit: viewModel.processBarcode)
+            BarcodeScanner(
+                symbologies: [.ean13, .upce, .ean8],
+                isPresented: viewModel.isIdle && !isManualEntryPresented,
+                onScanned: { barcode, symbology in
+                    isManualLookup = false
+                    viewModel.processBarcode(barcode, shape: symbology)
                 }
-                .alert(error: $viewModel.error) {
-                    Button("OK", role: .close) {  }
-                        .accessibilityIdentifier("page.scanning.alert.ok")
-                }
-                .alert(error: $viewModel.networkError) { error in
-                    if (error.isRetryable) {
-                        Button("Retry") {
-                            viewModel.retry()
-                        }
-                        .accessibilityIdentifier("page.scanning.alert.retry")
-                    }
-                    
-                    Button("OK", role: .close) {  }
-                        .accessibilityIdentifier("page.scanning.alert.ok")
-                } message: { error in
-                    Text(error.recoverySuggestion ?? "")
-                        .accessibilityIdentifier("page.scanning.alert.message")
-                }
-                .sheet(item: $viewModel.edition) { edition in
-                    ConfirmView(edition: edition, onSuccess: onSuccess)
-                }
-                
-                if (viewModel.isFetching) {
+            ) {
+                manualEntry
+                    .onAppear { isManualEntryPresented = true }
+                    .onDisappear(perform: manualEntryDismissed)
+            }
+            .overlay {
+                if (viewModel.isFetching && !isManualLookup) {
                     ProgressView()
                         .accessibilityIdentifier("page.scanning.progress")
                 }
             }
-            .toolbar {
-                if #available(anyAppleOS 27.1, *) {
-                    ToolbarItem(placement: .automatic) {
-                        Button("Close", systemImage: "xmark") {
-                            dismiss()
-                        }
-                        .accessibilityIdentifier("page.scanning.dismiss")
+            .alert(error: scanOnly($viewModel.error)) {
+                Button("OK", role: .close) {  }
+                    .accessibilityIdentifier("page.scanning.alert.ok")
+            }
+            .alert(error: scanOnly($viewModel.networkError)) { error in
+                if (error.isRetryable) {
+                    Button("Retry") {
+                        viewModel.retry()
                     }
-                    .axisBehavior(.verticalPreferred)
-                } else {
-                    ToolbarItem(placement: .automatic) {
-                        Button("Close", systemImage: "xmark") {
-                            dismiss()
-                        }
-                        .accessibilityIdentifier("page.scanning.dismiss")
-                    }
+                    .accessibilityIdentifier("page.scanning.alert.retry")
                 }
+                
+                Button("OK", role: .close) {  }
+                    .accessibilityIdentifier("page.scanning.alert.ok")
+            } message: { error in
+                Text(error.recoverySuggestion ?? "")
+                    .accessibilityIdentifier("page.scanning.alert.message")
+            }
+            .sheet(item: $viewModel.edition) { edition in
+                ConfirmView(edition: edition, onSuccess: onSuccess)
             }
         }
+    }
+    
+    private var manualEntry: some View {
+        ManualEntryView(
+            isFetching: isManualLookup && viewModel.isFetching,
+            error: isManualLookup ? (viewModel.networkError ?? viewModel.error) : nil
+        ) { barcode, symbology in
+            isManualLookup = true
+            viewModel.processBarcode(barcode, shape: symbology)
+        }
+    }
+    
+    private func scanOnly<Failure>(_ error: Binding<Failure?>) -> Binding<Failure?> {
+        Binding(
+            get: { isManualLookup ? nil : error.wrappedValue },
+            set: { error.wrappedValue = $0 }
+        )
+    }
+    
+    private func manualEntryDismissed() {
+        viewModel.networkError = nil
+        viewModel.error = nil
+        isManualLookup = false
+        isManualEntryPresented = false
     }
 }
 

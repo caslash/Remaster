@@ -15,12 +15,12 @@ import Vision
 
 struct LibraryCardView: View {
     static let POSTER_WIDTH: CGFloat = 111
-
-    @State private var posterImage: UIImage?
     
     let item: LibraryItem?
-    let getPoster: (PersistentIdentifier) async -> UIImage?
-
+    
+    @Environment(\.posterService) private var posterService: any PosterStore
+    @State private var posterImage: UIImage?
+    
     var body: some View {
         if let item {
             VStack(alignment: .leading) {
@@ -54,14 +54,13 @@ struct LibraryCardView: View {
             }
             .frame(width: Self.POSTER_WIDTH)
             .task(id: item.posterUpdatedAt) {
-                posterImage = await getPoster(item.id)
+                self.posterImage = await self.posterService.getPoster(persistentModelID: item.id)
             }
         }
     }
     
-    init(item: LibraryItem?, getPoster: @escaping (PersistentIdentifier) async -> UIImage?) {
+    init(item: LibraryItem?) {
         self.item = item
-        self.getPoster = getPoster
     }
     
     struct FormatChip: View {
@@ -151,6 +150,6 @@ extension DiscFormat {
         return .init(upc: edition.barcodes.upc, ean: edition.barcodes.ean, kind: edition.title?.kind.rawValue, tmdbId: edition.title?.tmdbId, ownedFormats: [DiscFormat.uhd, DiscFormat.bluray, DiscFormat.dvd].map { $0.rawValue }, edition: edition)
     }
 
-    LibraryCardView(item: item) { _ in return nil }
+    LibraryCardView(item: item)
 }
 #endif

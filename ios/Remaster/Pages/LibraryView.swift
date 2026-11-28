@@ -11,21 +11,47 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @Environment(\.modelContext) private var modelContext
-    
-    @State private var viewModel: LibraryViewModel
+    @Environment(\.openScanner) private var openScanner
     @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
-    
+    @State private var viewModel: LibraryViewModel
     @State private var selection: LibraryItem? = nil
+    @State private var isTitleSearchPresented = false
     
     var body: some View {
         if hSizeClass == .regular {
             NavigationSplitView {
-                LibraryGrid(items: items, selection: $selection, getPoster: self.viewModel.getPoster, onDelete: self.viewModel.deleteItem)
+                libraryContent
+                    .navigationTitle("Library")
                     .alert(error: self.$viewModel.error) {
                         Button("OK") { }
                     }
-                    .navigationTitle("Library")
-                
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Menu {
+                                Button {
+                                    self.openScanner()
+                                } label: {
+                                    Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                                }
+                                
+                                Button {
+                                    isTitleSearchPresented = true
+                                } label: {
+                                    Label("Search by Title", systemImage: "magnifyingglass")
+                                }
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+                        }
+                    }
+                    .sheet(isPresented: $isTitleSearchPresented) {
+                        NavigationStack {
+                            TitleSearchView(searchType: .addTitle(upc: nil)) { _ in }
+                                .toolbar {
+                                    ToolbarCloseButton(accessibilityIdentifier: "page.titleSearch.dismiss", closeAction: { isTitleSearchPresented = false })
+                                }
+                        }
+                    }
             } detail: {
                 if let selection {
                     LibraryItemDetailView(item: selection) {
@@ -38,14 +64,42 @@ struct LibraryView: View {
             }
         } else {
             NavigationStack {
-                LibraryGrid(items: items, selection: $selection, getPoster: self.viewModel.getPoster, onDelete: self.viewModel.deleteItem)
-                    .alert(error: self.$viewModel.error) {
-                        Button("OK") { }
-                    }
+                libraryContent
+                    .background(Color(.secondarySystemBackground))
                     .navigationTitle("Library")
                     .navigationDestination(item: $selection) { item in
                         LibraryItemDetailView(item: item) {
                             self.selection = nil
+                        }
+                    }
+                    .alert(error: self.$viewModel.error) {
+                        Button("OK") { }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Menu {
+                                Button {
+                                    self.openScanner()
+                                } label: {
+                                    Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                                }
+                                
+                                Button {
+                                    isTitleSearchPresented = true
+                                } label: {
+                                    Label("Search by Title", systemImage: "magnifyingglass")
+                                }
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+                        }
+                    }
+                    .sheet(isPresented: $isTitleSearchPresented) {
+                        NavigationStack {
+                            TitleSearchView(searchType: .addTitle(upc: nil)) { _ in }
+                                .toolbar {
+                                    ToolbarCloseButton(accessibilityIdentifier: "page.titleSearch.dismiss", closeAction: { isTitleSearchPresented = false })
+                                }
                         }
                     }
             }
@@ -56,10 +110,67 @@ struct LibraryView: View {
         self.viewModel = LibraryViewModel()
     }
     
+    @ViewBuilder
+    private var libraryContent: some View {
+        if items.isEmpty {
+            VStack(spacing: 18) {
+                Image(systemName: "barcode.viewfinder")
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                    .foregroundStyle(.secondary)
+                
+                Text("Start your library")
+                    .font(.title2.bold())
+                
+                Text("Scan the barcode on each case and we'll identify the release and tell you when a better version exists.")
+                    .foregroundStyle(.secondary)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom)
+                
+                VStack(spacing: 12) {
+                    Button {
+                        self.openScanner()
+                    } label: {
+                        Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                    }
+                    .fontWeight(.heavy)
+                    .buttonSizing(.flexible)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    
+                    Button("Search by Title") {
+                        isTitleSearchPresented = true
+                    }
+                    .fontWeight(.heavy)
+                    .buttonSizing(.flexible)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+                
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lock")
+                        .foregroundStyle(.blue)
+                    
+                    Text("No account needed. Your library is stored only on this iPhone")
+                        .multilineTextAlignment(.leading)
+                        .font(.footnote)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.top)
+            }
+            .padding(.horizontal, 40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            LibraryGrid(items: items, selection: $selection, onDelete: self.viewModel.deleteItem)
+        }
+    }
+    
     private struct LibraryGrid: View {
         let items: [LibraryItem]
         @Binding var selection: LibraryItem?
-        let getPoster: (PersistentIdentifier) async -> UIImage?
         var onDelete: (LibraryItem) -> Void
         
         
@@ -68,9 +179,9 @@ struct LibraryView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: LibraryCardView.POSTER_WIDTH), spacing: 16)], spacing: 16) {
                     ForEach(items, id: \.id) { item in
                         Button { self.selection = item } label: {
-                            LibraryCardView(item: item, getPoster: getPoster)
+                            LibraryCardView(item: item)
                                 .padding(4)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(.background))
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color(.secondarySystemBackground)))
                                 .contentShape(RoundedRectangle(cornerRadius: 6))
                                 .contextMenu {
                                     Button(role: .destructive) {
@@ -91,6 +202,10 @@ struct LibraryView: View {
             }
         }
     }
+}
+
+#Preview("Empty State") {
+    LibraryView()
 }
 
 #if DEBUG

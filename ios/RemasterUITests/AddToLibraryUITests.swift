@@ -7,7 +7,7 @@
 //
 //  The app launches with SIMULATED_SERVICES, which also swaps in an in-memory
 //  library store, so every test starts with an empty library. Each test opens
-//  Scan and types a barcode from ios/Mocks/Editions.bundle into the manual entry
+//  the scanner from Library's + menu (Scan a Shelf) and types a barcode from ios/Mocks/Editions.bundle into the manual entry
 //  field, as EditionLookupUITests does.
 //
 //  The banner is one combined accessibility element (banner.added) whose label
@@ -65,8 +65,7 @@ final class AddToLibraryUITests: XCTestCase {
         openConfirm("043396648654")
         XCTAssertTrue(comboToggle.exists, "Combo toggle missing for a 4K + Blu-ray set")
 
-        // Tap the switch itself, at the trailing end of the row, not the label.
-        comboToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        turnComboToggleOff()
         XCTAssertEqual(comboToggle.value as? String, "0", "Combo toggle didn't turn off")
 
         app.buttons["page.confirm.add"].tap()
@@ -91,6 +90,46 @@ final class AddToLibraryUITests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Tapping the banner didn't dismiss it")
     }
 
+    // MARK: Taps outside the banner
+
+    // The banner sits in its own window over the whole screen; a tap outside it
+    // must still reach the app underneath.
+    func testTapOutsideTheBannerReachesTheTabs() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        upgradesTab.tap()
+
+        XCTAssertTrue(waitUntilSelected(upgradesTab), "Tapping Upgrades with the banner showing didn't select it")
+    }
+
+    func testTapOutsideTheBannerDismissesIt() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        upgradesTab.tap()
+
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Tapping outside the banner didn't dismiss it")
+    }
+
+    func testScannerOpensAgainWithTheBannerShowing() {
+        openConfirm("786936900378")
+        app.buttons["page.confirm.add"].tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 1), "No Added to Library banner within 1 s of Add")
+        XCTAssertTrue(manualEntryField.waitForNonExistence(timeout: 5), "Scanner stayed up after Add")
+
+        app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "Tapping + with the banner showing didn't open its menu")
+        scan.tap()
+
+        XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Scan a Shelf with the banner showing didn't open the scanner")
+    }
+
     // MARK: Duplicates
 
     func testSameDiscAgainAsksBeforeAdding() {
@@ -113,7 +152,7 @@ final class AddToLibraryUITests: XCTestCase {
 
         // On iPhone the dialog is a popover with no Cancel button; tapping outside
         // it is the cancel.
-        app.otherElements["PopoverDismissRegion"].firstMatch.tap()
+        tapOutsidePopover()
 
         XCTAssertTrue(addAnotherCopy.waitForNonExistence(timeout: 5), "Duplicate warning stayed up after Cancel")
         XCTAssertTrue(app.staticTexts["page.confirm.title"].exists, "Confirm sheet closed after Cancel")
@@ -187,6 +226,18 @@ final class AddToLibraryUITests: XCTestCase {
 
     // MARK: Helpers
 
+    /// Matched by identifier or label, as in AppShellUITests: iOS 27.0 doesn't
+    /// expose `tab.*` identifiers, and iPhone Duo's tab rail isn't a TabBar.
+    private var upgradesTab: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "identifier == 'tab.upgrades' OR label == 'Upgrades'")).firstMatch
+    }
+
+    /// Selection can lag a tap by a frame or two, so wait for it.
+    private func waitUntilSelected(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: element)
+        return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
+    }
+
     private var addToYourCopy: XCUIElement {
         app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'your copy'")).firstMatch
     }
@@ -194,13 +245,41 @@ final class AddToLibraryUITests: XCTestCase {
     /// Saves Hoppers (4K + Blu-ray) with the combo toggle off, so the copy only has 4K UHD.
     private func saveHoppersAs4KOnly(file: StaticString = #filePath, line: UInt = #line) {
         openConfirm("043396648654", file: file, line: line)
-        comboToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        turnComboToggleOff()
         XCTAssertEqual(comboToggle.value as? String, "0", "Combo toggle didn't turn off", file: file, line: line)
         app.buttons["page.confirm.add"].tap()
         XCTAssertTrue(banner.waitForExistence(timeout: 5), "Hoppers wasn't saved", file: file, line: line)
         XCTAssertTrue(banner.label.contains("Hoppers · 4K UHD"), "Banner label: \(banner.label)", file: file, line: line)
         banner.tap()
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "Banner didn't dismiss", file: file, line: line)
+    }
+
+    /// Taps the switch inside the combo row, not the row: the row's frame spans the
+    /// label too, and how far its trailing edge sits past the switch depends on the
+    /// screen (on iPhone Duo a tap at 95% of the row lands on the switch's edge).
+    private func turnComboToggleOff() {
+        let control = comboToggle.switches.firstMatch
+        if control.exists {
+            control.tap()
+        } else {
+            comboToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        }
+    }
+
+    /// Dismisses the duplicate warning popover by tapping outside it. Not through
+    /// `PopoverDismissRegion`: the sheet and the popover each add one, and on iPhone
+    /// Duo `firstMatch` isn't the popover's, so the tap does nothing.
+    private func tapOutsidePopover() {
+        let window = app.windows.firstMatch.frame
+        let popover = app.popovers.firstMatch.frame
+        let x = window.midX
+        // Tap halfway into whichever gap, above or below the popover, is larger.
+        let y = (popover.minY - window.minY) > (window.maxY - popover.maxY)
+            ? (window.minY + popover.minY) / 2
+            : (popover.maxY + window.maxY) / 2
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: x - window.minX, dy: y - window.minY))
+            .tap()
     }
 
     private var banner: XCUIElement {
@@ -219,10 +298,15 @@ final class AddToLibraryUITests: XCTestCase {
         app.switches.matching(NSPredicate(format: "label BEGINSWITH 'Also includes'")).firstMatch
     }
 
-    /// Opens Scan, looks up the barcode and waits for the confirm sheet.
+    /// Opens the scanner from Library's + menu, looks up the barcode and waits for the confirm sheet.
     private func openConfirm(_ barcode: String, file: StaticString = #filePath, line: UInt = #line) {
-        let scan = app.buttons["Scan"].firstMatch
-        XCTAssertTrue(scan.waitForExistence(timeout: 10), "Scan action didn't appear", file: file, line: line)
+        // Library's + is a menu: Scan a Shelf or Search by Title. Matched by label,
+        // "Add new" or the plain + image's "Add".
+        let addNew = app.buttons.matching(NSPredicate(format: "label IN {'Add new', 'Add'}")).firstMatch
+        XCTAssertTrue(addNew.waitForExistence(timeout: 10), "Library's + button didn't appear", file: file, line: line)
+        addNew.tap()
+        let scan = app.collectionViews.buttons["Scan a Shelf"].firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5), "The + menu has no Scan a Shelf", file: file, line: line)
         scan.tap()
 
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
