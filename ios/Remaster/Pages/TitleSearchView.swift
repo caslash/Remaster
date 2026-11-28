@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct TitleSearchView: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var viewModel: TitleSearchViewModel
     @FocusState private var isSearchFocused
     
@@ -45,15 +44,6 @@ struct TitleSearchView: View {
         .listSectionSpacing(12)
         .navigationTitle(searchType.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", role: .close) {
-                    dismiss()
-                }
-                .accessibilityIdentifier("page.titleSearch.cancel")
-            }
-        }
     }
     
     @ViewBuilder
@@ -79,16 +69,20 @@ struct TitleSearchView: View {
             ForEach(titles) { title in
                 Button {
                     onSelect(title)
-                    dismiss()
                 } label: {
                     TitleSearchCard(title: title)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("page.titleSearch.result")
             }
-        case .noMatches(let query):
-            ContentUnavailableView.search(text: query)
-                .accessibilityIdentifier("page.titleSearch.noMatches")
+        case .noMatches:
+            ContentUnavailableView {
+                Label("No Matches", systemImage: "exclamationmark")
+                    .accessibilityIdentifier("page.titleSearch.noMatches")
+            } description: {
+                Text("Check the spelling, try fewer words, or search for the original title if it came out under another name.")
+            }
         case .failed(let error):
             ContentUnavailableView {
                 Label(error.errorDescription ?? "Search failed", systemImage: "exclamationmark.triangle")
@@ -115,7 +109,7 @@ struct TitleSearchView: View {
 
 #Preview("Barcode Not Found") {
     NavigationStack {
-        TitleSearchView(searchType: .barcodeNotFound(upc: "043396648654")) { _ in }
+        TitleSearchView(searchType: .addTitle(upc: "043396648654")) { _ in }
     }
 }
 

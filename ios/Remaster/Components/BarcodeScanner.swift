@@ -67,22 +67,7 @@ struct BarcodeScanner<ManualEntry: View>: View {
                 .padding(.bottom, 30)
             }
             .toolbar {
-                if #available(anyAppleOS 27.1, *) {
-                    ToolbarItem(placement: .automatic) {
-                        Button(role: .close) {
-                            closeScanner()
-                        }
-                        .accessibilityIdentifier("page.scanning.dismiss")
-                    }
-                    .axisBehavior(.verticalPreferred)
-                } else {
-                    ToolbarItem(placement: .automatic) {
-                        Button(role: .close) {
-                            closeScanner()
-                        }
-                        .accessibilityIdentifier("page.scanning.dismiss")
-                    }
-                }
+                ToolbarCloseButton(accessibilityIdentifier: "page.scanning.dismiss", closeAction: closeScanner.callAsFunction)
             }
         } else {
             manualEntry()

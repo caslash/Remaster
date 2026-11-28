@@ -64,7 +64,7 @@ public class TitleSearchViewModel {
             do {
                 let titles = try await titleService.searchTitle(query)
                 guard !Task.isCancelled else { return }
-                state = titles.isEmpty ? .noMatches(query: query) : .results(titles)
+                state = titles.isEmpty ? .noMatches : .results(titles)
                 return
             } catch TitleSearchError.serviceUnavailable(let seconds) where attempt < maxAttempts {
                 guard !Task.isCancelled else { return }
@@ -82,29 +82,29 @@ public class TitleSearchViewModel {
 }
 
 public enum TitleSearchState {
-    case idle, loading, waitingToRetry(until: Date, attempt: Int), results([Title]), noMatches(query: String), failed(TitleSearchError)
+    case idle, loading, waitingToRetry(until: Date, attempt: Int), results([Title]), noMatches, failed(TitleSearchError)
 }
 
 public enum TitleSearchType {
-    case barcodeNotFound(upc: String?), titleNotConfirmed(upc: String, prefillQuery: String)
+    case addTitle(upc: String?), titleNotConfirmed(upc: String, prefillQuery: String)
     
     public var navigationTitle: String {
         switch self {
-        case .barcodeNotFound: return "Add Title"
+        case .addTitle: return "Add Title"
         case .titleNotConfirmed: return "Find Title"
         }
     }
     
     public var unmatchedCardTitle: String {
         switch self {
-        case .barcodeNotFound: return "We don't know this barcode yet"
+        case .addTitle: return "We don't know this barcode yet"
         case .titleNotConfirmed: return "We found this disc, not its title"
         }
     }
     
     public var unmatchedCardText: String {
         switch self {
-        case .barcodeNotFound(let upc):
+        case .addTitle(let upc):
             switch upc {
             case .some(let upc): return "UPC \(upc) • Search by title and we'll keep the barcode with your disc."
             case .none: return ""
@@ -115,21 +115,21 @@ public enum TitleSearchType {
     
     public var footerText: String {
         switch self {
-        case .barcodeNotFound: return ""
+        case .addTitle: return ""
         case .titleNotConfirmed: return "Pick a title to attach it to your disc. Nothing about the match leaves this iPhone."
         }
     }
     
     public var upc: String? {
         switch self {
-        case .barcodeNotFound(let upc): return upc
+        case .addTitle(let upc): return upc
         case .titleNotConfirmed(let upc, _): return upc
         }
     }
     
     public var prefillQuery: String {
         switch self {
-        case .barcodeNotFound: return ""
+        case .addTitle: return ""
         case .titleNotConfirmed(_, let prefillQuery): return prefillQuery
         }
     }

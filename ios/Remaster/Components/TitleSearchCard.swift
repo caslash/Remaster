@@ -15,6 +15,7 @@ struct TitleSearchCard: View {
             Poster(title: title.name, posterURL: title.posterURL)
                 .frame(width: 38, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
+                .accessibilityHidden(true)
             
             VStack(alignment: .leading) {
                 Text(title.name)

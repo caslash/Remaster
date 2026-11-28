@@ -12,10 +12,10 @@ struct LibraryView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openScanner) private var openScanner
-    
+    @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
     @State private var viewModel: LibraryViewModel
     @State private var selection: LibraryItem? = nil
-    @Query(sort: \LibraryItem.dateAdded, order: .reverse) private var items: [LibraryItem]
+    @State private var isTitleSearchPresented = false
     
     var body: some View {
         if hSizeClass == .regular {
@@ -27,9 +27,29 @@ struct LibraryView: View {
                     }
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
-                            Button("Add new", systemImage: "plus") {
-                                self.openScanner()
+                            Menu {
+                                Button {
+                                    self.openScanner()
+                                } label: {
+                                    Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                                }
+                                
+                                Button {
+                                    isTitleSearchPresented = true
+                                } label: {
+                                    Label("Search by Title", systemImage: "magnifyingglass")
+                                }
+                            } label: {
+                                Image(systemName: "plus")
                             }
+                        }
+                    }
+                    .sheet(isPresented: $isTitleSearchPresented) {
+                        NavigationStack {
+                            TitleSearchView(searchType: .addTitle(upc: nil)) { _ in }
+                                .toolbar {
+                                    ToolbarCloseButton(accessibilityIdentifier: "page.titleSearch.dismiss", closeAction: { isTitleSearchPresented = false })
+                                }
                         }
                     }
             } detail: {
@@ -57,9 +77,29 @@ struct LibraryView: View {
                     }
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
-                            Button("Add new", systemImage: "plus") {
-                                self.openScanner()
+                            Menu {
+                                Button {
+                                    self.openScanner()
+                                } label: {
+                                    Label("Scan a Shelf", systemImage: "barcode.viewfinder")
+                                }
+                                
+                                Button {
+                                    isTitleSearchPresented = true
+                                } label: {
+                                    Label("Search by Title", systemImage: "magnifyingglass")
+                                }
+                            } label: {
+                                Image(systemName: "plus")
                             }
+                        }
+                    }
+                    .sheet(isPresented: $isTitleSearchPresented) {
+                        NavigationStack {
+                            TitleSearchView(searchType: .addTitle(upc: nil)) { _ in }
+                                .toolbar {
+                                    ToolbarCloseButton(accessibilityIdentifier: "page.titleSearch.dismiss", closeAction: { isTitleSearchPresented = false })
+                                }
                         }
                     }
             }
@@ -100,7 +140,7 @@ struct LibraryView: View {
                     .controlSize(.large)
                     
                     Button("Search by Title") {
-                        
+                        isTitleSearchPresented = true
                     }
                     .fontWeight(.heavy)
                     .buttonSizing(.flexible)

@@ -101,22 +101,7 @@ struct ManualEntryView: View {
         .navigationTitle("Enter Barcode")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if #available(anyAppleOS 27.1, *) {
-                ToolbarItem(placement: .automatic) {
-                    Button(role: .close) {
-                        closeScanner()
-                    }
-                    .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
-                }
-                .axisBehavior(.verticalPreferred)
-            } else {
-                ToolbarItem(placement: .automatic) {
-                    Button(role: .close) {
-                        closeScanner()
-                    }
-                    .accessibilityIdentifier("page.scanning.manualEntry.dismiss")
-                }
-            }
+            ToolbarCloseButton(accessibilityIdentifier: "page.scanning.manualEntry.dismiss", closeAction: closeScanner.callAsFunction)
         }
     }
 }

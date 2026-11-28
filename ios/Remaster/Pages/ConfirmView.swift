@@ -14,6 +14,7 @@ import Vision
 struct ConfirmView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ConfirmViewModel
+    @State private var isTitleSearchPresented = false
     
     let onSuccess: (LibraryItem, SaveType) -> Void
 
@@ -81,8 +82,16 @@ struct ConfirmView: View {
                     .controlSize(.large)
                     .accessibilityIdentifier("page.confirm.add")
                     
-                    NavigationLink("Not this title? Search instead", destination: TitleSearchView(searchType: .titleNotConfirmed(upc: viewModel.edition.barcodes.upc ?? viewModel.edition.barcodes.ean ?? "", prefillQuery: viewModel.edition.upcTitle), onSelect: viewModel.updateEditionTitle))
-                        .accessibilityIdentifier("page.confirm.notThis")
+                    Button("Not this title? Search instead") {
+                        isTitleSearchPresented = true
+                    }
+                    .navigationDestination(isPresented: $isTitleSearchPresented) {
+                        TitleSearchView(searchType: .titleNotConfirmed(upc: viewModel.edition.barcodes.upc ?? viewModel.edition.barcodes.ean ?? "", prefillQuery: viewModel.edition.upcTitle)) { title in
+                            viewModel.updateEditionTitle(title)
+                            isTitleSearchPresented = false
+                        }
+                    }
+                    .accessibilityIdentifier("page.confirm.notThis")
                 }
                 .safeAreaPadding(.horizontal)
             }

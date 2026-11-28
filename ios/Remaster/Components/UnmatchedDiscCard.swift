@@ -35,7 +35,7 @@ struct UnmatchedDiscCard: View {
 }
 
 #Preview("Barcode Not Found") {
-    UnmatchedDiscCard(searchType: .barcodeNotFound(upc: "043396648654"))
+    UnmatchedDiscCard(searchType: .addTitle(upc: "043396648654"))
 }
 
 #Preview("Title Not Confirmed") {
