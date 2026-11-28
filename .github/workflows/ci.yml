@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS build and tests
+    # The repo is public: never run fork PRs on the self-hosted Mac mini.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, remaster]
+    timeout-minutes: 45
+    env:
+      # A dedicated simulator created on the mini (iPhone 17 Pro, iOS 27.2).
+      DESTINATION: platform=iOS Simulator,name=Remaster CI
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          clean: true
+
+      - name: Configure a placeholder backend host
+        # Tests stub the network, but need RemasterBaseUrl to be set.
+        run: echo 'REMASTER_BACKEND_BASE_URL = ci.remaster.invalid' > ios/Config/Secrets.xcconfig
+
+      - name: Build and run unit and UI tests
+        # nice keeps the mini's other workloads (Logic exports) responsive.
+        run: |
+          nice -n 10 xcodebuild test \
+            -project ios/Remaster.xcodeproj \
+            -scheme Remaster \
+            -destination "$DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/Remaster.xcresult"
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Remaster.xcresult
+          path: ${{ runner.temp }}/Remaster.xcresult
+          retention-days: 7
+
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: backend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
