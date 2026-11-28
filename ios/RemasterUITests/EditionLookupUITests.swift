@@ -183,8 +183,7 @@ final class EditionLookupUITests: XCTestCase {
         openScanner(file: file, line: line)
         XCTAssertTrue(manualEntryField.waitForExistence(timeout: 5), "Manual entry field didn't appear", file: file, line: line)
 
-        manualEntryField.tap()
-        manualEntryField.typeText(barcode)
+        manualEntryField.tapAndType(barcode, file: file, line: line)
         manualEntrySearch.tap()
     }
 
